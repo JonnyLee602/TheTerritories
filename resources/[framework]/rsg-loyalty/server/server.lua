@@ -67,6 +67,25 @@ local function isAdmin(src)
     return src == 0 or RSGCore.Functions.HasPermission(src, 'admin')
 end
 
+-- [grumpy-bartender hook] Extra redeem points registered by other resources
+local redeemPoints = {} -- [key] = { coords = vector3, res = string }
+
+exports('SetRedeemPoint', function(key, coords)
+    if type(key) ~= 'string' or type(coords) ~= 'vector3' then return false end
+    redeemPoints[key] = { coords = coords, res = GetInvokingResource() }
+    return true
+end)
+
+exports('RemoveRedeemPoint', function(key)
+    redeemPoints[key] = nil
+end)
+
+AddEventHandler('onResourceStop', function(res)
+    for key, p in pairs(redeemPoints) do
+        if p.res == res then redeemPoints[key] = nil end
+    end
+end)
+
 -- server-side check that the player is standing at a loyalty NPC
 local function isNearLoyaltyNpc(src)
     if Config.UI.EnableCommand then return true end
@@ -76,6 +95,9 @@ local function isNearLoyaltyNpc(src)
     local maxDist = Config.Loyalty.MaxRedeemDistance or 5.0
     for _, loc in ipairs(Config.LoyaltyLocations) do
         if #(pos - loc.npccoords.xyz) <= maxDist then return true end
+    end
+    for _, p in pairs(redeemPoints) do
+        if #(pos - p.coords) <= maxDist then return true end
     end
     return false
 end

@@ -11,8 +11,7 @@ shared_scripts {
 }
 
 client_scripts {
-    'client/client.lua',
-    'client/bridge.lua' -- Your custom update-proof bridge
+    'client/client.lua'
 }
 
 server_scripts {

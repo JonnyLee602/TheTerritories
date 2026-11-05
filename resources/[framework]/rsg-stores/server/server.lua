@@ -205,10 +205,36 @@ local function broadcastNPCs() TriggerClientEvent('rsg-blipmenu:client:refreshNP
 local function broadcastBlips() TriggerClientEvent('rsg-blipmenu:client:refreshBlips', -1, visibleBlips()) end
 
 -- Player must be standing at the NPC (stops remote buy/sell via injected events).
+-- [grumpy-bartender hook] Extra places a store can be used from (registered by other resources)
+local accessPoints = {} -- [key] = { npcId = number, coords = vector3, res = string }
+
+exports('SetShopAccessPoint', function(key, npcId, coords)
+    npcId = tonumber(npcId)
+    if type(key) ~= 'string' or not npcId or type(coords) ~= 'vector3' then return false end
+    accessPoints[key] = { npcId = npcId, coords = coords, res = GetInvokingResource() }
+    return true
+end)
+
+exports('RemoveShopAccessPoint', function(key)
+    accessPoints[key] = nil
+end)
+
+AddEventHandler('onResourceStop', function(res)
+    for key, p in pairs(accessPoints) do
+        if p.res == res then accessPoints[key] = nil end
+    end
+end)
+
+-- Player must be standing at the NPC or at one of its registered access points.
 local function isNearNpc(src, npc)
     local ped = GetPlayerPed(src)
     if not ped or ped == 0 then return false end
-    return #(GetEntityCoords(ped) - vector3(npc.x, npc.y, npc.z)) <= MAX_DIST
+    local pos = GetEntityCoords(ped)
+    if #(pos - vector3(npc.x, npc.y, npc.z)) <= MAX_DIST then return true end
+    for _, p in pairs(accessPoints) do
+        if p.npcId == npc.id and #(pos - p.coords) <= MAX_DIST then return true end
+    end
+    return false
 end
 
 -- Resolve + validate an open shop for a transaction. Returns npc or nil (and notifies).
@@ -2008,4 +2034,49 @@ end)
 
 CreateThread(function()
     if not DbReady then BootDatabase() end
+end)
+
+-- [grumpy-bartender hook] Create / delete shops from another resource ("Create bar shop").
+-- data = { name, shopName, label, x, y, z, h, items = { { name, price, amount? } }, model? }
+-- model defaults to 'none' = no shopkeeper ped. Items are checked against RSGCore.Shared.Items (unknown ones are dropped).
+exports('CreateShop', function(data)
+    if type(data) ~= 'table' then return nil end
+    local npc = sanitizeNpc({
+        name = data.name, model = data.model or 'none', kind = 'npc',
+        x = data.x, y = data.y, z = data.z, h = data.h,
+        shop = { name = data.shopName, label = data.label, type = 'buy', items = data.items },
+    })
+    if not npc or not npc.shop then return nil end
+    local s = npc.shop
+    npc.id = tonumber(MySQL.insert.await(
+        'INSERT INTO rsg_shops_npcs (name, model, x, y, z, h, shop_name, shop_label, shop_type, store_kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        { npc.name, npc.model, npc.x, npc.y, npc.z, npc.h, s.name, s.label, s.type, 'npc' }))
+    if not npc.id then return nil end
+    insertShopItems(npc.id, s.items)
+    CachedNPCs[#CachedNPCs + 1] = npc
+    broadcastNPCs()
+    print(('[rsg-stores] shop %d (%s) created by %s'):format(npc.id, s.label, GetInvokingResource() or '?'))
+    return npc.id
+end)
+
+exports('ShopExists', function(npcId)
+    return findNpc(tonumber(npcId)) ~= nil
+end)
+
+-- Only NPC shops can be deleted this way (never player-owned stores)
+exports('DeleteShop', function(npcId)
+    local existing, idx = findNpc(tonumber(npcId))
+    if not existing or existing.kind ~= 'npc' then return false end
+    MySQL.query.await('DELETE FROM rsg_shops_items WHERE npc_id = ?', { existing.id })
+    MySQL.query.await('DELETE FROM rsg_shops_ledger WHERE npc_id = ?', { existing.id })
+    MySQL.query.await('DELETE FROM rsg_shops_blips WHERE associated_npc_id = ?', { existing.id })
+    MySQL.query.await('DELETE FROM rsg_shops_npcs WHERE id = ?', { existing.id })
+    table.remove(CachedNPCs, idx)
+    for i = #CachedBlips, 1, -1 do
+        if CachedBlips[i].associatedNpcId == existing.id then table.remove(CachedBlips, i) end
+    end
+    broadcastNPCs()
+    broadcastBlips()
+    print(('[rsg-stores] shop %d deleted by %s'):format(existing.id, GetInvokingResource() or '?'))
+    return true
 end)

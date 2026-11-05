@@ -165,98 +165,99 @@ Config.Performance = {
 
 
 -- loyalty npc locations
+-- Territories: loyalty NPCs disabled, grumpy-bartender serves loyalty (registers redeem points)
 Config.LoyaltyLocations = {
 
-    {   --valentine
-        name = 'Valentine Loyalty',
-        coords = vector3(-360.72, 782.02, 116.21),
-        npcmodel = `s_m_m_valdealer_01`,
-        npccoords = vec4(-360.72, 782.02, 116.21, 281.40),
-        scenario = 'WORLD_HUMAN_CLIPBOARD',
-        blip = {
-            blipSprite = 'blip_health',
-            blipScale = 0.2,
-            blipName = 'blip_valentine',
-        },
-        showblip = true
-    },
-    {   --rhodes
-        name = 'Rhodes Loyalty',
-        coords = vector3(1301.02, -1301.42, 76.46),
-        npcmodel = `s_m_m_valdealer_01`,
-        npccoords = vec4(1301.02, -1301.42, 76.46, 295.61),
-        scenario = 'WORLD_HUMAN_CLIPBOARD',
-        blip = {
-            blipSprite = 'blip_health',
-            blipScale = 0.2,
-            blipName = 'blip_rhodes',
-        },
-        showblip = true
-    },
-    {   --saintdenis
-        name = 'Saint Denis Loyalty',
-        coords = vector3(2864.47, -1164.81, 46.05),
-        npcmodel = `s_m_m_valdealer_01`,
-        npccoords = vec4(2864.47, -1164.81, 46.05, 282.30),
-        scenario = 'WORLD_HUMAN_CLIPBOARD',
-        blip = {
-            blipSprite = 'blip_health',
-            blipScale = 0.2,
-            blipName = 'blip_saintdenis',
-        },
-        showblip = true
-    },
-    {   --vanhorn
-        name = 'Van-Horn Loyalty',
-        coords = vector3(2968.61, 558.09, 44.50),
-        npcmodel = `s_m_m_valdealer_01`,
-        npccoords = vec4(2968.61, 558.09, 44.50, 55.17),
-        scenario = 'WORLD_HUMAN_CLIPBOARD',
-        blip = {
-            blipSprite = 'blip_health',
-            blipScale = 0.2,
-            blipName = 'blip_vanhorn',
-        },
-        showblip = true
-    },
-    {   --blackwater
-        name = 'Blackwater Loyalty',
-        coords = vector3(-741.59, -1331.63, 43.49),
-        npcmodel = `s_m_m_valdealer_01`,
-        npccoords = vec4(-741.59, -1331.63, 43.49, 94.69),
-        scenario = 'WORLD_HUMAN_CLIPBOARD',
-        blip = {
-            blipSprite = 'blip_health',
-            blipScale = 0.2,
-            blipName = 'blip_blackwater',
-        },
-        showblip = true
-    },
-    {   --strawberry
-        name = 'Strawberry Loyalty',
-        coords = vector3(-1787.66, -433.11, 155.35),
-        npcmodel = `s_m_m_valdealer_01`,
-        npccoords = vec4(-1787.66, -433.11, 155.35, 5.66),
-        scenario = 'WORLD_HUMAN_CLIPBOARD',
-        blip = {
-            blipSprite = 'blip_health',
-            blipScale = 0.2,
-            blipName = 'blip_strawberry',
-        },
-        showblip = true
-    },
-    {   --armadillo
-        name = 'Armadillo Loyalty',
-        coords = vector3(-3662.26, -2616.17, -13.95),
-        npcmodel = `s_m_m_valdealer_01`,
-        npccoords = vec4(-3662.26, -2616.17, -13.95, 63.77),
-        scenario = 'WORLD_HUMAN_CLIPBOARD',
-        blip = {
-            blipSprite = 'blip_health',
-            blipScale = 0.2,
-            blipName = 'blip_armadillo',
-        },
-        showblip = true
-    },
+    --{   --valentine
+    --    name = 'Valentine Loyalty',
+    --    coords = vector3(-360.72, 782.02, 116.21),
+    --    npcmodel = `s_m_m_valdealer_01`,
+    --    npccoords = vec4(-360.72, 782.02, 116.21, 281.40),
+    --    scenario = 'WORLD_HUMAN_CLIPBOARD',
+    --    blip = {
+    --        blipSprite = 'blip_health',
+    --        blipScale = 0.2,
+    --        blipName = 'blip_valentine',
+    --    },
+    --    showblip = true
+    --},
+    --{   --rhodes
+    --    name = 'Rhodes Loyalty',
+    --    coords = vector3(1301.02, -1301.42, 76.46),
+    --    npcmodel = `s_m_m_valdealer_01`,
+    --    npccoords = vec4(1301.02, -1301.42, 76.46, 295.61),
+    --    scenario = 'WORLD_HUMAN_CLIPBOARD',
+    --    blip = {
+    --        blipSprite = 'blip_health',
+    --        blipScale = 0.2,
+    --        blipName = 'blip_rhodes',
+    --    },
+    --    showblip = true
+    --},
+    --{   --saintdenis
+    --    name = 'Saint Denis Loyalty',
+    --    coords = vector3(2864.47, -1164.81, 46.05),
+    --    npcmodel = `s_m_m_valdealer_01`,
+    --    npccoords = vec4(2864.47, -1164.81, 46.05, 282.30),
+    --    scenario = 'WORLD_HUMAN_CLIPBOARD',
+    --    blip = {
+    --        blipSprite = 'blip_health',
+    --        blipScale = 0.2,
+    --        blipName = 'blip_saintdenis',
+    --    },
+    --    showblip = true
+    --},
+    --{   --vanhorn
+    --    name = 'Van-Horn Loyalty',
+    --    coords = vector3(2968.61, 558.09, 44.50),
+    --    npcmodel = `s_m_m_valdealer_01`,
+    --    npccoords = vec4(2968.61, 558.09, 44.50, 55.17),
+    --    scenario = 'WORLD_HUMAN_CLIPBOARD',
+    --    blip = {
+    --        blipSprite = 'blip_health',
+    --        blipScale = 0.2,
+    --        blipName = 'blip_vanhorn',
+    --    },
+    --    showblip = true
+    --},
+    --{   --blackwater
+    --    name = 'Blackwater Loyalty',
+    --    coords = vector3(-741.59, -1331.63, 43.49),
+    --    npcmodel = `s_m_m_valdealer_01`,
+    --    npccoords = vec4(-741.59, -1331.63, 43.49, 94.69),
+    --    scenario = 'WORLD_HUMAN_CLIPBOARD',
+    --    blip = {
+    --        blipSprite = 'blip_health',
+    --        blipScale = 0.2,
+    --        blipName = 'blip_blackwater',
+    --    },
+    --    showblip = true
+    --},
+    --{   --strawberry
+    --    name = 'Strawberry Loyalty',
+    --    coords = vector3(-1787.66, -433.11, 155.35),
+    --    npcmodel = `s_m_m_valdealer_01`,
+    --    npccoords = vec4(-1787.66, -433.11, 155.35, 5.66),
+    --    scenario = 'WORLD_HUMAN_CLIPBOARD',
+    --    blip = {
+    --        blipSprite = 'blip_health',
+    --        blipScale = 0.2,
+    --        blipName = 'blip_strawberry',
+    --    },
+    --    showblip = true
+    --},
+    --{   --armadillo
+    --    name = 'Armadillo Loyalty',
+    --    coords = vector3(-3662.26, -2616.17, -13.95),
+    --    npcmodel = `s_m_m_valdealer_01`,
+    --    npccoords = vec4(-3662.26, -2616.17, -13.95, 63.77),
+    --    scenario = 'WORLD_HUMAN_CLIPBOARD',
+    --    blip = {
+    --        blipSprite = 'blip_health',
+    --        blipScale = 0.2,
+    --        blipName = 'blip_armadillo',
+    --    },
+    --    showblip = true
+    --},
 
 }

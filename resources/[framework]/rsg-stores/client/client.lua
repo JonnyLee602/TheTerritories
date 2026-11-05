@@ -168,7 +168,9 @@ local function CloseCustomShop()
     SendNUIMessage({ action = 'closeShop' })
 end
 
-local function OpenCustomShop(npcData)
+local shopOrigin = nil -- [grumpy-bartender hook] where the shop was opened from
+
+local function OpenCustomShop(npcData, origin)
     if currentShop or manageShop or not npcData.shop then return end
     if not isShopOpen(npcData) then
         local open, close = shopHours(npcData)
@@ -178,6 +180,7 @@ local function OpenCustomShop(npcData)
         return RSGCore.Functions.Notify({ title = npcData.shop.label, description = locale('sv_store_upkeep'), type = 'inform' })
     end
     currentShop = npcData
+    shopOrigin = origin or vector3(npcData.x, npcData.y, npcData.z)
     local disc = myDiscount(npcData)
     currentShop.discount = disc
     if npcData.kind ~= 'player' then speak(spawnedNpcs[npcData.id], SPEECH.Greet) end
@@ -213,7 +216,7 @@ local function OpenCustomShop(npcData)
         local id = npcData.id
         while currentShop and currentShop.id == id do
             local ped = PlayerPedId()
-            if IsEntityDead(ped) or #(GetEntityCoords(ped) - vector3(currentShop.x, currentShop.y, currentShop.z)) > CLOSE_DIST then
+            if IsEntityDead(ped) or #(GetEntityCoords(ped) - shopOrigin) > CLOSE_DIST then
                 CloseCustomShop()
                 break
             end
@@ -399,7 +402,7 @@ CreateThread(function()
         local coords = GetEntityCoords(PlayerPedId())
         for _, npc in ipairs(savedNpcs) do
             -- owned stores have no ped
-            local near = npc.kind ~= 'player' and #(coords - vector3(npc.x, npc.y, npc.z)) < Config.DistanceSpawn
+            local near = npc.kind ~= 'player' and npc.model ~= 'none' and #(coords - vector3(npc.x, npc.y, npc.z)) < Config.DistanceSpawn
             if near and not spawning[npc.id] then
                 CreateThread(function() SpawnNPC(npc) end) -- model loading must not stall the loop
             elseif not near and spawning[npc.id] then
@@ -1156,4 +1159,10 @@ AddEventHandler('onResourceStop', function(res)
     if placing then stopPlacing() end
     clearBlips()
     RemoveAllNPCs()
+end)
+
+-- [grumpy-bartender hook] Open a store by its NPC id from another resource (the server still checks access points)
+exports('OpenShop', function(npcId, origin)
+    local n = findNpcById(tonumber(npcId))
+    if n then OpenCustomShop(n, type(origin) == 'vector3' and origin or nil) end
 end)
