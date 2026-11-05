@@ -1,103 +1,99 @@
 <img width="2948" height="497" alt="rsg_framework" src="https://github.com/user-attachments/assets/638791d8-296d-4817-a596-785325c1b83a" />
 
 # 💈 rsg-barbers
-**Fully functional barbershop system for RedM (RSG Core).**
+**Barbershops for RedM (RSG Framework): hair, beard and makeup with a live preview.**
 
 ![Platform](https://img.shields.io/badge/platform-RedM-darkred)
 ![License](https://img.shields.io/badge/license-GPL--3.0-green)
 
-> Visit barbershops across the map to customize your hair, beard, and overlays with a smooth in-game camera and clean UI.
+---
+
+## ✨ Features
+- Barber NPCs that spawn and fade in near each shop, with map blips.
+- Sit in the barber chair with a scripted camera and studio lighting.
+- Change hair style and colour, beard style and colour (male), and makeup: stubble (male), eyeshadow, blush, lipstick and eyeliner.
+- The menu opens with your **current** look loaded, so you only change what you touch.
+- Custom NUI panel in the RSG leather & gold style: Hair & Beard and Makeup tabs, arrow steppers (hold to repeat), clickable opacity bars, Shift + mouse wheel to adjust.
+- Live preview. Leaving without paying (Cancel / ✕ / Esc) reverts your appearance.
+- The price is shown in the panel. Press **Pay** (or Enter) to buy. You're only charged when something actually changed.
+- Interaction via **rsg-target** on the NPC, or an rsg-core prompt.
+- Secure server side: the server works out the hair/beard hashes itself, checks every makeup value against the config ranges, checks distance to the chair, applies a cooldown, takes cash before saving and refunds it if the save fails.
+- Locales: en, de, el, es, fr, ja, nl, pl, pt-br, ro (plus cs, it).
 
 ---
 
 ## 🛠️ Dependencies
-- **rsg-core** (framework & player data)  
-- **rsg-menubase** (menu interface)  
-- **ox_lib** (locales, notifications)  
-- **oxmysql** (database handler)
+- [rsg-core](https://github.com/Rexshack-RedM/rsg-core) (callbacks, notify, locales, prompts)
+- [rsg-character](https://github.com/Rexshack-RedM/rsg-character) (`playerskins` table and skin reload)
+- [rsg-target](https://github.com/Rexshack-RedM/rsg-target)
+- [oxmysql](https://github.com/overextended/oxmysql)
 
-**License:** GPL‑3.0
-
----
-
-## ✨ Features
-- 💇‍♂️ **Interactive barbershops** across the map.  
-- ✂️ **Change hairstyle, beard, and overlays** with real-time preview.  
-- 🧠 **Camera system** with zoom and rotation while editing.  
-- 💵 **Configurable price system** (default $5).  
-- 🧾 **Persistent appearance** — saved to player skin table.  
-- 🧍‍♂️ **NPC barbers** auto-spawned at configured shops.  
-- 🗺️ **Blips** for each barbershop location.  
-- 🎮 **Menu** built with RSG Menubase (mouse & controller support).  
-- 🌍 **Full localization support** (English, French, Spanish, Greek, Italian, Portuguese).  
-- ⚙️ **Highly configurable** via `config.lua` and `shared/hairs.lua`.
-
----
-
-## ⚙️ Configuration (`config.lua`)
-```lua
-Config = {}
-
-Config.BarberCost = 5           -- Price per haircut
-Config.CameraFov = 35.0         -- Default camera zoom
-Config.KeyOpen = 'J'            -- Keybind to interact (optional)
-Config.UseTarget = false        -- Use rsg-target or proximity prompt
-
-Config.Barbers = {
-    { name = "Saint Denis Barbershop", coords = vector3(2651.49, -1211.27, 53.28) },
-    { name = "Blackwater Barbershop", coords = vector3(-814.23, -1365.77, 43.68) },
-    { name = "Valentine Barbershop", coords = vector3(-280.85, 783.15, 119.51) }
-}
-```
-
-> 💡 To add a new barbershop, insert a new entry in `Config.Barbers` with name and coordinates.
-
----
-
-## 🧩 Shared Data
-### `shared/hairs.lua`
-Defines all hair and beard styles with their corresponding overlay names, texture sets, and labels.  
-Each entry can have variants for color and model compatibility.
-
-### `shared/overlays.lua`
-Contains overlay definitions (eyebrows, freckles, scars, etc.) used by the barbershop menu.
-
----
-
-## 🕹️ Usage
-- Walk near a configured barbershop or NPC barber.  
-- Press **[J]** (or your configured key) to open the menu.  
-- Use the menu to browse hairstyles, beards, and overlays.  
-- Select **“Purchase”** to apply the style permanently (cost deducted from wallet).  
-- Changes are saved automatically to the database.  
-
----
-
-## 💾 Database
-Uses the existing **playerskins** table in your RSG Core database.  
-If not present, make sure the table is created by your skin system.
+No ox_lib needed.
 
 ---
 
 ## 📂 Installation
-1. Place `rsg-barbers` inside `resources/[rsg]`.  
-2. Add the resource to your `server.cfg`:
+1. Put `rsg-barbers` in your resources folder.
+2. Add it to `server.cfg` after its dependencies:
    ```cfg
-   ensure ox_lib
    ensure oxmysql
    ensure rsg-core
-   ensure rsg-menubase
+   ensure rsg-target
+   ensure rsg-character
    ensure rsg-barbers
    ```
-3. Restart your server.
+3. Set the language with `setr rsg:locale en` (any shipped locale).
+
+No SQL needed: styles are saved in the `skin` column of rsg-character's `playerskins` table.
+
+---
+
+## ⚙️ Configuration (`config.lua`)
+| Option | Default | Description |
+|---|---|---|
+| `Config.BarberCost` | `5` | Cash price for a new style. A location can override it with `price`. |
+| `Config.UseTarget` | `true` | `true` = rsg-target on the NPC, `false` = rsg-core prompt at `coords`. |
+| `Config.Key` | `'J'` | Prompt key when not using target. |
+| `Config.MaxDistance` | `3.0` | Max distance from the chair when paying (server checked). |
+| `Config.Cooldown` | `3` | Seconds between purchase attempts. |
+| `Config.MenuAlign` | `'right'` | Side of the screen for the NUI panel (`'right'` or `'left'`). |
+| `Config.DistanceSpawn` | `20.0` | NPC spawn/despawn distance. |
+| `Config.FadeIn` | `true` | Fade NPCs in and out. |
+| `Config.BlipSprite` / `Config.BlipScale` | | Map blip settings. |
+| `Config.Makeup` | | Makeup sliders (key, label, min, max, step). The server uses the same ranges to validate. |
+
+### Adding a barbershop
+Add an entry to `Config.BarberLocations`:
+```lua
+{
+    name      = 'Rhodes',
+    barberid  = 'rho-barber',                 -- unique id
+    npcmodel  = `s_m_m_barber_01`,
+    npccoords = vector4(x, y, z, heading),    -- barber NPC
+    coords    = vector3(x, y, z),             -- interaction point
+    seat      = vector4(x, y, z, heading),    -- chair the player sits in
+    camPos    = vector3(x, y, z),
+    camRot    = vector3(pitch, 0.0, yaw),
+    lighting  = vector3(x, y, z),
+    showblip  = true,
+    price     = 8,                            -- optional
+},
+```
+
+---
+
+## 🧩 Events & callbacks
+- NUI callbacks: `change`, `save`, `close` (every value is re-checked in Lua and again on the server).
+- Client: `rsg-barbers:client:open` (`barberid`): opens the barber when the player is close. The old `rsg-barber:client:menu` still works for local triggers.
+- Server callback: `rsg-barbers:server:purchase` (`barberid`, `selection`) returns `{ ok, reason }`.
 
 ---
 
 ## 💎 Credits
-- **RexshackGaming** — Original resource  
-  🔗 https://github.com/Rexshack-RedM  
-- **RSG / Rexshack‑RedM** — adaptation & maintenance
-- **Humanity Is Insanity#3505 & Zee#2115 from The Crossroads RP for code inspiration and system
-- **RedEM-RP for the menu : https://github.com/RedEM-RP/redemrp_menu_base  
-- **Community contributors & translators**  
-- License: GPL‑3.0
+- **RexshackGaming / Rexshack-RedM**: resource and maintenance
+- Humanity Is Insanity#3505 & Zee#2115 (The Crossroads RP): code inspiration
+- Community translators
+
+**License:** GPL-3.0
+
+Support: https://buymeacoffee.com/rexshack

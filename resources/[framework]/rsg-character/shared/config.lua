@@ -11,6 +11,13 @@ RSG.ProfanityWords = {
 -- Character select: how many character slots each player license gets
 RSG.MaxCharacterSlots = 4
 
+-- Character creator: allowed birthdate range (YYYY-MM-DD), checked on client and server
+RSG.Birthdate = {
+    Min = '1750-01-01',
+    Max = '1900-12-31',
+    Default = '1870-01-01',
+}
+
 -- /logout: saves the current character and returns the player to character select
 RSG.Logout = {
     Enabled = true,
@@ -129,7 +136,7 @@ RSG.SpawnLocations = {
     { label = locale('spawn_locations.valentine'),   coords = vector4(-169.47, 629.38, 113.03, 236.72), image = 'img/spawn/valentine.jpg' },
     { label = locale('spawn_locations.rhodes'),      coords = vector4(1263.6, -1305.7, 77.9, 210.0), image = 'img/spawn/rhodes.jpg' },
     { label = locale('spawn_locations.saint_denis'), coords = vector4(2694.69, -1448.48, 45.27, 23.27), image = 'img/spawn/saint_denis.jpg' },
-    { label = locale('spawn_locations.blackwater'),  coords = vector4(-1035.71, -2731.87, 12.86, 0.0), image = 'img/spawn/blackwater.jpg' },
+    { label = locale('spawn_locations.blackwater'),  coords = vector4(-858.67, -1337.61, 44.49, 274.53), image = 'img/spawn/blackwater.jpg' },
 }
 
 RSG.SpawnChecks = {
@@ -353,12 +360,12 @@ RSG.Cloakroom = {
     vector3(2550.67, -1159.46, 53.73)   -- saint denis
 }
 
--- ox_target wardrobe props (opens the cloakroom / outfits menu)
+-- rsg-target wardrobe props (opens the cloakroom / outfits menu)
 RSG.WardrobeTarget = {
     enabled  = true,
     distance = 2.0,
     icon     = 'fa-solid fa-shirt',
-    label    = 'Open Wardrobe',
+    label    = locale('wardrobe_target.label'),
     models   = {
         'p_armoir02x', 'p_armoir02x_loot', 'p_armoir03x', 'p_armoir04x', 'p_armoir04x_loot',
         'p_armoir05x', 'p_armoir05x_loot', 'p_armoir06x', 'p_armoir07bx', 'p_armoir07x',

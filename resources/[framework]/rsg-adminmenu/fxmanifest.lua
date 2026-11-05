@@ -4,12 +4,12 @@ rdr3_warning 'I acknowledge that this is a prerelease build of RedM, and I am aw
 game 'rdr3'
 
 description 'rsg-adminmenu'
-version '3.0.1'
+version '3.1.2'
 
 ui_page 'web/dist/index.html'
 
 shared_scripts {
-    '@ox_lib/init.lua',
+    '@rsg-core/shared/locale.lua',
     'shared/config.lua',
 }
 
@@ -19,6 +19,8 @@ client_scripts {
 
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
+    'server/sv_config.lua', -- secrets (bot token, webhooks): server only, never sent to clients
+    'server/server_database.lua',
     'server/server.lua',
     'server/server_finances.lua',
     'server/server_stats.lua',
@@ -42,5 +44,6 @@ files {
 
 dependencies {
     'rsg-core',
-    'ox_lib',
+    'rsg-inventory',
+    'oxmysql',
 }

@@ -20,5 +20,9 @@
   "sv_discord_c": "Chycen/a ",
   "cl_no_bait": "No bait on your rod",
   "cl_use_bait_hint": "Use bait from your inventory",
-  "cl_bait": "Bait"
+  "cl_bait": "Bait",
+  "cl_hud_title": "Rybaření",
+  "sv_inventory_full": "Máš plné kapsy, tu rybu neuneseš.",
+  "cl_line_tension": "Napětí vlasce",
+  "cl_line_snapped": "Vlasec se přetrhl! Ryba utekla i s návnadou."
 }

@@ -3,10 +3,10 @@ rdr3_warning 'I acknowledge that this is a prerelease build of RedM, and I am aw
 game 'rdr3'
 
 description 'rsg-fishing'
-version '3.0.1'
+version '3.0.3'
 
 shared_scripts {
-    '@ox_lib/init.lua',
+    '@rsg-core/shared/locale.lua',
     'shared/config.lua',
 }
 
@@ -29,13 +29,8 @@ files {
 
 dependencies {
     'rsg-core',
-    'ox_lib'
+    'rsg-inventory'
 }
 
-exports {
-    'GET_TASK_FISHING_DATA_EXTRA',
-    'SET_TASK_FISHING_DATA_EXTRA',
-    'VERTICAL_PROBE'
-}
 
 lua54 'yes'

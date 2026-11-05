@@ -8,6 +8,43 @@ Config.StruggleChance = 0.3 -- chance (0.0-1.0) per tick that a hooked fish stru
 Config.FishWeightMultiplier = 54.25 -- converts internal game weight units into displayed KG
 Config.CatchCooldown = 3000 -- ms a player must wait between accepted fish catches (anti-spam/anti-exploit)
 Config.MaxRawFishWeight = 0.15 -- sanity cap on the raw (pre-multiplier) weight value accepted from clients
+Config.GroundPickup = true -- picking a fish up off the ground stores it (no bait needed, weight 0). Set false to close this off
+Config.Log = true -- send catches to rsg-log ('fishing' channel)
+
+-- line tension / snapping: reeling while a fish struggles strains the line; at 100% it snaps (fish and bait lost)
+Config.LineSnap = {
+    Enabled = true,
+    Gain    = 0.004, -- tension added per frame while reeling a struggling fish (scaled up for bigger fish)
+    Recover = 0.006, -- tension lost per frame otherwise
+}
+
+-- fishing sounds (soundset and names from RDR3 decompiled fishing_core.c, build 1436). Set a name to '' to mute it
+Config.Sounds = {
+    Enabled  = true,
+    Soundset = 'MGFSH_Sounds',
+    Names = {
+        Hooked   = 'LARGE_BITE_FISH_HOOKED',
+        Struggle = 'STRUGGLE',
+        Snap     = 'Snap',
+        Caught   = 'Caught',
+    },
+}
+
+-- controller rumble { duration ms, frequency 0-255 } (SET_CONTROL_SHAKE)
+Config.Rumble = {
+    Enabled  = true,
+    Bite     = { 250, 180 },
+    Struggle = { 120, 90 },
+    Snap     = { 500, 255 },
+    Caught   = { 200, 120 },
+}
+
+-- fishing music (music events from fishing_core.c)
+Config.Music = {
+    Enabled = true,
+    Start   = 'BOB_FISHING_START',
+    Stop    = 'BOB_FISHING_STOP',
+}
 
 -- key labels shown in the top-left controls HUD (display only)
 Config.ControlKeys = {

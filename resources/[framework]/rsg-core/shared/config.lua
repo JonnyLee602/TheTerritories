@@ -115,6 +115,19 @@ RSGConfig.Commands = {}                                  -- Command Configuratio
 RSGConfig.Commands.OOCColor = { 255, 151, 133 }          -- RGB color code for the OOC command
 
 RSGConfig.PromptDistance = 1.5
+
+RSGConfig.Notify = {
+    Position = 'top-right',   -- top-right | top-left | top | bottom-right | bottom-left | bottom | center-right | center-left
+    Duration = 5000,          -- default ms
+    MaxVisible = 5,           -- oldest are removed when exceeded
+    Sound = true,             -- play a frontend sound on notify
+}
+-- progress bar / circle (RSGCore.Functions.ProgressBar / ProgressCircle)
+RSGConfig.Progress = {
+    CancelKey   = 0x8CC9CD42, -- X (INPUT_GAME_MENU_TAB_RIGHT_SECONDARY)
+    CancelLabel = 'X',        -- shown in the cancel hint
+}
+
 RSGConfig.Player.RevealMap = true
 
 -- Metadata keys a client is allowed to change via the 'RSGCore:Server:SetMetaData' net event.

@@ -724,7 +724,7 @@
     "ui_guide_selling_title": "売却",
     "ui_guide_selling": "牛を売却地点まで追い込んで売るか、「市場」タブで豚・雌牛・羊を売却してください。最盛期の動物が最も高く売れます。",
     "cl_wellpump_title": "井戸ポンプ",
-    "cl_wellpump_place_help": "[左クリック] 設置   [Q / E] 回転   [上 / 下] 高さ   [右クリック] キャンセル",
+    "cl_wellpump_place_help": "[ENTER] 設置   [左 / 右] 回転   [上 / 下] 高さ   [右クリック / Backspace] キャンセル",
     "cl_wellpump_too_far": "遠すぎます",
     "cl_wellpump_cancelled": "キャンセルしました",
     "cl_wellpump_fill_target": "バケツに水を汲む",
@@ -989,5 +989,14 @@
     "sv_adm_ranch_created": "%s created - its NPC is where you are standing",
     "sv_adm_ranch_deleted": "Ranch deleted",
     "cl_adm_command_help": "Open the ranch administration panel",
-    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that"
+    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that",
+    "ui_respawn": "再出現",
+    "ui_respawn_hint": "この動物がワールドから消えた場合、最後に保存された位置に再出現させます。",
+    "sv_respawn_done": "動物を再出現させました。近くにいればすぐに現れます。",
+    "sv_respawn_cooldown": "再度行う前に数秒お待ちください。",
+    "ui_adm_return_spawn": "スポーン地点に戻す",
+    "ui_adm_return_all": "全てスポーン地点に戻す",
+    "ui_adm_confirm_return_all": "%s 頭の動物（%s）を牧場の動物スポーン地点に戻しますか？",
+    "sv_adm_returned": "動物を牧場のスポーン地点に戻しました",
+    "sv_adm_no_spawn": "この牧場には動物のスポーン地点が設定されていません"
 }

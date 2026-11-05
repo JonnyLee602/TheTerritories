@@ -5,7 +5,7 @@ Config = {}
 ---------------------------------
 Config.NpcModel       = `cs_fishcollector`
 Config.SpawnDistance  = 50.0   -- npc spawns / despawns at this range
-Config.TargetDistance = 2.5    -- ox_target interaction distance
+Config.TargetDistance = 2.5    -- rsg-target interaction distance
 Config.MaxUseDistance = 5.0    -- server-side distance check to the npc
 Config.Cooldown       = 2000   -- ms between checkouts per player (anti-spam)
 Config.MoneyType      = 'cash' -- 'cash' | 'bank' | 'bloodmoney'
@@ -37,10 +37,80 @@ Config.Locations = {
 }
 
 ---------------------------------
+-- opening hours (in-game clock, synced by rsg-weather)
+-- close lower than open wraps past midnight (e.g. open 20, close 4)
+-- a location can override with  hours = { open = 8, close = 18 }
+---------------------------------
+Config.OpeningHours = {
+    enabled = false,
+    open    = 6,
+    close   = 22,
+}
+
+---------------------------------
+-- daily demand: each town rolls a sell-price multiplier every real day
+-- set  demand = false  on a location to always pay base price there
+---------------------------------
+Config.Demand = {
+    enabled = true,
+    min     = 0.80, -- 80% of base price on a slow day
+    max     = 1.25, -- 125% on a busy day
+}
+
+---------------------------------
+-- seller bonus (added together, applied on top of demand when selling)
+---------------------------------
+Config.Bonus = {
+    jobs = {                 -- current job name = extra fraction (0.10 = +10%)
+        -- fishmonger = 0.10,
+    },
+    rep = {
+        enabled     = true,
+        name        = 'fishing', -- rsg-core rep key (Player.Functions.GetRep)
+        perPoint    = 0.001,     -- +0.1% per rep point
+        max         = 0.15,      -- capped at +15%
+        gainPerFish = 1,         -- rep earned per fish sold or processed (0 = off)
+    },
+}
+
+---------------------------------
+-- daily stock: how many fish each town will BUY per real day (processing is not limited)
+-- a location can override with  stock = 300  (0 = unlimited)
+---------------------------------
+Config.DailyStock = {
+    enabled     = true,
+    perLocation = 200,
+}
+
+---------------------------------
+-- fishing supplies shop (rsg-inventory shop, one per location)
+-- bait names match rsg-fishing's Config.Baits; missing items are skipped by rsg-inventory
+---------------------------------
+Config.Shop = {
+    enabled         = true,
+    persistentStock = false,
+    items = {
+        { name = 'p_baitbread01x',     price = 0.10, amount = 100 },
+        { name = 'p_baitcorn01x',      price = 0.10, amount = 100 },
+        { name = 'p_baitcheese01x',    price = 0.15, amount = 100 },
+        { name = 'p_baitworm01x',      price = 0.20, amount = 100 },
+        { name = 'p_baitcricket01x',   price = 0.25, amount = 100 },
+        { name = 'p_crawdad01x',       price = 0.35, amount = 50 },
+        { name = 'p_finishedragonfly01x', price = 1.50, amount = 20 },
+        { name = 'p_finisdfishlure01x',   price = 1.50, amount = 20 },
+        { name = 'p_finishdcrawd01x',     price = 1.50, amount = 20 },
+        { name = 'p_lgoc_spinner_v4',     price = 2.50, amount = 10 },
+        { name = 'p_lgoc_spinner_v6',     price = 2.50, amount = 10 },
+    },
+}
+
+---------------------------------
 -- fish that can be sold / processed
 -- label comes from the item's label in rsg-core shared items
 -- price   = cash paid per fish
--- fillets = amount of Config.FilletItem given per fish when processed
+-- fillets = amount of fillet item given per fish when processed
+-- fillet  = optional item given instead of Config.FilletItem for this fish
+--           e.g. ['a_c_fishsalmonsockeye_01_lg'] = { price = 2.75, fillets = 3, fillet = 'salmon_fillet' }
 ---------------------------------
 Config.Fish = {
     ['a_c_fishbluegil_01_sm']           = { price = 0.40, fillets = 1 },

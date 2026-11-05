@@ -9,21 +9,20 @@ An XP-based crafting book for **RSG-Core (RedM)**. Players use a crafting book i
 - Live ingredient counts (have / need) and max-craftable indicator
 - Optional job / job-type restriction per recipe
 - Optional required tools per recipe (e.g. a hammer) that must be in the inventory but are never consumed
-- Cancel at any time (Stop button, closing the book, or dying). Nothing is taken until the craft completes
+- Crafting keeps going in the background if you close the book; reopen it to watch progress or press Stop. Dying also cancels. Nothing is taken until the craft completes
 - Fully server-authoritative: the server picks the recipe, validates timing, removes ingredients, gives items and XP, and refunds if anything fails
-- ox_lib notifications and locales (`locales/*.json`)
+- rsg-core notifications, callbacks and locales (`locales/*.json`). No ox_lib needed
 - Discord webhook logging with per-type channels, a rate-limited queue and optional rsg-log mirroring
 
 ## Dependencies
 - [rsg-core](https://github.com/Rexshack-RedM/rsg-core)
 - [rsg-inventory](https://github.com/Rexshack-RedM/rsg-inventory)
-- [ox_lib](https://github.com/overextended/ox_lib)
 
 ## Installation
 1. Drop `rsg-crafting` into your resources folder.
 2. Add the items from `installation/shared_items.lua` to `rsg-core/shared/items.lua` (skip any that already exist).
 3. Copy the images from `installation/images/` to `rsg-inventory/html/images/`.
-4. Add `ensure rsg-crafting` to your server.cfg **after** rsg-core, rsg-inventory and ox_lib.
+4. Add `ensure rsg-crafting` to your server.cfg **after** rsg-core and rsg-inventory.
 5. Restart the server.
 
 ## Configuration (`shared/config.lua`)
@@ -89,13 +88,24 @@ exports['rsg-crafting']:SendCraftingLog(type, title, desc, src?, fields?)
 ```
 
 ## Locales
-All player-facing, UI and Discord log text lives in `locales/*.json` (ox_lib). Included languages:
+All player-facing, UI and Discord log text lives in `locales/*.json` (loaded by rsg-core). Included languages:
 `en`, `de`, `el`, `es`, `fr`, `ja`, `nl`, `pl`, `pt-br`, `ro`.
 
-Set the language in server.cfg, e.g. `setr ox:locale de`. To add another language, copy `en.json`, translate the values and keep every `%s` placeholder. Recipe `category` names come from `shared/config.lua`, so rename them there.
+Set the language in server.cfg, e.g. `setr rsg:locale de` (falls back to `ox:locale`, then `en`). To add another language, copy `en.json`, translate the values and keep every `%s` placeholder. Recipe `category` names come from `shared/config.lua`, so rename them there.
 
 ## Security notes
 - The client only sends a recipe index and a quantity. Both are re-validated on the server.
 - One active session per player. The finish request is rejected if it arrives sooner than the craft time minus a 1.5s latency grace.
 - Book ownership, job, XP and required tools are checked again when the craft finishes.
 - Ingredients are removed and the result added only on the server. Removed items are refunded if any step fails.
+
+## Changelog
+### 3.1.0
+- Removed the ox_lib dependency: notifications, callbacks, locales and anim loading now use rsg-core
+- Fixed the Cloth and String recipes using `cotton` instead of `herb_cotton`, which disabled them on start
+- Fixed duplicate item pop-ups (rsg-inventory already shows them on add/remove)
+- Fixed a double-click race that could start the crafting animation twice
+- Closing the book no longer cancels a craft; it finishes in the background and reopening the book shows its progress
+- The NUI now closes cleanly if the resource stops while it is open
+
+Support: https://buymeacoffee.com/rexshack

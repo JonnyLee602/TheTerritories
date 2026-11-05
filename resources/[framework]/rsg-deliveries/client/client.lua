@@ -1,4 +1,4 @@
-lib.locale()
+local RSGCore = exports['rsg-core']:GetCoreObject()
 
 local CINEMATIC_CAM = 0x620A6C5E -- INPUT_VEH_CINEMATIC_CAM (V)
 local MARKER_DISTANCE = 50.0
@@ -11,7 +11,7 @@ local function SecondsToClock(seconds)
 end
 
 local function Notify(description, ntype, title, duration)
-    lib.notify({ title = title or locale('delivery_title'), description = description, type = ntype, duration = duration or 5000 })
+    RSGCore.Functions.Notify({ title = title or locale('delivery_title'), description = description, type = ntype, duration = duration or 5000 })
 end
 
 local function DeleteWagon(wagon, delay)
@@ -23,7 +23,7 @@ end
 
 local function EndDelivery(deleteDelay)
     if not Delivery then return end
-    lib.hideTextUI()
+    if Config.ShowDeliveryTimerUI then exports['rsg-core']:HideText() end
     ClearGpsMultiRoute()
     DeleteWagon(Delivery.wagon, deleteDelay)
     Delivery = nil
@@ -57,7 +57,7 @@ local function RunDelivery()
         DisableControlAction(0, CINEMATIC_CAM, true)
 
         local wagon, endCoords = Delivery.wagon, Delivery.endCoords
-        local playerCoords = GetEntityCoords(cache.ped)
+        local playerCoords = GetEntityCoords(PlayerPedId())
         local playerDist = #(playerCoords - endCoords)
 
         if Config.DestinationMarker and playerDist < MARKER_DISTANCE then
@@ -75,6 +75,9 @@ local function RunDelivery()
             elseif not DoesEntityExist(wagon) then
                 FailDelivery('wagon_lost', 'delivery_failed_lost')
                 return
+            elseif IsEntityDead(PlayerPedId()) then
+                FailDelivery('player_died', 'delivery_failed_died')
+                return
             elseif not IsVehicleDriveable(wagon) then
                 FailDelivery('damaged_wagon', 'delivery_failed_damaged')
                 return
@@ -88,10 +91,7 @@ local function RunDelivery()
             end
 
             if Config.ShowDeliveryTimerUI then
-                lib.showTextUI(locale('delivery_time_remaining', SecondsToClock(remaining), math.floor(wagonDist)), {
-                    position = Config.UIPosition,
-                    icon = 'fa-regular fa-clock',
-                })
+                exports['rsg-core']:DrawText(locale('delivery_time_remaining', SecondsToClock(remaining), math.floor(wagonDist)), Config.UIPosition)
             end
         end
 
@@ -100,7 +100,7 @@ local function RunDelivery()
 end
 
 local function LoadModel(hash)
-    return pcall(lib.requestModel, hash, 5000)
+    return pcall(RSGCore.Functions.RequestModel, hash, 5000)
 end
 
 ---Called from the NUI contract board (client/npcs.lua)
@@ -114,7 +114,8 @@ function StartDelivery(hubIndex, destIndex)
     if not data then return end
 
     local spawn = location.cartSpawn
-    if lib.getClosestVehicle(spawn.xyz, Config.SpawnVehDistance) then
+    local closestVeh, closestDist = RSGCore.Functions.GetClosestVehicle(spawn.xyz)
+    if closestVeh and closestVeh ~= -1 and closestDist and closestDist <= Config.SpawnVehDistance then
         return Notify(locale('delivery_blocked'), 'error')
     end
 
@@ -126,7 +127,7 @@ function StartDelivery(hubIndex, destIndex)
         return Notify(locale('delivery_spawn_failed'), 'error')
     end
 
-    if not lib.callback.await('rsg-deliveries:server:startdelivery', false, hubIndex, destIndex) then
+    if not RSGCore.Functions.AwaitCallback('rsg-deliveries:server:startdelivery', 10000, hubIndex, destIndex) then
         SetModelAsNoLongerNeeded(cartHash)
         return
     end
@@ -141,6 +142,7 @@ function StartDelivery(hubIndex, destIndex)
     if cargoHash then AddPropSetForVehicle(vehicle, cargoHash) end
     if lightHash then AddLightPropSetToVehicle(vehicle, lightHash) end
 
+    SetVehicleOnGroundProperly(vehicle)
     TriggerServerEvent('rsg-deliveries:server:setwagon', NetworkGetNetworkIdFromEntity(vehicle))
 
     Delivery = {

@@ -1,7 +1,8 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
-lib.locale()
 
-local DOOR_LOCKED, DOOR_UNLOCKED = 3, 0
+-- eDoorState (natives/db/OBJECT.md): 0 = UNLOCKED, 1 = LOCKED_UNBREAKABLE (3 is HOLD_OPEN_POSITIVE)
+local DOOR_LOCKED, DOOR_UNLOCKED = 1, 0
+local keyProp
 local promptGroup = GetRandomIntInRange(0, 0xffffff)
 local lockPrompt
 local nearestDoor
@@ -38,10 +39,13 @@ end
 
 -- find the MLO door object: native lookup first, then scan the object pool
 local entCache = {} -- [doorHash] = entity
+local nextScan = {} -- [doorHash] = GetGameTimer() before which we don't rescan
 local function findCustomDoor(d)
     local cached = entCache[d.hash]
     if cached and DoesEntityExist(cached) then return cached end
     entCache[d.hash] = nil
+    local now = GetGameTimer()
+    if (nextScan[d.hash] or 0) > now then return nil end
     local c = d.coords
     local ent = GetClosestObjectOfType(c.x, c.y, c.z, 1.5, d.object, false, false, false)
     if ent and ent ~= 0 then entCache[d.hash] = ent return ent end
@@ -53,6 +57,7 @@ local function findCustomDoor(d)
         end
     end
     entCache[d.hash] = best
+    if not best then nextScan[d.hash] = now + 5000 end
     return best
 end
 
@@ -103,13 +108,13 @@ local function createPrompt()
     PromptSetText(lockPrompt, CreateVarString(10, 'LITERAL_STRING', locale('cl_use_door')))
     PromptSetEnabled(lockPrompt, true)
     PromptSetVisible(lockPrompt, true)
-    PromptSetHoldMode(lockPrompt, true)
+    PromptSetHoldMode(lockPrompt, Config.HoldDuration)
     PromptSetGroup(lockPrompt, promptGroup)
     PromptRegisterEnd(lockPrompt)
 end
 
 local function canUseDoors()
-    local ped = cache.ped
+    local ped = PlayerPedId()
     return not (IsEntityDead(ped)
         or IsPedCuffed(ped)
         or Citizen.InvokeNative(0x3AA24CCC0D451379, ped) -- IsPedHogtied
@@ -120,18 +125,20 @@ end
 -- init
 ---------------------------------------------
 CreateThread(function()
-    for _, hash in ipairs(Config.JailDoors) do
-        Citizen.InvokeNative(0xD99229FE93B46286, hash, 1, 1, 0, 0, 0, 0)
-        DoorSystemSetDoorState(hash, 1)
-    end
-    Doors = lib.callback.await('rsg-doorlock:server:getDoors', false) or {}
+    for _, hash in ipairs(Config.JailDoors) do setDoorHash(hash, true) end
     createPrompt()
+    -- retry until the server has finished loading the database
+    while true do
+        local doors = RSGCore.Functions.AwaitCallback('rsg-doorlock:server:getDoors', 15000)
+        if doors then Doors = doors break end
+        Wait(2000)
+    end
 end)
 
 -- slow loop: find nearest door, keep nearby doors in the right state
 CreateThread(function()
     while true do
-        local coords = GetEntityCoords(cache.ped)
+        local coords = GetEntityCoords(PlayerPedId())
         local closest, closestDist
         for id, door in pairs(Doors) do
             local dist = #(coords - door.textCoords)
@@ -182,24 +189,28 @@ RegisterNetEvent('rsg-doorlock:client:playKeyAnim', function(doorID)
     if not door then return end
     busy = true
 
-    local ped = cache.ped
+    local ped = PlayerPedId()
     local dict = 'script_common@jail_cell@unlock@key'
+    local model = `P_KEY02X`
     local pedCoords = GetEntityCoords(ped)
     SetPedDesiredHeading(ped, GetHeadingFromVector_2d(door.textCoords.x - pedCoords.x, door.textCoords.y - pedCoords.y))
 
-    lib.requestAnimDict(dict)
-    TaskPlayAnim(ped, dict, 'action', 8.0, -8.0, 2500, 31, 0, true, 0, false, 0, false)
-    RemoveAnimDict(dict)
-
-    local model = `P_KEY02X`
-    lib.requestModel(model)
+    local okDict = pcall(RSGCore.Functions.RequestAnimDict, dict, 3000)
+    local okModel = pcall(RSGCore.Functions.RequestModel, model, 3000)
+    if okDict then
+        TaskPlayAnim(ped, dict, 'action', 8.0, -8.0, 2500, 31, 0, true, 0, false, 0, false)
+    end
     Wait(750)
-    local prop = CreateObject(model, pedCoords.x, pedCoords.y, pedCoords.z + 0.2, false, false, false)
-    SetModelAsNoLongerNeeded(model)
-    AttachEntityToEntity(prop, ped, GetEntityBoneIndexByName(ped, 'SKEL_R_Finger12'), 0.02, 0.012, -0.0085, 0.024, -160.0, 200.0, true, true, false, true, 1, true)
+    if okModel then
+        keyProp = CreateObject(model, pedCoords.x, pedCoords.y, pedCoords.z + 0.2, false, false, false)
+        SetModelAsNoLongerNeeded(model)
+        AttachEntityToEntity(keyProp, ped, GetEntityBoneIndexByName(ped, 'SKEL_R_Finger12'), 0.02, 0.012, -0.0085, 0.024, -160.0, 200.0, true, true, false, true, 1, true)
+    end
     Wait(1750)
     ClearPedSecondaryTask(ped)
-    DeleteObject(prop)
+    if keyProp and DoesEntityExist(keyProp) then DeleteObject(keyProp) end
+    keyProp = nil
+    if okDict then RemoveAnimDict(dict) end
     busy = false
 end)
 
@@ -225,6 +236,7 @@ end)
 AddEventHandler('onResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
     if lockPrompt then PromptDelete(lockPrompt) end
+    if keyProp and DoesEntityExist(keyProp) then DeleteObject(keyProp) end
     for ent in pairs(customState) do
         if DoesEntityExist(ent) then FreezeEntityPosition(ent, false) end
     end

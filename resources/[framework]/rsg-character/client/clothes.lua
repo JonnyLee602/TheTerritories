@@ -158,10 +158,16 @@ function OpenClothingMenu()
                 if alert == 'confirm' then RemoveAllClothes() end
                 return OpenClothingMenu()
             elseif data.current.value ~= "save" then
-                OpenCateogry(data.current.value)
+                OpenCategory(data.current.value)
             else
+                -- block before leaving the store so a broke player doesn't lose their selection
+                local cash = (RSGCore.Functions.GetPlayerData().money or {}).cash or 0
+                if CurrentPrice > cash then
+                    RSGCore.Functions.Notify({ title = locale('insufficient_funds.title'), description = locale('insufficient_funds.description'), type = 'error', duration = 5000 })
+                    return OpenClothingMenu()
+                end
                 menu.close()
-                destory()
+                DestroyClothingCamera()
                 local alert = UI.alertDialog({
                     header = locale('save_outfit_1'),
                     centered = true,
@@ -176,12 +182,8 @@ function OpenClothingMenu()
                         },
                     })
                     local ClothesHash = ConvertCacheToHash(ClothesCache)
-                    local isMale = IsPedMale(PlayerPedId())
-                    if input and input[1] then
-                        TriggerServerEvent("rsg-character:server:saveOutfit", ClothesHash, isMale, input[1])
-                    else
-                        TriggerServerEvent("rsg-character:server:saveOutfit", ClothesHash, isMale)
-                    end
+                    -- gender and price are decided by the server
+                    TriggerServerEvent('rsg-character:server:saveOutfit', ClothesHash, nil, input and input[1])
                     if next(CurentCoords) == nil then
                         CurentCoords = RSG.Zones1[1]
                     end
@@ -201,7 +203,7 @@ function OpenClothingMenu()
                 FirstMenu()
             else
                 menu.close()
-                destory()
+                DestroyClothingCamera()
                 if next(CurentCoords) == nil then
                     CurentCoords = RSG.Zones1[1]
                 end
@@ -212,7 +214,7 @@ function OpenClothingMenu()
         end)
 end
 
-function OpenCateogry(menu_catagory)
+function OpenCategory(menu_catagory)
     UI.CloseAll()
     local elements = {}
     local gender = IsPedMale(PlayerPedId()) and "male" or "female"
@@ -385,7 +387,7 @@ AddEventHandler('rsg-character:client:ApplyClothes', function(ClothesComponents,
     end)
 end)
 
-function destory()
+function DestroyClothingCamera()
     OldClothesCache = {}
     SetCamActive(ClothingCamera, false)
     RenderScriptCams(false, true, 500, true, true)
@@ -530,7 +532,7 @@ end
 
 function Outfits()
     UI.CloseAll()
-    local result = lib.callback.await('rsg-character:server:getOutfits', false) or {}
+    local result = RSGCore.Functions.AwaitCallback('rsg-character:server:getOutfits') or {}
     local elements = {}
     for i, v in ipairs(result) do
         elements[#elements + 1] = {
@@ -561,9 +563,11 @@ function OutfitsManage(outfitId, isDefault)
         {title = RSG.Label.clothes, subtext = RSG.Label.options, align = 'top-left', elements = elements, itemHeight = "4vh"}, function(data, menu)
         menu.close()
         if data.current.value == 'SetOutfits' then
-            local clothes = lib.callback.await('rsg-character:server:wearOutfit', false, outfitId)
+            local clothes = RSGCore.Functions.AwaitCallback('rsg-character:server:wearOutfit', nil, outfitId)
             if clothes then
                 TriggerEvent('rsg-character:client:ApplyClothes', clothes, PlayerPedId())
+            else
+                RSGCore.Functions.Notify({ title = RSG.Label.clothes, description = locale('outfit_wear_failed'), type = 'error', duration = 5000 })
             end
         elseif data.current.value == 'DeleteOutfit' then
             local alert = UI.alertDialog({ header = locale('outfit_delete_confirm'), cancel = true })
@@ -639,18 +643,18 @@ CreateThread(function()
     end
 end)
 
--- ox_target wardrobe props
+-- rsg-target wardrobe props
 CreateThread(function()
     local cfg = RSG.WardrobeTarget
-    if not cfg or not cfg.enabled or GetResourceState('ox_target') ~= 'started' then return end
-    exports.ox_target:addModel(cfg.models, {
+    if not cfg or not cfg.enabled or GetResourceState('rsg-target') ~= 'started' then return end
+    exports['rsg-target']:addModel(cfg.models, {
         {
             name = 'rsg_character_wardrobe',
             icon = cfg.icon,
             label = cfg.label,
             distance = cfg.distance,
             canInteract = function()
-                return not LocalPlayer.state.inClothingStore and not IsPedDeadOrDying(cache.ped, true)
+                return not LocalPlayer.state.inClothingStore and not IsPedDeadOrDying(PlayerPedId(), true)
             end,
             onSelect = function()
                 Outfits()
@@ -661,17 +665,15 @@ end)
 
 AddEventHandler('onResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() or not RSG.WardrobeTarget then return end
-    if GetResourceState('ox_target') == 'started' then
-        exports.ox_target:removeModel(RSG.WardrobeTarget.models, 'rsg_character_wardrobe')
+    if GetResourceState('rsg-target') == 'started' then
+        exports['rsg-target']:removeModel(RSG.WardrobeTarget.models, 'rsg_character_wardrobe')
     end
 end)
 
 function GenerateMenu()
-    TriggerEvent('rsg-horses:client:FleeHorse')
-    Wait(0)
     TeleportAndFade(CurentCoords.fittingcoords, false)
     TriggerServerEvent('rsg-character:server:SetPlayerBucket', 0, true)
-    local ClothesComponents = lib.callback.await('rsg-character:server:LoadClothes', false)
+    local ClothesComponents = RSGCore.Functions.AwaitCallback('rsg-character:server:LoadClothes') or {}
     ClothesCache = hashToCache.PopulateClothingCache(ClothesComponents, IsPedMale(PlayerPedId()))
     OldClothesCache = deepcopy(ClothesCache)
     camera(2.4, -0.15)
@@ -791,7 +793,7 @@ end
 AddEventHandler('onResourceStop', function(resourceName)
     if GetCurrentResourceName() ~= resourceName then return end
     LocalPlayer.state.inClothingStore = false
-    destory()
+    DestroyClothingCamera()
     for i=1, #RSG.CreatedEntries do
         if RSG.CreatedEntries[i].type == "BLIP" then
             RemoveBlip(RSG.CreatedEntries[i].handle)

@@ -4,7 +4,6 @@
 ---------------------------------
 local RSGCore = exports['rsg-core']:GetCoreObject()
 local Cfg = SvConfig.Webhooks
-lib.locale()
 
 Webhook = {}
 
@@ -144,14 +143,11 @@ end)
 ---------------------------------
 -- console / admin test command
 ---------------------------------
-lib.addCommand('fishmonger_webhooktest', {
-    help = locale('cmd_webhooktest_help'),
-    restricted = 'group.admin',
-}, function(source)
+RSGCore.Commands.Add('fishmonger_webhooktest', locale('cmd_webhooktest_help'), {}, false, function(source)
     for logType, url in pairs(Cfg.urls) do
         if url ~= '' then
             Webhook.Send(logType, { title = locale('wh_test_title'), description = locale('wh_test_desc', logType), src = source > 0 and source or nil })
         end
     end
     print(('[%s] webhook test queued'):format(GetCurrentResourceName()))
-end)
+end, 'admin')

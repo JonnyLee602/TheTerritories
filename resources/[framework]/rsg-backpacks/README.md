@@ -21,8 +21,8 @@ This resource merges and replaces:
   - lasso, reinforced lasso
   - machete
   - bow quiver
-- **ox_lib**: notifications and locales.
-- **Locales (ox_lib JSON)**: en, de, el, es, fr, ja, nl, pl, pt-br, ro.
+- **rsg-core only**: notifications, commands and JSON locales (no ox_lib).
+- **Locales (rsg-core JSON)**: en, de, el, es, fr, ja, nl, pl, pt-br, ro.
 
 ---
 
@@ -32,7 +32,6 @@ This resource merges and replaces:
 | --- | --- |
 | [rsg-core](https://github.com/Rexshack-RedM/rsg-core) | Framework |
 | [rsg-inventory](https://github.com/Rexshack-RedM/rsg-inventory) | Items and stashes |
-| [ox_lib](https://github.com/overextended/ox_lib) | Notifications, locales |
 | [oxmysql](https://github.com/overextended/oxmysql) | Database |
 
 ---
@@ -48,7 +47,6 @@ Everything you need to copy elsewhere is in the [`installation`](installation) f
 5. Add to `server.cfg`:
 
    ```cfg
-   ensure ox_lib
    ensure oxmysql
    ensure rsg-core
    ensure rsg-inventory
@@ -141,7 +139,7 @@ To refuse the move before anything changes, add this to `rsg-inventory/server/ma
 local movingItem = getItem(fromInventory, src, tonumber(fromSlot))
 if movingItem and toInventory:sub(1, 9) == 'backpack_'
     and exports['rsg-backpacks']:IsBackpackItem(movingItem.name) then
-    TriggerClientEvent('ox_lib:notify', src, { description = 'Backpacks cannot be stored inside another backpack.', type = 'error', duration = 5000 })
+    TriggerClientEvent('RSGCore:Client:Notify', src, { description = 'Backpacks cannot be stored inside another backpack.', type = 'error', duration = 5000 })
     return
 end
 ```
@@ -152,12 +150,12 @@ The `rsg-backpacks` enforcer stays active as a safety net.
 
 ## Localization
 
-Locales use the ox_lib JSON format (`locales/<lang>.json`). Included: `en`, `de`, `el`, `es`, `fr`, `ja`, `nl`, `pl`, `pt-br`, `ro`.
+Locales use the rsg-core JSON loader (`locales/<lang>.json`). Included: `en`, `de`, `el`, `es`, `fr`, `ja`, `nl`, `pl`, `pt-br`, `ro`.
 
-Pick the language with the ox_lib convar in `server.cfg`:
+Pick the language in `server.cfg` (`ox:locale` still works as a fallback):
 
 ```cfg
-setr ox:locale "de"
+setr rsg:locale "de"
 ```
 
 To add a language, copy `locales/en.json` to `locales/<code>.json` and translate the values. Keep every `%s` placeholder in the same order.
@@ -205,6 +203,15 @@ Export: `exports['rsg-backpacks']:IsBackpackItem(itemName)` returns `true` if th
 ---
 
 ## Changelog
+
+### 3.0.4
+- ox_lib dependency removed: locales now load through `@rsg-core/shared/locale.lua`.
+- Notifications switched from ox_lib to rsg-core (`RSGCore.Functions.Notify` / `RSGCore:Client:Notify`).
+- `/backpackrecover` now registered with `RSGCore.Commands.Add` instead of `lib.addCommand`.
+- Fixed: the one-backpack limit could push the extra backpack into a backpack stash (bypassing the nested block) or into another player's inventory, because the source inventory name comes from the client. It now only warns in those cases.
+- Fixed: if the backpack model failed to load on use, the prop was never retried; it now retries via the monitor.
+- Periodic one-backpack check iterates loaded players directly (no per-player lookup).
+- Proper item descriptions in `installation/items.lua`.
 
 ### 3.0.2
 - Fixed backpack stash not opening: it is now opened after the player inventory has closed itself from using the item (the item's shouldClose was closing or blocking the stash).

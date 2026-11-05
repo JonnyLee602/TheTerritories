@@ -1,4 +1,4 @@
-lib.locale()
+local RSGCore = exports['rsg-core']:GetCoreObject()
 
 local UI_LOCALE_KEYS = {
     'menu_title', 'menu_current_xp', 'ui_locked', 'ui_requires', 'ui_makes', 'ui_select', 'ui_ingredients',
@@ -7,14 +7,14 @@ local UI_LOCALE_KEYS = {
 }
 
 local uiOpen = false
-local crafting = nil -- { id, cancelled }
+local crafting = nil -- { id, cancelled, startedAt, duration, label, qty }
 local pending = false -- a start request is in flight
 
 ---------------------------------------------
 -- helpers
 ---------------------------------------------
 local function notify(description, ntype)
-    lib.notify({ title = locale('notify_title'), description = description, type = ntype or 'inform', duration = 5000 })
+    RSGCore.Functions.Notify({ title = locale('notify_title'), description = description, type = ntype or 'inform', duration = 5000 })
 end
 
 local function uiLocale()
@@ -24,7 +24,7 @@ local function uiLocale()
 end
 
 local function fetchRecipes()
-    local data = lib.callback.await('rsg-crafting:server:getRecipes', false)
+    local data = RSGCore.Functions.AwaitCallback('rsg-crafting:server:getRecipes', 10000)
     if not data or #data.recipes == 0 then return nil end
     return data
 end
@@ -45,7 +45,7 @@ end
 ---------------------------------------------
 local function closeUI()
     if not uiOpen then return end
-    if crafting then crafting.cancelled = true end
+    -- closing the book does NOT cancel an active craft; it carries on in the background
     uiOpen = false
     SetNuiFocus(false, false)
     SendNUIMessage({ action = 'close' })
@@ -59,8 +59,8 @@ local function refreshUI()
 end
 
 local function openBook()
-    if uiOpen or crafting then return end
-    if LocalPlayer.state.inv_busy then return end
+    if uiOpen then return end
+    if not crafting and LocalPlayer.state.inv_busy then return end
 
     local data = fetchRecipes()
     if not data then return notify(locale('no_recipes'), 'inform') end
@@ -75,18 +75,21 @@ local function openBook()
         xp = data.xp,
         nextUnlock = data.nextUnlock,
         recipes = data.recipes,
+        active = crafting and {
+            id = crafting.id, label = crafting.label, qty = crafting.qty,
+            duration = crafting.duration, elapsed = GetGameTimer() - crafting.startedAt,
+        } or nil,
     })
 end
 
 RegisterNetEvent('rsg-crafting:client:openBook', openBook)
 
 local function runCrafting(recipeId, duration)
-    crafting = { id = recipeId, cancelled = false }
     LocalPlayer.state:set('inv_busy', true, true)
 
-    local ped = cache.ped
+    local ped = PlayerPedId()
     local anim = Config.Anim
-    if anim and lib.requestAnimDict(anim.dict, 5000) then
+    if anim and RSGCore.Functions.RequestAnimDict(anim.dict, 5000) then
         TaskPlayAnim(ped, anim.dict, anim.clip, 8.0, -8.0, -1, anim.flag or 1, 0, false, false, false)
     end
 
@@ -100,7 +103,7 @@ local function runCrafting(recipeId, duration)
     if anim then RemoveAnimDict(anim.dict) end
 
     if finished then
-        local result = lib.callback.await('rsg-crafting:server:finishCrafting', false, recipeId)
+        local result = RSGCore.Functions.AwaitCallback('rsg-crafting:server:finishCrafting', 10000, recipeId)
         local ok = result and result.ok
         local msg = ok and locale('craft_success', result.amount, result.label) or failReason(result)
         if uiOpen then
@@ -122,7 +125,7 @@ RegisterNUICallback('craft', function(data, cb)
     local id = tonumber(data.id)
 
     pending = true
-    local result = lib.callback.await('rsg-crafting:server:startCrafting', false, id, tonumber(data.qty))
+    local result = RSGCore.Functions.AwaitCallback('rsg-crafting:server:startCrafting', 10000, id, tonumber(data.qty))
     pending = false
     if not result or not result.ok or not uiOpen then
         if result and result.ok then TriggerServerEvent('rsg-crafting:server:cancelCrafting') end
@@ -130,6 +133,7 @@ RegisterNUICallback('craft', function(data, cb)
         return refreshUI()
     end
 
+    crafting = { id = id, cancelled = false, startedAt = GetGameTimer(), duration = result.crafttime, label = result.label, qty = result.qty } -- claim the slot now so a second click can't slip in before the thread starts
     cb({ ok = true, crafttime = result.crafttime, label = result.label, qty = result.qty })
     CreateThread(function() runCrafting(id, result.crafttime) end)
 end)
@@ -148,9 +152,12 @@ AddEventHandler('onResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
     if crafting then
         LocalPlayer.state:set('inv_busy', false, true)
-        ClearPedTasks(cache.ped)
+        ClearPedTasks(PlayerPedId())
     end
-    if uiOpen then SetNuiFocus(false, false) end
+    if uiOpen then
+        SetNuiFocus(false, false)
+        SendNUIMessage({ action = 'close' })
+    end
 end)
 
 exports('OpenCraftingBook', openBook)

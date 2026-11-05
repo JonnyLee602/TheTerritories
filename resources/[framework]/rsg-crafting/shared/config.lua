@@ -13,7 +13,7 @@ Config.ShowLocked  = true                          -- show locked recipes (greye
 Config.Anim = {
     dict = 'mech_inventory@crafting@fallbacks',
     clip = 'full_craft_and_stow',
-    flag = 1,
+    flag = 27,
 }
 
 ---------------------------------------------

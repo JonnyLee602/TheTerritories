@@ -5,10 +5,10 @@ game 'rdr3'
 author 'RexShack'
 name 'rsg-deliveries'
 description 'Wagon delivery system RSG Framework'
-version '3.0.0'
+version '3.1.0'
 
 shared_scripts {
-    '@ox_lib/init.lua',
+    '@rsg-core/shared/locale.lua',
     'shared/config.lua',
     'shared/functions.lua',
 }
@@ -19,14 +19,14 @@ client_scripts {
 }
 
 server_scripts {
+    'server/sv_config.lua',
     'server/server.lua',
     'server/versionchecker.lua'
 }
 
 dependencies {
     'rsg-core',
-    'ox_lib',
-    'ox_target',
+    'rsg-target',
     'rsg-inventory',
 }
 

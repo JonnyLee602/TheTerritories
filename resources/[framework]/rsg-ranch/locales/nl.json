@@ -724,7 +724,7 @@
     "ui_guide_selling_title": "Verkopen",
     "ui_guide_selling": "Drijf vee naar een verkooppunt om het te verkopen, of verkoop varkens, koeien en schapen via het tabblad Markt. Dieren in de bloei van hun leven leveren het meest op.",
     "cl_wellpump_title": "Waterpomp",
-    "cl_wellpump_place_help": "[LMK] Plaatsen   [Q / E] Draaien   [Omhoog / Omlaag] Hoogte   [RMK] Annuleren",
+    "cl_wellpump_place_help": "[ENTER] Plaatsen   [Links / Rechts] Draaien   [Omhoog / Omlaag] Hoogte   [RMK / Backspace] Annuleren",
     "cl_wellpump_too_far": "Te ver weg",
     "cl_wellpump_cancelled": "Geannuleerd",
     "cl_wellpump_fill_target": "Emmer vullen",
@@ -989,5 +989,14 @@
     "sv_adm_ranch_created": "%s created - its NPC is where you are standing",
     "sv_adm_ranch_deleted": "Ranch deleted",
     "cl_adm_command_help": "Open the ranch administration panel",
-    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that"
+    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that",
+    "ui_respawn": "Respawnen",
+    "ui_respawn_hint": "Als dit dier uit de wereld is verdwenen, laat het dan op zijn laatst opgeslagen positie opnieuw verschijnen.",
+    "sv_respawn_done": "Dier gerespawned - het verschijnt zo als je in de buurt bent.",
+    "sv_respawn_cooldown": "Wacht een paar seconden voordat je het opnieuw probeert.",
+    "ui_adm_return_spawn": "Terug naar spawnpunt",
+    "ui_adm_return_all": "Alles terug naar spawnpunt",
+    "ui_adm_confirm_return_all": "Alle %s dieren op %s terugsturen naar het dieren-spawnpunt van de ranch?",
+    "sv_adm_returned": "Dier(en) teruggestuurd naar het spawnpunt van de ranch",
+    "sv_adm_no_spawn": "Deze ranch heeft geen dieren-spawnpunt ingesteld"
 }

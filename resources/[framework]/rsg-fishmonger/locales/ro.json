@@ -84,5 +84,16 @@
     "wh_started": "`%s` v%s rulează.",
     "wh_test_title": "Test webhook",
     "wh_test_desc": "Mesaj de test pentru canalul **%s**.",
-    "cmd_webhooktest_help": "Trimite un mesaj de test către toate webhook-urile negustorului de pește"
+    "cmd_webhooktest_help": "Trimite un mesaj de test către toate webhook-urile negustorului de pește",
+    "cl_target_shop": "Vezi echipament de pescuit",
+    "sv_closed": "Negustorul de pește este închis. Deschis de la %s:00 la %s:00",
+    "sv_stock_left": "Negustorul mai cumpără doar %s pești astăzi",
+    "sv_stock_full": "Negustorul a cumpărat deja tot peștele de care are nevoie astăzi",
+    "shop_label": "Echipament %s",
+    "ui_sell_all": "Vinde tot",
+    "ui_demand": "Cererea de azi",
+    "ui_bonus": "Bonusul tău",
+    "ui_stock_left": "Cumpără azi",
+    "ui_unlimited": "Nelimitat",
+    "ui_over_stock": "Mai mulți pești decât cumpără negustorul astăzi"
 }

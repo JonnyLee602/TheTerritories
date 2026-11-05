@@ -271,6 +271,13 @@ local function EnforceOneBackpack(src, fromInventory, toSlot)
     end
     if not extra or type(fromInventory) ~= 'string' or fromInventory == 'player' then return end
 
+    -- fromInventory is client supplied: never push a backpack into a backpack stash (nested block)
+    -- or into another player's inventory (numeric id). The player is warned instead.
+    if IsBackpackStash(fromInventory) or tonumber(fromInventory) then
+        BP.Notify(src, 'warning', 'backpack_title', 'backpack_drop_extra')
+        return
+    end
+
     -- fromInventory comes from the client: only hand the item back to an inventory that is really loaded
     local okInv, target = pcall(function() return exports['rsg-inventory']:GetInventory(fromInventory) end)
     if not okInv or type(target) ~= 'table' then
@@ -310,10 +317,8 @@ end)
 if Config.OneBackpackOnly then CreateThread(function()
     while true do
         Wait(15000)
-        for _, src in ipairs(GetPlayers()) do
-            src = tonumber(src)
-            local Player = RSGCore.Functions.GetPlayer(src)
-            if Player and CountCarried(GetCarriedBackpacks(Player)) > 1 then
+        for src, Player in pairs(RSGCore.Players) do
+            if CountCarried(GetCarriedBackpacks(Player)) > 1 then
                 BP.Notify(src, 'warning', 'backpack_title', 'backpack_drop_extra')
             end
         end
@@ -426,7 +431,7 @@ AddEventHandler('RSGCore:Server:PlayerLoaded', function(Player)
     end)
 end)
 
-lib.addCommand('backpackrecover', { help = locale('cmd_recover_help') }, function(source)
+RSGCore.Commands.Add('backpackrecover', locale('cmd_recover_help'), {}, false, function(source)
     if not BP.DatabaseReady or Busy[source] or BP.RateLimited(source, 'recover', 10000) then return end
     Busy[source] = true
     local ok, count = pcall(RecoverTrapped, source)
@@ -434,7 +439,7 @@ lib.addCommand('backpackrecover', { help = locale('cmd_recover_help') }, functio
     if ok and count == 0 then
         BP.Notify(source, 'inform', 'backpack_title', 'backpack_nothing_recovered')
     end
-end)
+end, 'user')
 
 -- export used by the optional rsg-inventory patch / other resources
 exports('IsBackpackItem', function(itemName)

@@ -359,6 +359,16 @@ local function IsNearRanch(src, ranchid)
     return #(GetEntityCoords(ped) - vector3(npc.x, npc.y, npc.z)) <= (Config.RanchMenuDistance or 15.0)
 end
 
+-- client-supplied coordinates: must be real, finite numbers (NaN/inf/strings
+-- would otherwise error in vector3() or be written straight to the database)
+local function ValidCoords(x, y, z, w)
+    for _, v in ipairs({ x, y, z }) do
+        if type(v) ~= 'number' or v ~= v or v == math.huge or v == -math.huge then return false end
+    end
+    if w ~= nil and (type(w) ~= 'number' or w ~= w or w == math.huge or w == -math.huge) then return false end
+    return true
+end
+
 local function NotifyNotNearRanch(src)
     TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_not_near_ranch')})
 end
@@ -1089,7 +1099,7 @@ RegisterNetEvent('rsg-ranch:server:placeFeedTrough', function(pos_x, pos_y, pos_
         return
     end
 
-    if not pos_x or not pos_y or not pos_z then return end
+    if not ValidCoords(pos_x, pos_y, pos_z, pos_w) then return end
 
     -- Never trust client-supplied coords - the player must actually be near where they claim to place it
     local playerCoords = GetEntityCoords(GetPlayerPed(src))
@@ -1137,9 +1147,6 @@ RegisterNetEvent('rsg-ranch:server:placeFeedTrough', function(pos_x, pos_y, pos_
         return
     end
 
-    if RSGCore.Shared.Items[Config.FeedTroughItem] then
-        TriggerClientEvent('rsg-inventory:client:ItemBox', src, RSGCore.Shared.Items[Config.FeedTroughItem], 'remove', 1)
-    end
 
     local feedtroughData = {
         feedtroughid = feedtroughid,
@@ -1243,9 +1250,6 @@ RegisterNetEvent('rsg-ranch:server:refillFeedTrough', function(feedtroughid)
         return
     end
 
-    if RSGCore.Shared.Items[Config.FeedBagItem] then
-        TriggerClientEvent('rsg-inventory:client:ItemBox', src, RSGCore.Shared.Items[Config.FeedBagItem], 'remove', 1)
-    end
 
     TriggerClientEvent('rsg-ranch:client:updateFeedTroughUses', -1, feedtroughid, newUses)
     TriggerClientEvent('ox_lib:notify', src, {type = 'success', description = locale('sv_server_description_38'):format(newUses, Config.FeedTroughUses)})
@@ -1265,6 +1269,7 @@ RegisterNetEvent('rsg-ranch:server:requestMoveFeedTrough', function(feedtroughid
         TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_39')})
         return
     end
+    if not RanchCan(Player, 'canManageProps') then return DenyPermission(src) end
 
     if not feedtroughid then return end
 
@@ -1296,7 +1301,8 @@ RegisterNetEvent('rsg-ranch:server:confirmMoveFeedTrough', function(feedtroughid
     local Player = RSGCore.Functions.GetPlayer(src)
 
     if not Player or not isPlayerRanchStaff(Player) then return end
-    if not feedtroughid or not pos_x or not pos_y or not pos_z then return end
+    if not feedtroughid or not ValidCoords(pos_x, pos_y, pos_z, pos_w) then return end
+    if not RanchCan(Player, 'canManageProps') then return DenyPermission(src) end
 
     local feedtroughRows = MySQL.query.await('SELECT feedtroughid, ranchid FROM rsg_ranch_feedtroughs WHERE feedtroughid = ?', {feedtroughid})
     if not feedtroughRows or #feedtroughRows == 0 then
@@ -1344,6 +1350,7 @@ RegisterNetEvent('rsg-ranch:server:deleteFeedTrough', function(feedtroughid)
         TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_48')})
         return
     end
+    if not RanchCan(Player, 'canManageProps') then return DenyPermission(src) end
 
     if not feedtroughid then return end
 
@@ -1441,7 +1448,7 @@ RegisterNetEvent('rsg-ranch:server:placeWaterTrough', function(pos_x, pos_y, pos
         return
     end
 
-    if not pos_x or not pos_y or not pos_z then return end
+    if not ValidCoords(pos_x, pos_y, pos_z, pos_w) then return end
 
     -- Never trust client-supplied coords - the player must actually be near where they claim to place it
     local playerCoords = GetEntityCoords(GetPlayerPed(src))
@@ -1487,9 +1494,6 @@ RegisterNetEvent('rsg-ranch:server:placeWaterTrough', function(pos_x, pos_y, pos
         return
     end
 
-    if RSGCore.Shared.Items[Config.WaterTroughItem] then
-        TriggerClientEvent('rsg-inventory:client:ItemBox', src, RSGCore.Shared.Items[Config.WaterTroughItem], 'remove', 1)
-    end
 
     local watertroughData = {
         watertroughid = watertroughid,
@@ -1594,27 +1598,21 @@ RegisterNetEvent('rsg-ranch:server:refillWaterTrough', function(watertroughid)
 
     if not updateSuccess or not rowsAffected or rowsAffected <= 0 then
         -- give the bucket back exactly as it was
-        exports['rsg-inventory']:AddItem(src, Config.WaterItem, 1, bucket.slot, info, 'rsg-ranch:trough-refill-refund')
+        exports['rsg-inventory']:AddItem(src, Config.WaterItem, 1, info, bucket.slot, 'rsg-ranch:trough-refill-refund')
         TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_68')})
         return
     end
 
-    if RSGCore.Shared.Items[Config.WaterItem] then
-        TriggerClientEvent('rsg-inventory:client:ItemBox', src, RSGCore.Shared.Items[Config.WaterItem], 'remove', 1)
-    end
     if bucketUses <= 1 then
         if Config.WaterReturnItem then
             exports['rsg-inventory']:AddItem(src, Config.WaterReturnItem, 1, nil, nil, 'rsg-ranch:trough-refill-empty')
-            if RSGCore.Shared.Items[Config.WaterReturnItem] then
-                TriggerClientEvent('rsg-inventory:client:ItemBox', src, RSGCore.Shared.Items[Config.WaterReturnItem], 'add', 1)
-            end
         end
     else
         local newInfo = {}
         for k, v in pairs(info) do newInfo[k] = v end
         newInfo.uses = bucketUses - 1
         newInfo.description = locale('sv_bucket_uses'):format(newInfo.uses, maxUses)
-        exports['rsg-inventory']:AddItem(src, Config.WaterItem, 1, bucket.slot, newInfo, 'rsg-ranch:trough-refill-use')
+        exports['rsg-inventory']:AddItem(src, Config.WaterItem, 1, newInfo, bucket.slot, 'rsg-ranch:trough-refill-use')
     end
 
     TriggerClientEvent('rsg-ranch:client:updateWaterTroughUses', -1, watertroughid, newUses)
@@ -1635,6 +1633,7 @@ RegisterNetEvent('rsg-ranch:server:requestMoveWaterTrough', function(watertrough
         TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_70')})
         return
     end
+    if not RanchCan(Player, 'canManageProps') then return DenyPermission(src) end
 
     if not watertroughid then return end
 
@@ -1666,7 +1665,8 @@ RegisterNetEvent('rsg-ranch:server:confirmMoveWaterTrough', function(watertrough
     local Player = RSGCore.Functions.GetPlayer(src)
 
     if not Player or not isPlayerRanchStaff(Player) then return end
-    if not watertroughid or not pos_x or not pos_y or not pos_z then return end
+    if not watertroughid or not ValidCoords(pos_x, pos_y, pos_z, pos_w) then return end
+    if not RanchCan(Player, 'canManageProps') then return DenyPermission(src) end
 
     local troughRows = MySQL.query.await('SELECT watertroughid, ranchid FROM rsg_ranch_watertroughs WHERE watertroughid = ?', {watertroughid})
     if not troughRows or #troughRows == 0 then
@@ -1714,6 +1714,7 @@ RegisterNetEvent('rsg-ranch:server:deleteWaterTrough', function(watertroughid)
         TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_79')})
         return
     end
+    if not RanchCan(Player, 'canManageProps') then return DenyPermission(src) end
 
     if not watertroughid then return end
 
@@ -1880,7 +1881,7 @@ RegisterNetEvent('rsg-ranch:server:placeChickenCoop', function(pos_x, pos_y, pos
         return
     end
 
-    if not pos_x or not pos_y or not pos_z then return end
+    if not ValidCoords(pos_x, pos_y, pos_z, pos_w) then return end
 
     -- Never trust client-supplied coords - the player must actually be near where they claim to place it
     local playerCoords = GetEntityCoords(GetPlayerPed(src))
@@ -1926,9 +1927,6 @@ RegisterNetEvent('rsg-ranch:server:placeChickenCoop', function(pos_x, pos_y, pos
         return
     end
 
-    if RSGCore.Shared.Items[Config.ChickenCoopItem] then
-        TriggerClientEvent('rsg-inventory:client:ItemBox', src, RSGCore.Shared.Items[Config.ChickenCoopItem], 'remove', 1)
-    end
 
     local coopData = {
         coopid = coopid,
@@ -2124,9 +2122,6 @@ RegisterNetEvent('rsg-ranch:server:collectEggs', function(coopid)
         return
     end
 
-    if RSGCore.Shared.Items[Config.EggItem] then
-        TriggerClientEvent('rsg-inventory:client:ItemBox', src, RSGCore.Shared.Items[Config.EggItem], 'add', eggsReady)
-    end
 
     TriggerClientEvent('ox_lib:notify', src, {type = 'success', description = locale('sv_server_description_106'):format(eggsReady)})
 
@@ -2144,6 +2139,7 @@ RegisterNetEvent('rsg-ranch:server:deleteChickenCoop', function(coopid)
         TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_107')})
         return
     end
+    if not RanchCan(Player, 'canManageProps') then return DenyPermission(src) end
 
     if not coopid then return end
 
@@ -2268,9 +2264,6 @@ RegisterNetEvent('rsg-ranch:server:feedChickenCoop', function(coopid)
         return
     end
 
-    if RSGCore.Shared.Items[Config.FeedBagItem] then
-        TriggerClientEvent('rsg-inventory:client:ItemBox', src, RSGCore.Shared.Items[Config.FeedBagItem], 'remove', 1)
-    end
 
     TriggerClientEvent('ox_lib:notify', src, {
         type = 'success',
@@ -2297,7 +2290,17 @@ RegisterNetEvent('rsg-ranch:server:requestAnimalSpawn', function(animalId, anima
         return
     end
     animalId = tostring(animalId)
-    
+
+    -- The animal must exist, and the model/position other players are told about
+    -- comes from the database - a client could otherwise register a fake animal
+    -- with any model/coords and have it broadcast to everyone nearby.
+    local row = MySQL.single.await('SELECT model, pos_x, pos_y, pos_z FROM rsg_ranch_animals WHERE animalid = ?', {animalId})
+    if not row then
+        TriggerClientEvent('rsg-ranch:client:spawnAnimalDenied', src, animalId, 'Unknown animal')
+        return
+    end
+    local trustedData = { model = row.model, pos_x = row.pos_x, pos_y = row.pos_y, pos_z = row.pos_z }
+
     -- Check if spawn is allowed
     local canSpawn, reason = SpawnController:CanPlayerSpawn(src, animalId)
     if not canSpawn then
@@ -2315,11 +2318,27 @@ RegisterNetEvent('rsg-ranch:server:requestAnimalSpawn', function(animalId, anima
         return
     end
 
-    -- Check if this animal already has a network ID (spawned by another player)
+    -- Check if this animal already has a network ID (spawned by another player).
+    -- The entity behind a tracked network id can vanish without any client reporting
+    -- it (culled after its owner left, removed by another resource, etc). Handing that
+    -- dead id out made every client wait on an entity that never syncs, so the animal
+    -- stayed invisible until a restart. Verify it still exists server-side first.
     local existingNetworkId = SpawnController.activeSpawns[animalId] and SpawnController.activeSpawns[animalId].networkId
+    if existingNetworkId then
+        local ent = NetworkGetEntityFromNetworkId(existingNetworkId)
+        if not ent or ent == 0 or not DoesEntityExist(ent) then
+            if Config.Debug then
+                print('^3[SPAWN CONTROLLER]^7 Stale network id ' .. existingNetworkId .. ' for animal ' .. animalId .. ', recreating')
+            end
+            SpawnController.activeSpawns[animalId].networkId = nil
+            SpawnController.activeSpawns[animalId].creator = nil
+            SpawnController.activeSpawns[animalId].creatorAt = nil
+            existingNetworkId = nil
+        end
+    end
     
     -- Register the spawn
-    SpawnController:RegisterSpawn(src, animalId, animalData, existingNetworkId)
+    SpawnController:RegisterSpawn(src, animalId, trustedData, existingNetworkId)
     
     if existingNetworkId then
         -- Entity already exists, just tell this player to use it
@@ -2536,6 +2555,43 @@ AddEventHandler('onResourceStart', function(resourceName)
 end)
 
 ---------------------------------------------
+-- Ranch staff can force-respawn an animal from the ranch menu (recovers animals
+-- whose entity vanished but are still in the database)
+---------------------------------------------
+local respawnCooldown = {}
+RegisterNetEvent('rsg-ranch:server:respawnAnimal', function(animalId)
+    local src = source
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player or not animalId or not isPlayerRanchStaff(Player) then return end
+    animalId = tostring(animalId)
+
+    local now = os.time()
+    if respawnCooldown[src] and now - respawnCooldown[src] < 10 then
+        TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_respawn_cooldown')})
+        return
+    end
+    respawnCooldown[src] = now
+
+    local row = MySQL.single.await('SELECT ranchid FROM rsg_ranch_animals WHERE animalid = ?', {animalId})
+    if not row or row.ranchid ~= Player.PlayerData.job.name then
+        TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_123')})
+        return
+    end
+
+    local tracked = SpawnController.activeSpawns[animalId]
+    if tracked and tracked.networkId then
+        local ent = NetworkGetEntityFromNetworkId(tracked.networkId)
+        if ent and ent ~= 0 and DoesEntityExist(ent) then DeleteEntity(ent) end
+    end
+    SpawnController.activeSpawns[animalId] = nil
+
+    TriggerClientEvent('rsg-ranch:client:forceRespawnAnimal', -1, animalId)
+    TriggerClientEvent('ox_lib:notify', src, {type = 'success', description = locale('sv_respawn_done')})
+end)
+
+AddEventHandler('playerDropped', function() respawnCooldown[source] = nil end)
+
+---------------------------------------------
 -- Handle client reporting animal despawn
 ---------------------------------------------
 RegisterNetEvent('rsg-ranch:server:reportDespawn', function(animalId)
@@ -2657,9 +2713,6 @@ RegisterNetEvent('rsg-ranch:server:collectProduct', function(animalid)
     end
 
     local itemData = RSGCore.Shared.Items[productConfig.product]
-    if itemData then
-        TriggerClientEvent('rsg-inventory:client:ItemBox', src, itemData, 'add', productConfig.amount)
-    end
 
     TriggerClientEvent('ox_lib:notify', src, {type = 'success', description = locale('sv_server_description_128'):format(productConfig.amount, itemData and itemData.label or productConfig.product)})
     TriggerClientEvent('rsg-ranch:client:refreshSingleAnimal', -1, animalid, {product_ready = 0})
@@ -2704,18 +2757,28 @@ RegisterNetEvent('rsg-ranch:server:sendAnimalToFeed', function(animalid, feedtro
         return
     end
 
-    local animalVec = vector3(animal.pos_x, animal.pos_y, animal.pos_z)
-    if #(playerCoords - animalVec) > Config.AnimalInteractionDistance then
-        TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_304')})
-        return
-    end
 
-    local troughRows = MySQL.query.await('SELECT feedtroughid, ranchid, uses FROM rsg_ranch_feedtroughs WHERE feedtroughid = ?', {feedtroughid})
+    local troughRows = MySQL.query.await('SELECT feedtroughid, ranchid, uses, pos_x, pos_y, pos_z FROM rsg_ranch_feedtroughs WHERE feedtroughid = ?', {feedtroughid})
     if not troughRows or #troughRows == 0 or troughRows[1].ranchid ~= animal.ranchid then
         TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_305')})
         return
     end
     local trough = troughRows[1]
+
+    -- This only fires after the animal has walked (up to the trough search radius) to
+    -- the trough, so the player is usually no longer beside it, and the animal's DB
+    -- position can be stale from wandering. Checking against that position caused
+    -- false "too far" errors that cancelled the feed/drink. Instead require the
+    -- player to be beside the animal's last saved spot OR within reach of the trough.
+    local animalVec = vector3(animal.pos_x, animal.pos_y, animal.pos_z)
+    local troughVec = vector3(trough.pos_x or 0.0, trough.pos_y or 0.0, trough.pos_z or 0.0)
+    local searchRadius = Config.FeedTroughSearchRadius or 100.0
+    local nearAnimal = #(playerCoords - animalVec) <= Config.AnimalInteractionDistance
+    local nearTrough = #(playerCoords - troughVec) <= (searchRadius + Config.AnimalInteractionDistance)
+    if not nearAnimal and not nearTrough then
+        TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_304')})
+        return
+    end
 
     if (trough.uses or 0) <= 0 then
         TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_306')})
@@ -2776,18 +2839,28 @@ RegisterNetEvent('rsg-ranch:server:sendAnimalToWater', function(animalid, watert
         return
     end
 
-    local animalVec = vector3(animal.pos_x, animal.pos_y, animal.pos_z)
-    if #(playerCoords - animalVec) > Config.AnimalInteractionDistance then
-        TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_304')})
-        return
-    end
 
-    local troughRows = MySQL.query.await('SELECT watertroughid, ranchid, uses FROM rsg_ranch_watertroughs WHERE watertroughid = ?', {watertroughid})
+    local troughRows = MySQL.query.await('SELECT watertroughid, ranchid, uses, pos_x, pos_y, pos_z FROM rsg_ranch_watertroughs WHERE watertroughid = ?', {watertroughid})
     if not troughRows or #troughRows == 0 or troughRows[1].ranchid ~= animal.ranchid then
         TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_308')})
         return
     end
     local trough = troughRows[1]
+
+    -- This only fires after the animal has walked (up to the trough search radius) to
+    -- the trough, so the player is usually no longer beside it, and the animal's DB
+    -- position can be stale from wandering. Checking against that position caused
+    -- false "too far" errors that cancelled the feed/drink. Instead require the
+    -- player to be beside the animal's last saved spot OR within reach of the trough.
+    local animalVec = vector3(animal.pos_x, animal.pos_y, animal.pos_z)
+    local troughVec = vector3(trough.pos_x or 0.0, trough.pos_y or 0.0, trough.pos_z or 0.0)
+    local searchRadius = Config.WaterTroughSearchRadius or 100.0
+    local nearAnimal = #(playerCoords - animalVec) <= Config.AnimalInteractionDistance
+    local nearTrough = #(playerCoords - troughVec) <= (searchRadius + Config.AnimalInteractionDistance)
+    if not nearAnimal and not nearTrough then
+        TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_304')})
+        return
+    end
 
     if (trough.uses or 0) <= 0 then
         TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_309')})
@@ -4030,7 +4103,12 @@ end
 
 RegisterNetEvent('rsg-ranch:server:purchaseRanch', function(ranchid)
     local src = source
-    if not RanchWithLock('ranch:' .. tostring(ranchid), function() HandlePurchaseRanch(src, ranchid) end) then
+    local ok = RanchWithLock('ranchbuyer:' .. tostring(src), function()
+        if not RanchWithLock('ranch:' .. tostring(ranchid), function() HandlePurchaseRanch(src, ranchid) end) then
+            TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_152')})
+        end
+    end)
+    if not ok then
         TriggerClientEvent('ox_lib:notify', src, {type = 'error', description = locale('sv_server_description_152')})
     end
 end)
@@ -5938,9 +6016,10 @@ local function ValidateMarketAnimal(src, animalid, tooYoungKey)
     local Player = RSGCore.Functions.GetPlayer(src)
     if not Player then return end
 
-    if not isPlayerRanchStaff(Player) or Player.PlayerData.job.grade.level < 1 then
+    if not isPlayerRanchStaff(Player) then
         return NotifyError(src, MarketMsg(245))
     end
+    if not RanchCan(Player, 'canSell') then return DenyPermission(src) end
     if not animalid then return NotifyError(src, MarketMsg(246)) end
 
     local ranchid = Player.PlayerData.job.name
@@ -6021,7 +6100,6 @@ RegisterNetEvent('rsg-ranch:server:slaughterAtRanch', function(animalid)
     if not deleted or deleted <= 0 then return NotifyError(src, MarketMsg(261)) end
 
     exports['rsg-inventory']:AddItem(src, jointItem, jointCount, nil, nil, 'rsg-ranch-slaughter')
-    TriggerClientEvent('rsg-inventory:client:ItemBox', src, RSGCore.Shared.Items[jointItem], 'add', jointCount)
     TriggerClientEvent('ox_lib:notify', src, {type = 'success', description = MarketMsg(species.msg.slaughtered):format(jointCount)})
     TriggerClientEvent('rsg-ranch:client:removeAnimal', -1, animal.animalid)
 
@@ -6043,4 +6121,13 @@ RanchAdminBridge = {
     GenerateStorageId = GenerateStorageId,
     MultijobAddJob = MultijobAddJob,
     MultijobRemoveJob = MultijobRemoveJob,
+    -- removes the networked entity + server tracking so clients recreate the animal from the DB
+    ClearAnimalSpawn = function(animalId)
+        local tracked = SpawnController.activeSpawns[animalId]
+        if tracked and tracked.networkId then
+            local ent = NetworkGetEntityFromNetworkId(tracked.networkId)
+            if ent and ent ~= 0 and DoesEntityExist(ent) then DeleteEntity(ent) end
+        end
+        SpawnController.activeSpawns[animalId] = nil
+    end,
 }

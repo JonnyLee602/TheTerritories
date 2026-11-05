@@ -3,7 +3,6 @@
 ---------------------------------------------
 local RSGCore = exports['rsg-core']:GetCoreObject()
 local cfg = SvConfig.Webhook
-lib.locale()
 
 local queues = {}   -- [url] = { items = {}, busy = false, nextAt = 0 }
 

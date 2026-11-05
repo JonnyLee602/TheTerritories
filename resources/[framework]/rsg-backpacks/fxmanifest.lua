@@ -5,10 +5,10 @@ lua54 'yes'
 
 name 'rsg-backpacks'
 description 'RSG Backpacks: wearable backpacks with stashes and belt/back attachments (lanterns, lasso, machete, quiver)'
-version '3.0.3'
+version '3.0.4'
 
 shared_scripts {
-    '@ox_lib/init.lua',
+    '@rsg-core/shared/locale.lua',
     'shared/config.lua',
 }
 
@@ -25,8 +25,7 @@ server_scripts {
     'server/versionchecker.lua',
 }
 
--- ox_lib locales: locales/<lang>.json, language picked by the `ox:locale` convar (falls back to en)
-ox_lib 'locale'
+-- rsg-core locales: locales/<lang>.json, language from `setr rsg:locale` (falls back to ox:locale, then en)
 
 files {
     'locales/*.json',
@@ -35,6 +34,5 @@ files {
 dependencies {
     'rsg-core',
     'rsg-inventory',
-    'ox_lib',
     'oxmysql',
 }

@@ -1,6 +1,5 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
 local Inventory = exports['rsg-inventory']
-lib.locale()
 
 local LATENCY_GRACE   = 1500   -- ms tolerance for network delay on finish
 local SESSION_TIMEOUT = 30000  -- ms after craft time before an abandoned session is discarded
@@ -12,7 +11,7 @@ local activeSessions = {}
 -- helpers
 ---------------------------------------------
 local function notify(src, description, ntype)
-    TriggerClientEvent('ox_lib:notify', src, {
+    TriggerClientEvent('RSGCore:Client:Notify', src, {
         title = locale('notify_title'), description = description, type = ntype or 'inform', duration = 5000,
     })
 end
@@ -136,14 +135,12 @@ local function craftRecipe(src, Player, scaled)
             return false, 'error'
         end
         removed[#removed + 1] = ing
-        TriggerClientEvent('rsg-inventory:client:ItemBox', src, RSGCore.Shared.Items[ing.item], 'remove', ing.amount)
     end
 
     if not Inventory:AddItem(src, scaled.receive, scaled.giveamount, nil, nil, 'rsg-crafting') then
         refund()
         return false, 'error'
     end
-    TriggerClientEvent('rsg-inventory:client:ItemBox', src, RSGCore.Shared.Items[scaled.receive], 'add', scaled.giveamount)
 
     if scaled.xpreward > 0 then
         Player.Functions.AddRep(Config.XPType, scaled.xpreward)
@@ -192,7 +189,13 @@ end)
 ---------------------------------------------
 -- recipe list (server decides what the player sees)
 ---------------------------------------------
-lib.callback.register('rsg-crafting:server:getRecipes', function(src)
+local buildRecipeList
+
+RSGCore.Functions.CreateCallback('rsg-crafting:server:getRecipes', function(src, cb)
+    cb(buildRecipeList(src))
+end)
+
+buildRecipeList = function(src)
     local Player = RSGCore.Functions.GetPlayer(src)
     if not Player or not hasBook(src) then return nil end
 
@@ -262,12 +265,12 @@ lib.callback.register('rsg-crafting:server:getRecipes', function(src)
     end)
 
     return { xp = xp, nextUnlock = nextUnlock, recipes = list }
-end)
+end
 
 ---------------------------------------------
 -- start crafting: validate and open a timed session
 ---------------------------------------------
-lib.callback.register('rsg-crafting:server:startCrafting', function(src, index, qty)
+local function startCrafting(src, index, qty)
     local Player = RSGCore.Functions.GetPlayer(src)
     if not Player then return { ok = false, reason = 'error' } end
 
@@ -306,12 +309,16 @@ lib.callback.register('rsg-crafting:server:startCrafting', function(src, index, 
 
     activeSessions[src] = { index = index, qty = qty, crafttime = scaled.crafttime, startedAt = GetGameTimer() }
     return { ok = true, crafttime = scaled.crafttime, label = itemLabel(recipe.receive), qty = qty }
+end
+
+RSGCore.Functions.CreateCallback('rsg-crafting:server:startCrafting', function(src, cb, index, qty)
+    cb(startCrafting(src, tonumber(index), qty))
 end)
 
 ---------------------------------------------
 -- finish crafting: only the server decides the reward
 ---------------------------------------------
-lib.callback.register('rsg-crafting:server:finishCrafting', function(src, index)
+local function finishCrafting(src, index)
     local session = activeSessions[src]
     activeSessions[src] = nil
     if not session or session.index ~= index then
@@ -364,6 +371,10 @@ lib.callback.register('rsg-crafting:server:finishCrafting', function(src, index)
     end
 
     return { ok = true, amount = scaled.giveamount, label = itemLabel(recipe.receive) }
+end
+
+RSGCore.Functions.CreateCallback('rsg-crafting:server:finishCrafting', function(src, cb, index)
+    cb(finishCrafting(src, tonumber(index)))
 end)
 
 RegisterNetEvent('rsg-crafting:server:cancelCrafting', function()
@@ -401,4 +412,11 @@ exports('GivePlayerCraftingXP', function(src, amount)
     return true
 end)
 
-exports('GetCraftingRecipes', function() return lib.table.deepclone(Config.Crafting) end)
+local function deepcopy(t)
+    if type(t) ~= 'table' then return t end
+    local out = {}
+    for k, v in pairs(t) do out[k] = deepcopy(v) end
+    return out
+end
+
+exports('GetCraftingRecipes', function() return deepcopy(Config.Crafting) end)

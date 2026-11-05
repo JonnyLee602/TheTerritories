@@ -1,10 +1,15 @@
 -- shared helpers used by both client (UI preview) and server (authoritative payout)
 
+---@return number distance in metres from the hub's cart spawn to the drop-off
+function GetRouteDistance(location, destination)
+    return #(location.cartSpawn.xyz - destination.deliveryLoc)
+end
+
 ---Calculates the cash reward for a route. Server value is authoritative; client only uses it for display.
 ---@return integer cash, boolean capped
 function CalculateCashReward(location, destination)
     local reward = destination.reward or {}
-    local distance = #(location.cartSpawn.xyz - destination.deliveryLoc)
+    local distance = GetRouteDistance(location, destination)
     local cash = 0
 
     if reward.priceByDistance and reward.priceByDistance.activation then
@@ -19,9 +24,4 @@ function CalculateCashReward(location, destination)
         return Config.MaxRewardAmount, true
     end
     return cash, false
-end
-
----@return number distance in metres from the hub's cart spawn to the drop-off
-function GetRouteDistance(location, destination)
-    return #(location.cartSpawn.xyz - destination.deliveryLoc)
 end

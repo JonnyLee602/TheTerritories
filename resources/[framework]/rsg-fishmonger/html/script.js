@@ -1,7 +1,7 @@
 const RES = typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'rsg-fishmonger';
 const $ = (id) => document.getElementById(id);
 
-const state = { fish: [], counts: {}, cart: {}, imagePath: '', filletLabel: '', busy: false, lang: {} };
+const state = { fish: [], counts: {}, cart: {}, imagePath: '', filletLabel: '', busy: false, lang: {}, demand: 1, bonus: 0, stockLeft: -1 };
 
 // locale lookup with {name} placeholders (strings come from locales/*.json via the client)
 const L = (key, vars) => {
@@ -22,6 +22,9 @@ function post(name, data = {}) {
 }
 
 const money = (n) => '$' + (Math.round(n * 100) / 100).toFixed(2);
+const sellMult = () => state.demand * (1 + state.bonus); // mirrors the server formula
+const pct = (n) => Math.round(n * 100) + '%';
+const stockLimited = () => state.stockLeft >= 0;
 const fishByItem = (item) => state.fish.find(f => f.item === item);
 const owned = (item) => state.counts[item] || 0;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -53,7 +56,7 @@ function renderFish() {
             <div class="badge-icon">${imgTag(f.item)}</div>
             <div class="row-info">
                 <div class="row-title">${escapeHtml(f.label)}</div>
-                <div class="row-desc">${money(f.price)} ${escapeHtml(L('ui_each'))} &middot; ${f.fillets} ${escapeHtml(L('ui_fillets'))}</div>
+                <div class="row-desc">${money(f.price * sellMult())} ${escapeHtml(L('ui_each'))} &middot; ${f.fillets} x ${escapeHtml(f.filletLabel)}</div>
                 <div style="margin-top:6px"><span class="pill ${have > 0 ? 'ok' : ''}">${escapeHtml(L('ui_owned'))} ${have}</span>${inCart ? ` <span class="pill">${escapeHtml(L('ui_in_cart'))} ${inCart}</span>` : ''}</div>
             </div>
             <div class="row-actions">
@@ -75,17 +78,19 @@ function renderCart() {
     const items = Object.keys(state.cart);
     const box = $('cartList');
     let tFish = 0, tCash = 0, tFil = 0;
+    const fTypes = new Set();
     if (!items.length) {
         box.innerHTML = `<div class="empty">${escapeHtml(L('ui_cart_empty'))}</div>`;
     } else {
         box.innerHTML = items.map(item => {
             const f = fishByItem(item), q = state.cart[item];
             tFish += q; tCash += f.price * q; tFil += f.fillets * q;
+            fTypes.add(f.filletLabel);
             return `<div class="row" data-item="${item}">
                 <div class="badge-icon">${imgTag(item)}</div>
                 <div class="row-info">
                     <div class="row-title">${escapeHtml(f.label)}</div>
-                    <div class="row-desc">${money(f.price * q)} &middot; ${f.fillets * q} ${escapeHtml(L('ui_fillets'))}</div>
+                    <div class="row-desc">${money(f.price * sellMult() * q)} &middot; ${f.fillets * q} x ${escapeHtml(f.filletLabel)}</div>
                 </div>
                 <div class="qty">
                     <button data-act="cdec">-</button>
@@ -96,16 +101,50 @@ function renderCart() {
             </div>`;
         }).join('');
     }
+    tCash = Math.round(tCash * sellMult() * 100) / 100;
+    const overStock = stockLimited() && tFish > state.stockLeft;
     $('totFish').textContent = tFish;
+    $('totFish').classList.toggle('over', overStock);
     $('totCash').textContent = money(tCash);
     $('totFillets').textContent = tFil;
+    $('filletName').textContent = fTypes.size === 1 ? [...fTypes][0] : (fTypes.size > 1 ? L('ui_fillets') : state.filletLabel);
     const empty = !items.length || state.busy;
-    $('sellBtn').disabled = empty; $('processBtn').disabled = empty; $('clearBtn').disabled = !items.length;
-    $('addAllBtn').disabled = !visibleFish().some(f => owned(f.item) > (state.cart[f.item] || 0));
-    return { tFish, tCash, tFil };
+    $('sellBtn').disabled = empty || overStock; $('processBtn').disabled = empty; $('clearBtn').disabled = !items.length || state.busy;
+    $('sellBtn').title = overStock ? L('ui_over_stock') : '';
+    $('addAllBtn').disabled = state.busy || !visibleFish().some(f => owned(f.item) > (state.cart[f.item] || 0));
+    $('sellAllBtn').disabled = state.busy || !state.fish.some(f => owned(f.item) > 0) || (stockLimited() && state.stockLeft <= 0);
+    return { tFish, tCash, tFil, label: fTypes.size === 1 ? [...fTypes][0] : L('ui_fillets') };
 }
 
-function render() { renderFish(); renderCart(); }
+function renderMarket() {
+    const d = $('mDemand'), b = $('mBonus');
+    d.textContent = pct(state.demand);
+    d.classList.toggle('up', state.demand > 1); d.classList.toggle('down', state.demand < 1);
+    b.textContent = '+' + pct(state.bonus);
+    b.classList.toggle('up', state.bonus > 0);
+    $('mStock').textContent = stockLimited() ? state.stockLeft : L('ui_unlimited');
+    $('mStock').classList.toggle('down', stockLimited() && state.stockLeft <= 0);
+}
+
+function showError(msg) {
+    $('cartError').textContent = msg || '';
+    $('cartError').classList.toggle('hidden', !msg);
+}
+
+function applyData(d) {
+    d = d || {};
+    state.counts = d.counts || {};
+    state.demand = Number(d.demand) || 1;
+    state.bonus = Number(d.bonus) || 0;
+    state.stockLeft = d.stockLeft ?? -1;
+    // keep the cart but clamp to what the player still owns
+    for (const item of Object.keys(state.cart)) {
+        const q = Math.min(state.cart[item], owned(item));
+        if (q > 0) state.cart[item] = q; else delete state.cart[item];
+    }
+}
+
+function render() { renderMarket(); renderFish(); renderCart(); }
 
 // fish list interactions
 $('fishList').addEventListener('click', (e) => {
@@ -141,6 +180,18 @@ $('cartList').addEventListener('change', (e) => {
 
 $('search').addEventListener('input', render);
 $('ownedOnly').addEventListener('change', render);
+$('sellAllBtn').addEventListener('click', () => {
+    if (state.busy) return;
+    state.cart = {};
+    let room = stockLimited() ? state.stockLeft : Infinity;
+    // most valuable fish first so a stock cap keeps the best sale
+    [...state.fish].sort((a, b) => b.price - a.price).forEach(f => {
+        const q = Math.min(owned(f.item), room);
+        if (q > 0) { state.cart[f.item] = q; room -= q; }
+    });
+    render();
+    confirmCheckout('sell');
+});
 $('addAllBtn').addEventListener('click', () => { visibleFish().forEach(f => { if (owned(f.item) > 0) state.cart[f.item] = owned(f.item); }); render(); });
 $('clearBtn').addEventListener('click', () => { state.cart = {}; render(); });
 $('closeBtn').addEventListener('click', () => post('close'));
@@ -154,7 +205,7 @@ function confirmCheckout(mode) {
     $('modalTitle').textContent = L(mode === 'sell' ? 'ui_sell_title' : 'ui_process_title');
     $('modalText').textContent = mode === 'sell'
         ? L('ui_sell_confirm', { fish: t.tFish, cash: money(t.tCash) })
-        : L('ui_process_confirm', { fish: t.tFish, fillets: t.tFil, label: state.filletLabel });
+        : L('ui_process_confirm', { fish: t.tFish, fillets: t.tFil, label: t.label });
     $('modal').classList.remove('hidden');
 }
 function closeModal() { pendingMode = null; $('modal').classList.add('hidden'); }
@@ -166,15 +217,19 @@ $('modalConfirm').addEventListener('click', () => {
     if (!pendingMode || state.busy) return;
     const mode = pendingMode;
     closeModal();
+    showError('');
     state.busy = true;
+    render();
     post('checkout', { mode, cart: state.cart });
-    state.cart = {};
-    $('app').classList.add('hidden');
 });
 
 document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape' || $('app').classList.contains('hidden')) return;
-    if (!$('modal').classList.contains('hidden')) { closeModal(); return; }
+    if ($('app').classList.contains('hidden')) return;
+    const modalOpen = !$('modal').classList.contains('hidden');
+    if (e.key === 'Enter' && modalOpen) { e.preventDefault(); $('modalConfirm').click(); return; }
+    if (e.key !== 'Escape') return;
+    if (modalOpen) { closeModal(); return; }
+    if (state.busy) return;
     post('close');
 });
 
@@ -182,9 +237,11 @@ window.addEventListener('message', (e) => {
     const d = e.data;
     if (d.action === 'open') {
         Object.assign(state, {
-            fish: d.fish || [], counts: d.counts || {}, cart: {}, busy: false,
+            fish: d.fish || [], cart: {}, busy: false,
             imagePath: d.imagePath || '', filletLabel: d.filletLabel || '', lang: d.lang || {}
         });
+        applyData(d.data);
+        showError('');
         applyLang();
         $('title').textContent = d.title || '';
         $('subtitle').textContent = d.subtitle || '';
@@ -194,7 +251,13 @@ window.addEventListener('message', (e) => {
         $('modal').classList.add('hidden');
         $('app').classList.remove('hidden');
         render();
+    } else if (d.action === 'refresh') {
+        state.busy = false;
+        applyData(d.data);
+        showError(d.error);
+        render();
     } else if (d.action === 'close') {
+        state.busy = false;
         $('app').classList.add('hidden');
         $('modal').classList.add('hidden');
     }

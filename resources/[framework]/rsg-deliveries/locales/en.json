@@ -5,6 +5,7 @@
     "delivery_failed_timeout": "You ran out of time, the contract has failed",
     "delivery_failed_damaged": "Your delivery failed due to a damaged wagon!",
     "delivery_failed_lost": "The delivery wagon was lost",
+    "delivery_failed_died": "You died and the contract has failed",
     "delivery_failed_no_wagon": "You need to bring the wagon to the drop-off",
     "delivery_success_title": "Delivery Successful",
     "delivery_success_desc": "Delivery complete, you were paid $%s",

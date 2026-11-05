@@ -84,5 +84,16 @@
     "wh_started": "`%s` v%s draait.",
     "wh_test_title": "Webhook-test",
     "wh_test_desc": "Testbericht voor het kanaal **%s**.",
-    "cmd_webhooktest_help": "Stuurt een testbericht naar alle ingestelde visboer-webhooks"
+    "cmd_webhooktest_help": "Stuurt een testbericht naar alle ingestelde visboer-webhooks",
+    "cl_target_shop": "Visbenodigdheden bekijken",
+    "sv_closed": "De visboer is gesloten. Open van %s:00 tot %s:00",
+    "sv_stock_left": "De visboer koopt vandaag nog maar %s vissen",
+    "sv_stock_full": "De visboer heeft vandaag al alle vis gekocht die hij nodig heeft",
+    "shop_label": "%s Benodigdheden",
+    "ui_sell_all": "Alles verkopen",
+    "ui_demand": "Vraag vandaag",
+    "ui_bonus": "Jouw bonus",
+    "ui_stock_left": "Inkoop vandaag",
+    "ui_unlimited": "Onbeperkt",
+    "ui_over_stock": "Meer vis dan de visboer vandaag koopt"
 }

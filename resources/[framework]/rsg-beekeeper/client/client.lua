@@ -1,27 +1,29 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
-lib.locale()
+local Gizmo = exports['rsg-gizmo']
 
 local Beehive = Config.Beehive
 local PTFX_DICT = 'core'
 
-local hives = {}          -- [id] = { id, coords, heading, prop, citizenid, active, isFull, isCalm, entity, ptfx, point }
+local hives = {}          -- [id] = { id, coords, heading, prop, citizenid, active, isFull, isCalm, entity, ptfx, inRange }
 local entityToId = {}     -- [entity] = id
 local openHiveId = nil
 
 local function Notify(description, notifyType)
-    lib.notify({ title = locale('title_beehive'), description = description, type = notifyType or 'inform', duration = 5000 })
+    RSGCore.Functions.Notify({ title = locale('title_beehive'), description = description, type = notifyType or 'inform', duration = 5000 })
 end
 
---------------------------------------------------------------------------------------------------
--- Helpers
---------------------------------------------------------------------------------------------------
-
+-- Returns the model hash once loaded, or nil if invalid / timed out.
 local function LoadModel(model)
     local hash = type(model) == 'number' and model or joaat(model)
     if not IsModelValid(hash) then return nil end
-
-    local ok = pcall(lib.requestModel, hash, 5000)
-    return ok and hash or nil
+    if HasModelLoaded(hash) then return hash end
+    RequestModel(hash, false)
+    local timeout = GetGameTimer() + 5000
+    while not HasModelLoaded(hash) do
+        if GetGameTimer() > timeout then return nil end
+        Wait(10)
+    end
+    return hash
 end
 
 --------------------------------------------------------------------------------------------------
@@ -123,7 +125,6 @@ local function RemoveHive(id)
 
     DespawnHiveEntity(hive)
     hive.inRange = false
-    if hive.point then hive.point:remove() end
     hives[id] = nil
 end
 
@@ -144,50 +145,65 @@ local function AddHive(data)
         isCalm = data.isCalm == true,
     }
 
-    hive.point = lib.points.new({
-        coords = hive.coords,
-        distance = Beehive.renderDistance,
-        onEnter = function()
-            hive.inRange = true
-            CreateThread(function() SpawnHiveEntity(hive) end)
-        end,
-        onExit = function()
-            hive.inRange = false
-            DespawnHiveEntity(hive)
-        end,
-    })
-
     hives[id] = hive
 end
 
---------------------------------------------------------------------------------------------------
--- Placement (shared gizmo in client/placement.lua, same as rsg-farming)
---------------------------------------------------------------------------------------------------
-
-RegisterNetEvent('rsg-beekeeper:client:startPlacement', function(prop)
-    if Placement.Active then
-        return Notify(locale('placement_already_placing'), 'error')
-    end
-
-    local spacing = Config.Placement.minHiveSpacing
-    local coords, heading = Placement.Start(prop, function(pos)
+-- Distance streaming: one cheap loop for every hive instead of a point each.
+CreateThread(function()
+    local renderDist = Beehive.renderDistance
+    while true do
+        local pos = GetEntityCoords(PlayerPedId())
         for _, hive in pairs(hives) do
-            if #(hive.coords - pos) < spacing then
-                return false, locale('place_too_close')
+            local inRange = #(pos - hive.coords) <= renderDist
+            if inRange and not hive.inRange then
+                hive.inRange = true
+                CreateThread(function() SpawnHiveEntity(hive) end)
+            elseif not inRange and hive.inRange then
+                hive.inRange = false
+                DespawnHiveEntity(hive)
             end
         end
-        return true
-    end, locale('placement_cannot_place'))
-
-    if not coords then
-        return Notify(locale('placement_cancelled'), 'inform')
+        Wait(1000)
     end
-
-    TriggerServerEvent('rsg-beekeeper:server:placeBeehive', coords, heading, prop)
 end)
 
 --------------------------------------------------------------------------------------------------
--- ox_target
+-- Placement (rsg-gizmo)
+--------------------------------------------------------------------------------------------------
+
+RegisterNetEvent('rsg-beekeeper:client:startPlacement', function(prop)
+    if Gizmo:IsActive() then
+        return Notify(locale('placement_already_placing'), 'error')
+    end
+    if openHiveId then CloseHiveUI() end
+
+    local spacing = Config.Placement.minHiveSpacing
+    local result = Gizmo:Place(prop, {
+        title        = locale('place_hud_title'),
+        maxDistance  = Config.Placement.maxDistance,
+        rotation     = 'z',
+        snapToGround = true,
+        allowInterior = false,
+        allowWater   = false,
+        validate = function(coords)
+            for _, hive in pairs(hives) do
+                if #(hive.coords - coords) < spacing then
+                    return false, locale('place_too_close')
+                end
+            end
+            return true
+        end,
+    })
+
+    if not result then
+        return Notify(locale('placement_cancelled'), 'inform')
+    end
+
+    TriggerServerEvent('rsg-beekeeper:server:placeBeehive', result.coords, result.heading, prop)
+end)
+
+--------------------------------------------------------------------------------------------------
+-- rsg-target
 --------------------------------------------------------------------------------------------------
 
 local beeHiveModels = {}
@@ -195,14 +211,14 @@ for _, entry in ipairs(Config.BeeHiveProps) do
     beeHiveModels[#beeHiveModels + 1] = entry.prop
 end
 
-exports.ox_target:addModel(beeHiveModels, {
+exports['rsg-target']:addModel(beeHiveModels, {
     {
         name = 'rsg_beekeeper_manage_beehive',
         icon = Beehive.target.icon,
         label = locale('target_manage_beehive'),
         distance = Beehive.target.distance,
         canInteract = function(entity)
-            return entityToId[entity] ~= nil and not Placement.Active
+            return entityToId[entity] ~= nil and not Gizmo:IsActive()
         end,
         onSelect = function(data)
             local id = entityToId[data.entity]
@@ -280,7 +296,7 @@ local function SyncHiveState(data)
 end
 
 RegisterNetEvent('rsg-beekeeper:client:openHiveUI', function(data)
-    if Placement.Active then return end
+    if Gizmo:IsActive() then return end
 
     SyncHiveState(data)
     openHiveId = data.id
@@ -376,7 +392,9 @@ end)
 
 RegisterNetEvent('rsg-beekeeper:client:beehiveActivated', function(id)
     local hive = hives[id]
-    if hive then hive.active = true end
+    if not hive then return end
+    hive.active, hive.isFull, hive.isCalm = true, false, false
+    StopBeeSwarm(hive)
 end)
 
 RegisterNetEvent('rsg-beekeeper:client:beehiveFull', function(id)
@@ -398,6 +416,24 @@ RegisterNetEvent('rsg-beekeeper:client:hiveCalmExpired', function(id)
     if not hive then return end
     hive.isCalm = false
     RefreshBeeSwarm(hive)
+end)
+
+-- Cosmetic only: the server has already applied the smoke.
+RegisterNetEvent('rsg-beekeeper:client:playSmokerAnim', function(hiveCoords)
+    local cfg = Beehive.smoker
+    if not cfg.animScenario or cfg.animScenario == '' then return end
+
+    local ped = PlayerPedId()
+    if IsEntityDead(ped) or IsPedOnMount(ped) or IsPedInAnyVehicle(ped, false) then return end
+
+    if hiveCoords then
+        TaskTurnPedToFaceCoord(ped, hiveCoords.x, hiveCoords.y, hiveCoords.z, 1000)
+        Wait(1000)
+    end
+
+    TaskStartScenarioInPlace(ped, joaat(cfg.animScenario), cfg.animDurationMs, true, false, false, false)
+    Wait(cfg.animDurationMs)
+    ClearPedTasks(ped)
 end)
 
 -- Colony starved: the hive stays placed but goes back to empty/unqueened.
@@ -474,8 +510,10 @@ end)
 AddEventHandler('onResourceStop', function(resourceName)
     if resourceName ~= GetCurrentResourceName() then return end
 
-    Placement.Cancel()
+    if Gizmo:IsActive() then Gizmo:Cancel() end
     CloseHiveUI()
+    SetNuiFocus(false, false)
+    exports['rsg-target']:removeModel(beeHiveModels, 'rsg_beekeeper_manage_beehive')
 
     for id in pairs(hives) do
         RemoveHive(id)

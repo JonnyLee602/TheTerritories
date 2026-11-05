@@ -1,605 +1,349 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
-local ComponentsMale = {}
-local ComponentsFemale = {}
+local RESOURCE = GetCurrentResourceName()
+
 local CreatorCache = {}
-local blipEntries = {}
-local textureId = -1
-local sit = false
+local current = nil      -- active barber location
 local cam = nil
-local camPos = nil
-local camRot = nil
-local lighting = nil
-lib.locale()
+local textureId = -1
+local busy = false
 
-MenuData = {}
-TriggerEvent('rsg-menubase:getData',function(call)
-    MenuData = call
-end)
-
-CreateThread(function()
-    for k, v in pairs(Config.BarberLocations) do
-        if not Config.UseTarget then
-            exports['rsg-core']:createPrompt(v.barberid, v.coords, RSGCore.Shared.Keybinds[Config.Key], locale('cl_open_barber'), {
-                type = 'client',
-                event = 'rsg-barber:client:menu',
-                args = { v.barberid },
-            })
-        end
-        if v.showblip then
-            local blip = BlipAddForCoords(1664425300, v.coords)
-            SetBlipSprite(blip, -2090472724, true)
-            SetBlipScale(blip, 0.2)
-            SetBlipName(blip, v.name.. locale('cl_barber'))
-            blipEntries[#blipEntries + 1] = {type = "BLIP", handle = blip}
-        end
-    end
-end)
-
-RegisterNetEvent("rsg-barber:client:menu", function(barberid)
-    local playerCoords = GetEntityCoords(cache.ped)
-    local camFov = GetGameplayCamFov()
-    local seat = GetHashKey("PROP_PLAYER_BARBER_SEAT")
-
-    for i = 1, #Config.BarberLocations do
-        local loc = Config.BarberLocations[i]
-        if #(playerCoords - loc.coords) <= 2.0 and loc.barberid == barberid then
-            Citizen.InvokeNative(0x4D1F61FC34AF3CD1, cache.ped, seat, loc.seat, 0, 0, 1)
-
-            camPos = loc.camPos
-            camRot = loc.camRot
-            lighting = loc.lighting
-
-            sit = true
-
-            ClearPedTasks(cache.ped)
-            ClearPedSecondaryTask(cache.ped)
-            FreezeEntityPosition(cache.ped, true)
-
-            MainMenu()
-
-            cam = CreateCam("DEFAULT_SCRIPTED_CAMERA", true)
-            RenderScriptCams(true, true, 2000, true, true)
-            SetCamFov(cam, camFov)
-            SetCamCoord(cam, camPos)
-            SetCamRot(cam, camRot, 2)
-        end
-    end
-end)
-
-local function ConvertCacheToHash(ClothesCache)
-    local clothesHashes = {}
-    for k, v in pairs(ClothesCache) do
-        if type(v) == "table" then
-            if v.model then
-                local id = tonumber(v.model)
-                if id >= 1 then
-                    local list
-                    if k == "beard" or k == "hair" then
-                        list = hairs_list[IsPedMale(PlayerPedId()) and "male" or "female"][k]
-                    else
-                        list = clothing[IsPedMale(PlayerPedId()) and "male" or "female"][k]
-                    end
-                    if list?[id]?[tonumber(v.texture)] then
-                        clothesHashes[k] = { hash = tonumber(list[id][tonumber(v.texture)].hash) }
-                    end
-                end
-            elseif v.hash then
-                clothesHashes[k] = v
-            else
-                clothesHashes[k] = v
-            end
-        else
-            clothesHashes[k] = v
-        end
-    end
-    return clothesHashes
+local function notify(title, description, ntype)
+    RSGCore.Functions.Notify({ title = title, description = description, type = ntype, duration = 5000 })
 end
 
-
-local MainMenus = {
-    ["hair"] = function()
-        OpenHairMenu()
-    end,
-    ["makeup"] = function()
-        OpenMakeupMenu()
-    end,
-    ["save"] = function()
-        MenuData.CloseAll()
-
-        LoadedComponents = CreatorCache
-        local ped = PlayerPedId()
-
-        TriggerServerEvent("rsg-barber:server:SaveSkin", ConvertCacheToHash(CreatorCache))
-
-        RenderScriptCams(false, true, 1000, true, true)
-        SetCamActive(cam, false)
-        DetachCam(cam)
-        DestroyCam(cam, true)
-
-        sit = false
-        cam = nil
-        lighting = nil
-
-        FreezeEntityPosition(ped, false)
-        ClearPedTasks(ped)
-        ClearPedSecondaryTask(ped)
-
-        Wait(1000)
-
-        local currentHealth = GetEntityHealth(PlayerPedId())
-        local maxStamina = Citizen.InvokeNative(0xCB42AFE2B613EE55, PlayerPedId(), Citizen.ResultAsFloat())
-        local currentStamina = Citizen.InvokeNative(0x775A1CA7893AA8B5, PlayerPedId(), Citizen.ResultAsFloat()) / maxStamina * 100
-        TriggerServerEvent('rsg-appearance:server:LoadSkin')
-        Wait(1000)
-        SetEntityHealth(PlayerPedId(), currentHealth )
-        Citizen.InvokeNative(0xC3D4B754C0E86B9E, PlayerPedId(), currentStamina)
-
-        CreatorCache = {}
-    end
-}
-
-local HairFunctions = {
-    ["hair"] = function(target, data)
-        LoadHair(target, data)
-    end,
-    ["beard"] = function(target, data)
-        LoadBeard(target, data)
-    end
-}
-
-function MainMenu(Target)
-    MenuData.CloseAll()
-    local _Target = Target or PlayerPedId()
-    local elements = {
-        { label = locale('cl_hair_beard'), value = 'hair',   desc = "" },
-        { label = locale('cl_makeup'), value = 'makeup', desc = ""},
-        { label = locale('cl_save'), value = 'save',   desc = "" }
-    }
-
-    local resource = GetCurrentResourceName()
-    MenuData.Open('default', resource, 'main_character_creator_menu',
-        { title = locale('cl_barber_shop'), subtext = locale('cl_options'), align = locale('cl_align'), elements = elements },
-        function(data, menu)
-        MainMenus[data.current.value]()
-        end, function(data, menu)
-            menu.close()
-
-        RenderScriptCams(false, true, 2000, true, true)
-        SetCamActive(cam, false)
-        DetachCam(cam)
-        DestroyCam(cam, true)
-
-        sit = false
-        cam = nil
-        lighting = nil
-
-        FreezeEntityPosition(PlayerPedId(), false)
-        ClearPedTasks(PlayerPedId())
-        ClearPedSecondaryTask(PlayerPedId())
-
-        Wait(1000)
-
-        local currentHealth = GetEntityHealth(PlayerPedId())
-        local maxStamina = Citizen.InvokeNative(0xCB42AFE2B613EE55, PlayerPedId(), Citizen.ResultAsFloat())
-        local currentStamina = Citizen.InvokeNative(0x775A1CA7893AA8B5, PlayerPedId(), Citizen.ResultAsFloat()) / maxStamina * 100
-        TriggerServerEvent('rsg-appearance:server:LoadSkin')
-        Wait(1000)
-        SetEntityHealth(PlayerPedId(), currentHealth )
-        Citizen.InvokeNative(0xC3D4B754C0E86B9E, PlayerPedId(), currentStamina)
-
-        CreatorCache = {}
-    end)
+local function genderKey(ped)
+    return IsPedMale(ped or PlayerPedId()) and 'male' or 'female'
 end
 
-function OpenHairMenu()
-    MenuData.CloseAll()
-    local elements = {}
-    if IsPedMale(PlayerPedId()) then
-        local a = 1
-        if  CreatorCache["hair"] == nil or type(CreatorCache["hair"]) ~= "table" then
-            CreatorCache["hair"] = {}
-            CreatorCache["hair"].model = CreatorCache["hair"].model
-            CreatorCache["hair"].texture = CreatorCache["hair"].texture
-        end
-        if  CreatorCache["beard"] == nil or type(CreatorCache["beard"]) ~= "table" then
-            CreatorCache["beard"] = {}
-            CreatorCache["beard"].model = CreatorCache["beard"].model
-            CreatorCache["beard"].texture = CreatorCache["beard"].texture
-        end
-
-        local options = {}
-        -- male hair selection
-        local category = hairs_list["male"]["hair"]
-        for k, v in pairs(category) do
-            table.insert(options, locale('cl_style') .. ' '.. k)
-        end
-        table.insert(elements, {label = locale('cl_hair_style'), value = CreatorCache["hair"].model or 0, category = "hair", desc = "", type = "slider", min = 0, max = #category, change_type = "model", id = a, options = options})
-        a = a + 1
-        options = {}
-        for i = 1, GetMaxTexturesForModel("hair", CreatorCache["hair"].model or 1), 1 do
-            table.insert(options, locale('cl_color').. ' ' .. i)
-        end
-        table.insert(elements, {label = locale('cl_hair_color'), value = CreatorCache["hair"].texture or 1, category = "hair", desc = "", type = "slider", min = 1, max = GetMaxTexturesForModel("hair", CreatorCache["hair"].model or 1), change_type = "texture", id = a, options = options})
-        options = {}
-        a = a + 1
-        -- male beard selection
-        local category = hairs_list["male"]["beard"]
-        for k, v in pairs(category) do
-            table.insert(options, locale('cl_style') .. ' ' .. k)
-        end
-        table.insert(elements, { label = locale('cl_beard_style'), value = CreatorCache["beard"].model or 0, category = "beard", desc = "", type = "slider", min = 0, max = #category, change_type = "model", id = a, options = options})
-        a = a + 1
-        options = {}
-        for i = 1, GetMaxTexturesForModel("beard", CreatorCache["beard"].model or 1), 1 do
-            table.insert(options, locale('cl_color').. ' ' .. i)
-        end
-        table.insert(elements, {label = locale('cl_beard_color'), value = CreatorCache["beard"].texture or 1, category = "beard", desc = "", type = "slider", min = 1, max = GetMaxTexturesForModel("beard", CreatorCache["beard"].model or 1), change_type = "texture", id = a, options = options})
-        options = {}
-        a = a + 1
-    else
-        local a = 1
-        if CreatorCache["hair"] == nil or type(CreatorCache["hair"]) ~= "table" then
-            CreatorCache["hair"] = {}
-            CreatorCache["hair"].model = CreatorCache["hair"].model
-            CreatorCache["hair"].texture = CreatorCache["hair"].texture
-        end
-        local options = {}
-        -- female hair options
-        local category = hairs_list["female"]["hair"]
-        for k, v in pairs(category) do
-            table.insert(options, locale('cl_style') .. ' ' .. k)
-        end
-        table.insert(elements,
-            {label = locale('cl_hair'), value = CreatorCache["hair"].model or 0, category = "hair", desc = "", type = "slider", min = 0, max = #category, change_type = "model", id = a, options = options}
-        )
-        a = a + 1
-        options = {}
-        for i = 1, GetMaxTexturesForModel("hair", CreatorCache["hair"].model or 1), 1 do
-            table.insert(options, locale('cl_hair_color') .. i)
-        end
-        table.insert(elements,
-            {label = locale('cl_hair'), value = CreatorCache["hair"].texture or 1, category = "hair", desc = "", type = "slider", min = 1, max = GetMaxTexturesForModel("hair", CreatorCache["hair"].model or 1), change_type = "texture", id = a, options = options}
-        )
-        options = {}
-        a = a + 1
-    end
-    MenuData.Open('default', GetCurrentResourceName(), 'hair_main_character_creator_menu',
-        {title = locale('cl_hair_beard'), subtext = locale('cl_options'), align = locale('cl_align'), elements = elements}, function(data, menu)
-    end, function(data, menu)
-        MainMenu()
-    end, function(data, menu)
-        if data.current.change_type == "model" then
-            if CreatorCache[data.current.category].model ~= data.current.value then
-                CreatorCache[data.current.category].texture = 1
-                CreatorCache[data.current.category].model = data.current.value
-                if data.current.value > 0 then
-                    local options = {}
-                    if GetMaxTexturesForModel(data.current.category, data.current.value) > 1 then
-                        for i = 1, GetMaxTexturesForModel(data.current.category, data.current.value), 1 do
-                            table.insert(options, locale('cl_color').. ' ' .. i)
-                        end
-                    else
-                        table.insert(options, "Brak")
-                    end
-                    menu.setElement(data.current.id + 1, "options", options)
-                    menu.setElement(data.current.id + 1, "max", GetMaxTexturesForModel(data.current.category, data.current.value))
-                    menu.setElement(data.current.id + 1, "min", 1)
-                    menu.setElement(data.current.id + 1, "value", 1)
-                    menu.refresh()
-                else
-                    menu.setElement(data.current.id + 1, "max", 0)
-                    menu.setElement(data.current.id + 1, "min", 0)
-                    menu.setElement(data.current.id + 1, "value", 0)
-                    menu.refresh()
-                end
-                HairFunctions[data.current.category](PlayerPedId(), CreatorCache)
-            end
-         elseif data.current.change_type == "texture" then
-            if CreatorCache[data.current.category].texture ~= data.current.value then
-                CreatorCache[data.current.category].texture = data.current.value
-                HairFunctions[data.current.category](PlayerPedId(), CreatorCache)
-            end
-        else
-            if CreatorCache[data.current.category] ~= data.current.value then
-                CreatorCache[data.current.category] = data.current.value
-                HairFunctions[data.current.category](PlayerPedId(), CreatorCache)
-            end
-        end
-    end)
-end
-
-function OpenMakeupMenu()
-    MenuData.CloseAll()
-    local elements = {
-        {label = ' ' .. locale('cl_stubble_type'),        value = CreatorCache["beardstabble_t"] or 1,  category = "beardstabble_t",  desc = "", type = "slider", min = 0, max = 1},
-        {label = ' ' .. locale('cl_stabble_opacity'),     value = CreatorCache["beardstabble_op"] or 0, category = "beardstabble_op", desc = "", type = "slider", min = 0, max = 100, hop = 10},
-        {label = locale('cl_shadow'),                     value = CreatorCache["shadows_t"] or 1,       category = "shadows_t",       desc = "", type = "slider", min = 1, max = 5},
-        {label = locale('cl_clarity'),                    value = CreatorCache["shadows_op"] or 0,      category = "shadows_op",      desc = "", type = "slider", min = 0, max = 100, hop = 5},
-        {label = locale('cl_color_shadow'),               value = CreatorCache["shadows_id"] or 1,      category = "shadows_id",      desc = "", type = "slider", min = 1, max = 25},
-        {label = locale('cl_color_first_class_delusion'), value = CreatorCache["shadows_c1"] or 0,      category = "shadows_c1",      desc = "", type = "slider", min = 0, max = 64},
-        {label = locale('cl_blushing_cheek'),             value = CreatorCache["blush_t"] or 1,         category = "blush_t",         desc = "", type = "slider", min = 1, max = 4},
-        {label = locale('cl_clarity'),                    value = CreatorCache["blush_op"] or 0,        category = "blush_op",        desc = "", type = "slider", min = 0, max = 100, hop = 5},
-        {label = locale('cl_cl_cheek_blush_color'),       value = CreatorCache["blush_id"] or 1,        category = "blush_id",        desc = "", type = "slider", min = 1, max = 25},
-        {label = locale('cl_color_first_degree_cheek_redness'),         value = CreatorCache["blush_c1"] or 0,        category = "blush_c1",        desc = "", type = "slider", min = 0, max = 64},
-        {label = locale('cl_type_lipstick'),              value = CreatorCache["lipsticks_t"] or 1,     category = "lipsticks_t",     desc = "", type = "slider", min = 1, max = 7},
-        {label = locale('cl_clarity'),                    value = CreatorCache["lipsticks_op"] or 0,    category = "lipsticks_op",    desc = "", type = "slider", min = 0, max = 100, hop = 5},
-        {label = locale('cl_color_lipstick'),             value = CreatorCache["lipsticks_id"] or 1,    category = "lipsticks_id",    desc = "", type = "slider", min = 1, max = 25},
-        {label = locale('cl_first_class_color_ipstick'),  value = CreatorCache["lipsticks_c1"] or 0,    category = "lipsticks_c1",    desc = "", type = "slider", min = 0, max = 64},
-        {label = locale('cl_second_color_lipstick'),      value = CreatorCache["lipsticks_c2"] or 0,    category = "lipsticks_c2",    desc = "", type = "slider", min = 0, max = 64},
-        {label = locale('cl_eyeliners'),                  value = CreatorCache["eyeliners_t"] or 1,     category = "eyeliners_t",     desc = "", type = "slider", min = 1, max = 15},
-        {label = locale('cl_clarity'),                    value = CreatorCache["eyeliners_op"] or 0,    category = "eyeliners_op",    desc = "", type = "slider", min = 0, max = 100, hop = 5},
-        {label = locale('cl_color_eyeliners'),            value = CreatorCache["eyeliners_id"] or 1,    category = "eyeliners_id",    desc = "", type = "slider", min = 1, max = 25},
-        {label = locale('cl_color_main_eyeliners'),       value = CreatorCache["eyeliners_c1"] or 0,    category = "eyeliners_c1",    desc = "", type = "slider", min = 0, max = 64}
-    }
-    local resource = GetCurrentResourceName()
-    MenuData.Open('default', resource, 'makeup_character_creator_menu',
-        {title = locale('cl_make_up'), subtext = locale('cl_options'), align = locale('cl_align'), elements = elements}, function(data, menu)
-    end, function(data, menu)
-        MainMenu()
-    end, function(data, menu)
-        if CreatorCache[data.current.category] ~= data.current.value then
-            CreatorCache[data.current.category] = data.current.value
-            LoadOverlays(PlayerPedId(), CreatorCache)
-        end
-    end)
-end
-
-function GetMaxTexturesForModel(category, model)
-    -- print(model)
-    -- print(category)
-    if model == 0 then
-        model = 1
-    end
-    if IsPedMale(PlayerPedId()) then
-        return #hairs_list["male"][category][model]
-    else
-        return #hairs_list["female"][category][model]
-    end
-end
-
-function LoadHair(target, data)
-    if data.hair ~= nil then
-        if type(data.hair) == "table" then
-            if data.hair.model ~= nil then
-                if tonumber(data.hair.model) > 0 then
-                    if IsPedMale(target) then
-                        if hairs_list["male"]["hair"][tonumber(data.hair.model)] ~= nil then
-                            if hairs_list["male"]["hair"][tonumber(data.hair.model)][tonumber(data.hair.texture)] ~= nil then       
-                                local hair = hairs_list["male"]["hair"][tonumber(data.hair.model)][tonumber(data.hair.texture)].hash
-                                NativeSetPedComponentEnabled(target, tonumber(hair), false, true, true)
-                            end
-                        end
-                    else
-                        if hairs_list["female"]["hair"][tonumber(data.hair.model)] ~= nil then
-                            if hairs_list["female"]["hair"][tonumber(data.hair.model)][tonumber(data.hair.texture)] ~= nil then
-                                local hair = hairs_list["female"]["hair"][tonumber(data.hair.model)][tonumber(data.hair.texture)].hash
-                                NativeSetPedComponentEnabled(target, tonumber(hair), false, true, true)
-                            end
-                        end
-                    end
-                else
-                    Citizen.InvokeNative(0xD710A5007C2AC539, target, 0x864B03AE, 0)
-                    NativeUpdatePedVariation(target)
-                end
-            end
-        end
-    end
-end
-
-function LoadBeard(target, data)
-    if data.beard ~= nil then
-        if type(data.beard) == "table" then
-            if data.beard.model ~= nil then
-                if tonumber(data.beard.model) > 0 then
-                    if IsPedMale(target) then
-                        if hairs_list["male"]["beard"][tonumber(data.beard.model)] ~= nil then
-                            if hairs_list["male"]["beard"][tonumber(data.beard.model)][tonumber(data.beard.texture)] ~= nil then
-                                local beard = hairs_list["male"]["beard"][tonumber(data.beard.model)][tonumber(data.beard.texture)].hash
-                                NativeSetPedComponentEnabled(target, tonumber(beard), false, true, true)
-                            end
-                        end
-                    end
-                else
-                    Citizen.InvokeNative(0xD710A5007C2AC539, target, 0xF8016BCA, 0)
-                    NativeUpdatePedVariation(target)
-                end
-            end
-        end
-    end
-end
-
-function LoadHead(target, data)
-    if IsPedMale(target) then
-        local head = ComponentsMale["heads"][tonumber(data.head) or 1]
-        NativeSetPedComponentEnabled(target, tonumber(head), false, true, true)
-    else
-        local head = ComponentsFemale["heads"][tonumber(data.head) or 1]
-        NativeSetPedComponentEnabled(target, tonumber(head), false, true, true)
-    end
-end
-
-function NativeSetPedFaceFeature(ped, index, value)
-    Citizen.InvokeNative(0x5653AB26C82938CF, ped, index, value)
-    NativeUpdatePedVariation(ped)
-end
-
-function NativeSetPedComponentEnabled(ped, componentHash, immediately, isMp)
-    Citizen.InvokeNative(0xD3A7B003ED343FD9, ped, componentHash, immediately, isMp, true)
-    NativeUpdatePedVariation(ped)
-end
-
-function NativeHasPedComponentLoaded(ped)
-    return Citizen.InvokeNative(0xA0BC8FAED8CFEB3C, ped)
-end
-
-function NativeUpdatePedVariation(ped)
+---------------------------------------------------------------------
+-- ped variation helpers
+---------------------------------------------------------------------
+local function UpdatePedVariation(ped)
     Citizen.InvokeNative(0x704C908E9C405136, ped)
     Citizen.InvokeNative(0xCC8CA3E88256E58F, ped, false, true, true, true, false)
-    while not NativeHasPedComponentLoaded(ped) do
-        Wait(1)
+    local timeout = GetGameTimer() + 2000
+    while not Citizen.InvokeNative(0xA0BC8FAED8CFEB3C, ped) and GetGameTimer() < timeout do Wait(0) end
+end
+
+local function SetComponent(ped, hash)
+    Citizen.InvokeNative(0xD3A7B003ED343FD9, ped, hash, false, true, true)
+    UpdatePedVariation(ped)
+end
+
+local CATEGORY_HASH = { hair = 0x864B03AE, beard = 0xF8016BCA }
+
+local function LoadHairCategory(ped, category)
+    local sel = CreatorCache[category]
+    if type(sel) ~= 'table' then return end
+    local hash = Barber.ResolveHash(genderKey(ped), category, sel.model, sel.texture)
+    if hash and hash ~= 0 then
+        SetComponent(ped, hash)
+    elseif hash == 0 then
+        Citizen.InvokeNative(0xD710A5007C2AC539, ped, CATEGORY_HASH[category], 0)
+        UpdatePedVariation(ped)
     end
 end
 
-function ChangeOverlays(name, visibility, tx_id, tx_normal, tx_material, tx_color_type, tx_opacity, tx_unk, palette_id, palette_color_primary, palette_color_secondary, palette_color_tertiary, var, opacity)
+local function GetMaxTextures(category, model)
+    local list = hairs_list[genderKey()][category]
+    local entry = list[(model and model > 0) and model or 1]
+    return entry and #entry or 1
+end
 
-    for k, v in pairs(overlay_all_layers) do
+---------------------------------------------------------------------
+-- overlays
+---------------------------------------------------------------------
+local function ChangeOverlay(name, visibility, tx_id, tx_color_type, palette_id, c1, c2, var, opacity)
+    for _, v in pairs(overlay_all_layers) do
         if v.name == name then
             v.visibility = visibility
             if visibility ~= 0 then
-                v.tx_normal = tx_normal
-                v.tx_material = tx_material
-                v.tx_color_type = tx_color_type
-                v.tx_opacity = tx_opacity
-                v.tx_unk = tx_unk
+                v.tx_normal, v.tx_material, v.tx_color_type, v.tx_opacity, v.tx_unk = 0, 0, tx_color_type, 1.0, 0
                 if tx_color_type == 0 then
-                    v.palette = color_palettes[palette_id][1]
-                    v.palette_color_primary = palette_color_primary
-                    v.palette_color_secondary = palette_color_secondary
-                    v.palette_color_tertiary = palette_color_tertiary
+                    v.palette = color_palettes[palette_id] and color_palettes[palette_id][1] or color_palettes[1][1]
+                    v.palette_color_primary, v.palette_color_secondary, v.palette_color_tertiary = c1, c2, 0
                 end
-                if name == "shadows" or name == "eyeliners" or name == "lipsticks" then
+                if name == 'shadows' or name == 'eyeliners' or name == 'lipsticks' then
                     v.var = var
                     v.tx_id = overlays_info[name][1].id
                 else
                     v.var = 0
-                    v.tx_id = overlays_info[name][tx_id].id
+                    v.tx_id = (overlays_info[name][tx_id] or overlays_info[name][1]).id
                 end
                 v.opacity = opacity
             end
         end
     end
-
 end
 
-function ApplyOverlays(overlayTarget)
-    if IsPedMale(overlayTarget) then
-        current_texture_settings = texture_types["male"]
+local function ApplyOverlays(ped)
+    local settings = texture_types[genderKey(ped)]
+    if textureId ~= -1 then
+        Citizen.InvokeNative(0xB63B9178D0F58D82, textureId)
+        Citizen.InvokeNative(0x6BEFAA907B076859, textureId)
+    end
+    textureId = Citizen.InvokeNative(0xC5E7204F322E49EB, settings.albedo, settings.normal, settings.material)
+    for _, v in pairs(overlay_all_layers) do
+        if v.visibility ~= 0 then
+            local id = Citizen.InvokeNative(0x86BB5FF45F193A02, textureId, v.tx_id, v.tx_normal, v.tx_material, v.tx_color_type, v.tx_opacity, v.tx_unk)
+            if v.tx_color_type == 0 then
+                Citizen.InvokeNative(0x1ED8588524AC9BE1, textureId, id, v.palette)
+                Citizen.InvokeNative(0x2DF59FFE6FFD6044, textureId, id, v.palette_color_primary, v.palette_color_secondary, v.palette_color_tertiary)
+            end
+            Citizen.InvokeNative(0x3329AAE2882FC8E4, textureId, id, v.var)
+            Citizen.InvokeNative(0x6C76BC24F8BB709A, textureId, id, v.opacity)
+        end
+    end
+    local timeout = GetGameTimer() + 3000
+    while not Citizen.InvokeNative(0x31DC8D3F216D8509, textureId) and GetGameTimer() < timeout do Wait(0) end
+    Citizen.InvokeNative(0x92DAABA2C1C10B0E, textureId)
+    Citizen.InvokeNative(0x8472A1789478F82F, textureId)
+    Citizen.InvokeNative(0x0B46E25761519058, ped, `heads`, textureId)
+    Citizen.InvokeNative(0xCC8CA3E88256E58F, ped, 0, 1, 1, 1, false)
+end
+
+local function n(key) return tonumber(CreatorCache[key]) end
+
+local function LoadOverlays(ped)
+    local d = CreatorCache
+    if n('eyebrows_t') and n('eyebrows_op') then
+        ChangeOverlay('eyebrows', 1, n('eyebrows_t'), 0, n('eyebrows_id') or 1, n('eyebrows_c1') or 0, 0, 0, n('eyebrows_op') / 100)
     else
-        current_texture_settings = texture_types["female"]
+        ChangeOverlay('eyebrows', 1, 1, 0, 10, 0, 0, 0, 1.0)
+    end
+    for _, name in ipairs({ 'scars', 'ageing', 'freckles', 'moles', 'spots' }) do
+        if n(name .. '_t') and n(name .. '_op') then
+            ChangeOverlay(name, 1, n(name .. '_t'), 1, 0, 0, 0, 0, n(name .. '_op') / 100)
+        end
+    end
+    if n('eyeliners_t') and n('eyeliners_op') then
+        ChangeOverlay('eyeliners', 1, 1, 0, n('eyeliners_id') or 1, n('eyeliners_c1') or 0, 0, n('eyeliners_t'), n('eyeliners_op') / 100)
+    end
+    if n('shadows_t') and n('shadows_op') then
+        ChangeOverlay('shadows', 1, 1, 0, n('shadows_id') or 1, n('shadows_c1') or 0, 0, n('shadows_t'), n('shadows_op') / 100)
+    end
+    if n('lipsticks_t') and n('lipsticks_op') then
+        ChangeOverlay('lipsticks', 1, 1, 0, n('lipsticks_id') or 1, n('lipsticks_c1') or 0, n('lipsticks_c2') or 0, n('lipsticks_t'), n('lipsticks_op') / 100)
+    end
+    if n('blush_t') and n('blush_op') then
+        ChangeOverlay('blush', 1, n('blush_t'), 0, n('blush_id') or 1, n('blush_c1') or 0, 0, 0, n('blush_op') / 100)
+    end
+    if d.beardstabble_t ~= nil and n('beardstabble_op') then
+        ChangeOverlay('beardstabble', 1, 1, 0, 10, 0, 0, 0, n('beardstabble_op') / 100)
+    end
+    ApplyOverlays(ped)
+end
+
+---------------------------------------------------------------------
+-- session
+---------------------------------------------------------------------
+local function SeedCache(skin)
+    CreatorCache = {}
+    for k, v in pairs(skin) do
+        if type(v) ~= 'table' then CreatorCache[k] = tonumber(v) or v end
+    end
+    local gender = genderKey()
+    for _, cat in ipairs({ 'hair', 'beard' }) do
+        local m, t = Barber.FindModel(gender, cat, Barber.StoredHash(gender, cat, skin[cat]))
+        CreatorCache[cat] = { model = m, texture = t }
+    end
+    for _, layer in pairs(overlay_all_layers) do layer.visibility = 0 end
+end
+
+local function CloseBarber(reloadSkin)
+    SetNuiFocus(false, false)
+    SendNUIMessage({ action = 'close' })
+    if cam then
+        RenderScriptCams(false, true, 1000, true, true)
+        SetCamActive(cam, false)
+        DestroyCam(cam, true)
+        cam = nil
+    end
+    local ped = PlayerPedId()
+    FreezeEntityPosition(ped, false)
+    ClearPedTasks(ped)
+    ClearPedSecondaryTask(ped)
+    current = nil
+
+    if reloadSkin then
+        Wait(1000)
+        local maxStamina = Citizen.InvokeNative(0xCB42AFE2B613EE55, ped, Citizen.ResultAsFloat())
+        local stamina = maxStamina > 0 and (Citizen.InvokeNative(0x775A1CA7893AA8B5, ped, Citizen.ResultAsFloat()) / maxStamina * 100) or 100
+        exports['rsg-character']:ApplySkin() -- reverts preview / applies saved style, keeps health
+        Citizen.InvokeNative(0xC3D4B754C0E86B9E, PlayerPedId(), stamina)
     end
     if textureId ~= -1 then
-        Citizen.InvokeNative(0xB63B9178D0F58D82, textureId) -- reset texture
-        Citizen.InvokeNative(0x6BEFAA907B076859, textureId) -- remove texture
+        Citizen.InvokeNative(0x6BEFAA907B076859, textureId)
+        textureId = -1
     end
-    textureId = Citizen.InvokeNative(0xC5E7204F322E49EB, current_texture_settings.albedo,
-        current_texture_settings.normal, current_texture_settings.material); -- create texture
-    for k, v in pairs(overlay_all_layers) do
-        if v.visibility ~= 0 then
-            local overlay_id = Citizen.InvokeNative(0x86BB5FF45F193A02, textureId, v.tx_id, v.tx_normal, v.tx_material,
-                v.tx_color_type, v.tx_opacity, v.tx_unk); -- create overlay
-            if v.tx_color_type == 0 then
-                Citizen.InvokeNative(0x1ED8588524AC9BE1, textureId, overlay_id, v.palette); -- apply palette
-                Citizen.InvokeNative(0x2DF59FFE6FFD6044, textureId, overlay_id, v.palette_color_primary,
-                    v.palette_color_secondary, v.palette_color_tertiary) -- apply palette colours
-            end
-            Citizen.InvokeNative(0x3329AAE2882FC8E4, textureId, overlay_id, v.var); -- apply overlay variant
-            Citizen.InvokeNative(0x6C76BC24F8BB709A, textureId, overlay_id, v.opacity); -- apply overlay opacity
+    CreatorCache = {}
+    busy = false
+end
+
+---------------------------------------------------------------------
+-- NUI data
+---------------------------------------------------------------------
+local function HairFields()
+    local fields = {}
+    local cats = IsPedMale(PlayerPedId()) and { 'hair', 'beard' } or { 'hair' }
+    for _, cat in ipairs(cats) do
+        local sel = CreatorCache[cat]
+        local has = sel.model > 0
+        fields[#fields + 1] = { key = cat .. ':model', label = locale(cat .. '_style'), kind = 'style',
+            min = 0, max = #hairs_list[genderKey()][cat], value = sel.model }
+        fields[#fields + 1] = { key = cat .. ':texture', label = locale(cat .. '_color'), kind = 'color',
+            min = has and 1 or 0, max = has and GetMaxTextures(cat, sel.model) or 0, value = has and sel.texture or 0 }
+    end
+    return fields
+end
+
+local function MakeupFields()
+    local fields = {}
+    local male = IsPedMale(PlayerPedId())
+    for _, def in ipairs(Config.Makeup) do
+        if male or not def.maleOnly then
+            local v = n(def.key) or def.default
+            fields[#fields + 1] = { key = def.key, label = locale(def.label), kind = def.label == 'opacity' and 'percent' or 'number',
+                min = def.min, max = def.max, step = def.hop or 1, value = math.max(def.min, math.min(def.max, v)) }
         end
     end
-    while not Citizen.InvokeNative(0x31DC8D3F216D8509, textureId) do -- wait till texture fully loaded
-        Citizen.Wait(0)
-    end
-    Citizen.InvokeNative(0x92DAABA2C1C10B0E, textureId) -- update texture
-    Citizen.InvokeNative(0x8472A1789478F82F, textureId) -- reset texture
-    Citizen.InvokeNative(0x0B46E25761519058, overlayTarget, GetHashKey("heads"), textureId) -- apply texture to current component in category "heads"
-    Citizen.InvokeNative(0xCC8CA3E88256E58F, overlayTarget, 0, 1, 1, 1, false); -- refresh ped components
+    return fields
 end
 
-function LoadOverlays(target, data)
-
-    if tonumber(data.eyebrows_t) ~= nil and tonumber(data.eyebrows_op) ~= nil then
-        ChangeOverlays("eyebrows", 1, tonumber(data.eyebrows_t), 0, 0, 0, 1.0, 0, tonumber(data.eyebrows_id) or 1, tonumber(data.eyebrows_c1) or 0, 0, 0, 0, tonumber(data.eyebrows_op / 100))
-    else
-        ChangeOverlays("eyebrows", 1, 1, 0, 0, 0, 1.0, 0, 10, 0, 0, 0, 0, 1.0)
-    end
-
-    if tonumber(data.scars_t) ~= nil and tonumber(data.scars_op) ~= nil then
-        ChangeOverlays("scars", 1, tonumber(data.scars_t), 0, 0, 1, 1.0, 0, tonumber(0), 0, 0, 0, tonumber(0), tonumber(data.scars_op / 100))
-    end
-
-    if tonumber(data.ageing_t) ~= nil and tonumber(data.ageing_op) ~= nil then
-        ChangeOverlays("ageing", 1, tonumber(data.ageing_t), 0, 0, 1, 1.0, 0, tonumber(0), 0, 0, 0, tonumber(0), tonumber(data.ageing_op / 100))
-    end
-
-    if tonumber(data.freckles_t) ~= nil and tonumber(data.freckles_op) ~= nil then
-        ChangeOverlays("freckles", 1, tonumber(data.freckles_t), 0, 0, 1, 1.0, 0, tonumber(0), 0, 0, 0, tonumber(0), tonumber(data.freckles_op / 100))
-    end
-
-    if tonumber(data.moles_t) ~= nil and tonumber(data.moles_op) ~= nil then
-        ChangeOverlays("moles", 1, tonumber(data.moles_t), 0, 0, 1, 1.0, 0, tonumber(0), 0, 0, 0, tonumber(0), tonumber(data.moles_op / 100))
-    end
-
-    if tonumber(data.spots_t) ~= nil and tonumber(data.spots_op) ~= nil then
-        ChangeOverlays("spots", 1, tonumber(data.spots_t), 0, 0, 1, 1.0, 0, tonumber(0), 0, 0, 0, tonumber(0), tonumber(data.spots_op / 100))
-    end
-
-    if tonumber(data.eyeliners_t) ~= nil and tonumber(data.eyeliners_op) ~= nil then
-        ChangeOverlays("eyeliners", 1, 1, 0, 0, 0, 1.0, 0, tonumber(data.eyeliners_id) or 1, tonumber(data.eyeliners_c1) or 0, 0, 0, tonumber(data.eyeliners_t), tonumber(data.eyeliners_op / 100))
-    end
-
-    if tonumber(data.shadows_t) ~= nil and tonumber(data.shadows_op) ~= nil then
-        ChangeOverlays("shadows", 1, tonumber(1), 0, 0, 0, 1.0, 0, tonumber(data.shadows_id) or 1, tonumber(data.shadows_c1) or 0, 0, 0, tonumber(data.shadows_t), tonumber(data.shadows_op / 100))
-    end
-
-    if tonumber(data.lipsticks_t) ~= nil and tonumber(data.lipsticks_op) ~= nil then
-        ChangeOverlays("lipsticks", 1, 1, 0, 0, 0, 1.0, 0, tonumber(data.lipsticks_id) or 1, tonumber(data.lipsticks_c1) or 0, tonumber(data.lipsticks_c2) or 0, 0, tonumber(data.lipsticks_t), tonumber(data.lipsticks_op / 100))
-    end
-
-    if tonumber(data.blush_t) ~= nil and tonumber(data.blush_op) ~= nil then
-        ChangeOverlays("blush", 1, tonumber(data.blush_t), 0, 0, 0, 1.0, 0, tonumber(data.blush_id) or 1, tonumber(data.blush_c1) or 0, 0, 0, 0, tonumber(data.blush_op / 100))
-    end
-
-    if tonumber(data.beardstabble_t) ~= nil and tonumber(data.beardstabble_op) ~= nil then
-        ChangeOverlays("beardstabble", 1, 1, 0, 0, 0, 1.0, 0, 10, 0, 0, 0, 0, tonumber(data.beardstabble_op / 100))
-    end
-    ApplyOverlays(target)
+local function UiStrings()
+    local keys = { 'barber_title', 'menu_hair_beard', 'menu_makeup', 'none', 'style_n', 'color_n',
+        'ui_cancel', 'ui_pay', 'ui_price', 'ui_hint', 'ui_saving' }
+    local t = {}
+    for _, k in ipairs(keys) do t[k] = locale(k) end
+    return t
 end
 
--- Cameras & Lihtings
-CreateThread(function()
-    while true do
-        local t = 3000
+local MAKEUP = {}
+for _, def in ipairs(Config.Makeup) do MAKEUP[def.key] = def end
 
-        if not sit then goto continue end
+RegisterNUICallback('change', function(data, cb)
+    if not current or type(data) ~= 'table' then return cb({}) end
+    local value = math.tointeger(tonumber(data.value))
+    if not value then return cb({}) end
+    local ped = PlayerPedId()
+    local cat, part = tostring(data.key):match('^(%a+):(%a+)$')
 
-        DrawLightWithRange(lighting, 255, 255, 255, 2.5, 50.0)
-        SetCamCoord(cam, camPos)
-        SetCamRot(cam, camRot, 2)
-
-        t = 4
-
-        ::continue::
-
-        Wait(t)
+    if cat and CreatorCache[cat] and (cat == 'hair' or (cat == 'beard' and IsPedMale(ped))) then
+        local sel = CreatorCache[cat]
+        if part == 'model' then
+            local max = #hairs_list[genderKey()][cat]
+            if value < 0 or value > max or value == sel.model then return cb({}) end
+            sel.model, sel.texture = value, 1
+            LoadHairCategory(ped, cat)
+            local has = value > 0
+            return cb({ update = { key = cat .. ':texture', min = has and 1 or 0, max = has and GetMaxTextures(cat, value) or 0, value = has and 1 or 0 } })
+        elseif part == 'texture' then
+            if sel.model == 0 or value < 1 or value > GetMaxTextures(cat, sel.model) then return cb({}) end
+            sel.texture = value
+            LoadHairCategory(ped, cat)
+        end
+        return cb({})
     end
+
+    local def = MAKEUP[data.key]
+    if def and value >= def.min and value <= def.max and (IsPedMale(ped) or not def.maleOnly) then
+        CreatorCache[def.key] = value
+        LoadOverlays(ped)
+    end
+    cb({})
 end)
 
--- Cleanup
-AddEventHandler("onResourceStop", function(resourceName)
-    local resourcename = GetCurrentResourceName()
-    if resourcename ~= resourceName then return end
+local REASONS = {
+    no_money   = function(r) notify(locale('no_money_title'), locale('no_money', r.price or Config.BarberCost), 'error') end,
+    no_changes = function() notify(locale('barber_title'), locale('no_changes'), 'inform') end,
+    too_far    = function() notify(locale('barber_title'), locale('too_far'), 'error') end,
+    busy       = function() notify(locale('barber_title'), locale('busy'), 'warning') end,
+}
+local KEEP_OPEN = { no_money = true, no_changes = true, busy = true }
 
-    MenuData.CloseAll()
+RegisterNUICallback('save', function(_, cb)
+    if not current then return cb({ ok = false }) end
+    local payload = { hair = CreatorCache.hair }
+    if IsPedMale(PlayerPedId()) then payload.beard = CreatorCache.beard end
+    for _, def in ipairs(Config.Makeup) do payload[def.key] = CreatorCache[def.key] end
 
-    CreatorCache = {}
-    MenuData = {}
-
-    RenderScriptCams(false, true, 500, true, true)
-    SetCamActive(cam, false)
-    DetachCam(cam)
-    DestroyCam(cam, true)
-
-    sit = false
-    cam = nil
-    lighting = nil
-
-    ClearPedTasks(PlayerPedId())
-    ClearPedSecondaryTask(PlayerPedId())
-    FreezeEntityPosition(PlayerPedId(), false)
-
-    for i = 1, #blipEntries do
-        if blipEntries[i].type == "BLIP" then
-            RemoveBlip(blipEntries[i].handle)
-        end
+    local result = RSGCore.Functions.AwaitCallback('rsg-barbers:server:purchase', 10000, current.barberid, payload)
+    if result and result.ok then
+        cb({ ok = true })
+        return CloseBarber(true)
     end
+    local handler = REASONS[result and result.reason]
+    if handler then handler(result) else notify(locale('barber_title'), locale('error'), 'error') end
+    local keep = result and KEEP_OPEN[result.reason] or false
+    cb({ ok = false, keepOpen = keep })
+    if not keep then CloseBarber(true) end
+end)
+
+RegisterNUICallback('close', function(_, cb)
+    cb({})
+    if current then CloseBarber(true) end
+end)
+
+---------------------------------------------------------------------
+-- open
+---------------------------------------------------------------------
+RegisterNetEvent('rsg-barbers:client:open', function(barberid)
+    if busy then return end
+    local loc = Barber.GetLocation(barberid)
+    local ped = PlayerPedId()
+    if not loc or IsEntityDead(ped) or IsPedOnMount(ped) or IsPedInAnyVehicle(ped, false) then return end
+    if #(GetEntityCoords(ped) - loc.coords) > 2.5 then return notify(locale('barber_title'), locale('too_far'), 'error') end
+    busy = true
+
+    local data = RSGCore.Functions.AwaitCallback('rsg-character:server:getAppearance', 10000)
+    if not data or not data.skin then
+        busy = false
+        return notify(locale('barber_title'), locale('error'), 'error')
+    end
+    SeedCache(data.skin)
+    current = loc
+
+    ClearPedTasks(ped)
+    Citizen.InvokeNative(0x4D1F61FC34AF3CD1, ped, `PROP_PLAYER_BARBER_SEAT`, loc.seat.x, loc.seat.y, loc.seat.z, loc.seat.w, 0, false, true) -- TaskStartScenarioAtPosition
+    FreezeEntityPosition(ped, true)
+
+    cam = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
+    SetCamCoord(cam, loc.camPos.x, loc.camPos.y, loc.camPos.z)
+    SetCamRot(cam, loc.camRot.x, loc.camRot.y, loc.camRot.z, 2)
+    SetCamFov(cam, GetGameplayCamFov())
+    RenderScriptCams(true, true, 2000, true, true)
+
+    SendNUIMessage({
+        action = 'open',
+        strings = UiStrings(),
+        shop = loc.name,
+        price = Barber.GetPrice(loc),
+        align = Config.MenuAlign,
+        tabs = {
+            { id = 'hair', label = locale('menu_hair_beard'), fields = HairFields() },
+            { id = 'makeup', label = locale('menu_makeup'), fields = MakeupFields() },
+        },
+    })
+    SetNuiFocus(true, true)
+
+    CreateThread(function()
+        while current == loc do
+            DrawLightWithRange(loc.lighting.x, loc.lighting.y, loc.lighting.z, 255, 255, 255, 2.5, 50.0)
+            Wait(0)
+        end
+    end)
+end)
+
+-- legacy event name
+AddEventHandler('rsg-barber:client:menu', function(barberid) TriggerEvent('rsg-barbers:client:open', barberid) end)
+
+AddEventHandler('onResourceStop', function(resource)
+    if resource ~= RESOURCE then return end
+    SetNuiFocus(false, false)
+    if not busy then return end
+    if cam then RenderScriptCams(false, false, 0, true, true); DestroyCam(cam, true) end
+    local ped = PlayerPedId()
+    FreezeEntityPosition(ped, false)
+    ClearPedTasks(ped)
+    if textureId ~= -1 then Citizen.InvokeNative(0x6BEFAA907B076859, textureId) end
 end)

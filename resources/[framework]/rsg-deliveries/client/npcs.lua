@@ -27,6 +27,7 @@ local function BuildLang()
 end
 
 local function ShowDeliveryMenu(hubIndex)
+    if currentHub then return end
     local location = Config.DeliveryLocations[hubIndex]
     local deliveries, maxDistance = {}, 0
 
@@ -101,7 +102,7 @@ end
 local function SpawnForeman(hubIndex, location)
     local coords = location.npccoords
     local modelHash = joaat(location.npcmodel)
-    if not pcall(lib.requestModel, modelHash, 5000) then
+    if not pcall(RSGCore.Functions.RequestModel, modelHash, 5000) then
         print(('^1[%s] Failed to load NPC model: %s^7'):format(GetCurrentResourceName(), location.npcmodel))
         return nil
     end
@@ -120,7 +121,7 @@ local function SpawnForeman(hubIndex, location)
     SetPedFleeAttributes(ped, 0, false)
     TaskStartScenarioInPlace(ped, joaat('WORLD_HUMAN_CLIPBOARD'), 0, true)
 
-    exports.ox_target:addLocalEntity(ped, {
+    exports['rsg-target']:addLocalEntity(ped, {
         {
             name = 'delivery_npc_' .. hubIndex,
             label = locale('talk_to_foreman'),
@@ -138,19 +139,20 @@ local function DespawnForeman(hubIndex)
     local ped = spawnedPeds[hubIndex]
     spawnedPeds[hubIndex] = nil
     if not ped or not DoesEntityExist(ped) then return end
+    exports['rsg-target']:removeLocalEntity(ped)
     FadePed(ped, 255, 0)
     DeletePed(ped)
 end
 
 CreateThread(function()
     while true do
-        local playerCoords = GetEntityCoords(cache.ped)
+        local playerCoords = GetEntityCoords(PlayerPedId())
         for k, location in ipairs(Config.DeliveryLocations) do
             local near = #(playerCoords - location.npccoords.xyz) < Config.DistanceSpawn
             if near and not spawnedPeds[k] then
                 spawnedPeds[k] = SpawnForeman(k, location)
             elseif not near and spawnedPeds[k] then
-                DespawnForeman(k)
+                CreateThread(function() DespawnForeman(k) end)
             end
         end
         Wait(500)
@@ -161,6 +163,9 @@ AddEventHandler('onResourceStop', function(resourceName)
     if GetCurrentResourceName() ~= resourceName then return end
     SetNuiFocus(false, false)
     for _, ped in pairs(spawnedPeds) do
-        if DoesEntityExist(ped) then DeletePed(ped) end
+        if DoesEntityExist(ped) then
+            exports['rsg-target']:removeLocalEntity(ped)
+            DeletePed(ped)
+        end
     end
 end)

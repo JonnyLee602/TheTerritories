@@ -62,12 +62,10 @@ end)
 -- per-route config lookups (resolved once instead of every frame)
 local RouteSwitches = {
     trainRouteOne   = function() return Config.RouteOneTrainSwitches end,
-    tramRouteOne    = function() return Config.RouteOneTramSwitches end,
     trainRouteThree = function() return Config.RouteThreeTrainSwitches end,
 }
 local RouteStops = {
     trainRouteOne   = { stops = function() return Config.RouteOneTrainStops end,   cruise = 5.0, full = 15.0, whistle = true },
-    tramRouteOne    = { stops = function() return Config.RouteOneTramStops end,    cruise = 1.0, full = 2.0 },
     trainRouteThree = { stops = function() return Config.RouteThreeTrainStops end, cruise = 8.0, full = 12.0 },
 }
 
@@ -181,13 +179,6 @@ function FindNearestName(coords)
             nearestName = stop.name
         end
     end
-    for _, stop in ipairs(Config.RouteOneTramStops) do
-        local dist = #(stop.coords - coords)
-        if dist < nearestDist then
-            nearestDist = dist
-            nearestName = stop.name
-        end
-    end
     for _, stop in ipairs(Config.RouteThreeTrainStops) do
         local dist = #(stop.coords - coords)
         if dist < nearestDist then
@@ -201,7 +192,7 @@ function FindNearestName(coords)
     return nearestName
 end
 
-RegisterCommand('trainpos', function()
+RegisterNetEvent('rsg-railroad:client:trainpos', function()
     local options = {}
 
     if ActiveTrain and DoesEntityExist(ActiveTrain) then
@@ -217,11 +208,6 @@ RegisterCommand('trainpos', function()
         end
     end
 
-    if ambientTram and DoesEntityExist(ambientTram) then
-        local coords = GetEntityCoords(ambientTram)
-        table.insert(options, { title = locale('menu_saint_denis_trolley'), description = FindNearestName(coords), icon = 'tram' })
-    end
-
     if #options == 0 then
         Notify(locale('no_trains_found'), 'error')
         return
@@ -229,9 +215,9 @@ RegisterCommand('trainpos', function()
 
     lib.registerContext({ id = 'trainpos_menu', title = locale('menu_train_locations'), options = options })
     lib.showContext('trainpos_menu')
-end, false)
+end)
 
-RegisterCommand('setjunction', function(source, args)
+RegisterNetEvent('rsg-railroad:client:setjunction', function(args)
     if #args < 3 then
         print('Usage: /setjunction <trackName> <junctionIndex> <0|1>')
         print('Example: /setjunction TRAINS_OLD_WEST03 2 1')
@@ -243,4 +229,4 @@ RegisterCommand('setjunction', function(source, args)
     SetTrainTrackJunctionSwitch(hash, idx, enabled)
     Citizen.InvokeNative(0x3ABFA128F5BF5A70, hash, idx, enabled and 1 or 0)
     print(string.format('Set junction: hash=%d (%s), idx=%d, enabled=%s', hash, args[1], idx, tostring(enabled)))
-end, false)
+end)

@@ -1,15 +1,14 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
-lib.locale()
 
 local ActiveDeliveries = {}
 local LastDelivery = {}
 
 local START_RADIUS = 30.0       -- player must be this close to the hub's cart spawn to start
 local COMPLETE_RADIUS = 20.0    -- server-side tolerance for player / wagon at the drop-off
-local FAIL_REASONS = { timeout = 'Timeout', damaged_wagon = 'Damaged Wagon', wagon_lost = 'Wagon Lost' }
+local FAIL_REASONS = { timeout = 'Timeout', damaged_wagon = 'Damaged Wagon', wagon_lost = 'Wagon Lost', player_died = 'Player Died' }
 
 local function Notify(src, title, description, ntype)
-    TriggerClientEvent('ox_lib:notify', src, { title = title, description = description, type = ntype, duration = 5000 })
+    TriggerClientEvent('RSGCore:Client:Notify', src, { title = title, description = description, type = ntype, duration = 5000 })
 end
 
 local function Log(msg, ...)
@@ -17,7 +16,7 @@ local function Log(msg, ...)
 end
 
 local function SendWebhook(eventType, player, details)
-    if not Config.Webhook.url or Config.Webhook.url == '' then return end
+    if not SvConfig.Webhook.url or SvConfig.Webhook.url == '' then return end
 
     local charinfo = player.PlayerData.charinfo
     local fields = {
@@ -27,12 +26,12 @@ local function SendWebhook(eventType, player, details)
     }
     for _, field in ipairs(details or {}) do fields[#fields + 1] = field end
 
-    PerformHttpRequest(Config.Webhook.url, function() end, 'POST', json.encode({
+    PerformHttpRequest(SvConfig.Webhook.url, function() end, 'POST', json.encode({
         embeds = {{
-            title = Config.Webhook.title,
-            color = Config.Webhook.color,
+            title = SvConfig.Webhook.title,
+            color = SvConfig.Webhook.color,
             fields = fields,
-            footer = { text = Config.Webhook.footer },
+            footer = { text = SvConfig.Webhook.footer },
             timestamp = os.date('!%Y-%m-%dT%H:%M:%SZ'),
         }}
     }), { ['Content-Type'] = 'application/json' })
@@ -41,7 +40,13 @@ end
 ---------------------------------
 -- start: client only sends indexes, server resolves everything from Config
 ---------------------------------
-lib.callback.register('rsg-deliveries:server:startdelivery', function(src, hubIndex, destIndex)
+local StartDelivery
+
+RSGCore.Functions.CreateCallback('rsg-deliveries:server:startdelivery', function(src, cb, hubIndex, destIndex)
+    cb(StartDelivery(src, hubIndex, destIndex))
+end)
+
+function StartDelivery(src, hubIndex, destIndex)
     local Player = RSGCore.Functions.GetPlayer(src)
     if not Player then return false end
 
@@ -85,13 +90,27 @@ lib.callback.register('rsg-deliveries:server:startdelivery', function(src, hubIn
         { name = 'Est. Reward', value = '$' .. cash, inline = true },
     })
     return true
-end)
+end
+
+local function DeleteDeliveryWagon(delivery)
+    if not delivery or not delivery.netId then return end
+    local wagon = NetworkGetEntityFromNetworkId(delivery.netId)
+    if wagon ~= 0 and DoesEntityExist(wagon) then DeleteEntity(wagon) end
+end
 
 RegisterNetEvent('rsg-deliveries:server:setwagon', function(netId)
-    local delivery = ActiveDeliveries[source]
-    if delivery and type(netId) == 'number' and not delivery.netId then
-        delivery.netId = netId
+    local src = source
+    local delivery = ActiveDeliveries[src]
+    if not delivery or delivery.netId or type(netId) ~= 'number' then return end
+    -- only accept the wagon model this contract spawned, near the player
+    local wagon = NetworkGetEntityFromNetworkId(netId)
+    if wagon == 0 or not DoesEntityExist(wagon) then return end
+    if (GetEntityModel(wagon) & 0xFFFFFFFF) ~= (joaat(delivery.destination.wagonModel) & 0xFFFFFFFF) then
+        Log('Player %s registered a wagon with the wrong model', src)
+        return
     end
+    if #(GetEntityCoords(wagon) - GetEntityCoords(GetPlayerPed(src))) > START_RADIUS then return end
+    delivery.netId = netId
 end)
 
 ---------------------------------
@@ -124,6 +143,7 @@ RegisterNetEvent('rsg-deliveries:server:completedelivery', function()
     local now = os.time()
     if now > delivery.expiry then
         Log('Player %s tried to complete an expired delivery', src)
+        DeleteDeliveryWagon(delivery)
         return
     end
 
@@ -143,11 +163,13 @@ RegisterNetEvent('rsg-deliveries:server:completedelivery', function()
         local wagon = delivery.netId and NetworkGetEntityFromNetworkId(delivery.netId) or 0
         if wagon == 0 or not DoesEntityExist(wagon) or #(GetEntityCoords(wagon) - endCoord) > COMPLETE_RADIUS then
             Notify(src, locale('delivery_failed_title'), locale('delivery_failed_no_wagon'), 'error')
+            LastDelivery[src] = now
             return
         end
     end
 
     LastDelivery[src] = now
+    DeleteDeliveryWagon(delivery)
 
     if delivery.cash > 0 then
         Player.Functions.AddMoney('cash', delivery.cash, 'rsg-deliveries-complete')
@@ -157,7 +179,6 @@ RegisterNetEvent('rsg-deliveries:server:completedelivery', function()
     if item then
         if exports['rsg-inventory']:CanAddItem(src, item.name, item.amount) then
             exports['rsg-inventory']:AddItem(src, item.name, item.amount, nil, nil, 'rsg-deliveries-complete')
-            TriggerClientEvent('rsg-inventory:client:ItemBox', src, RSGCore.Shared.Items[item.name], 'add', item.amount)
         else
             Notify(src, locale('delivery_title'), locale('inventory_full'), 'error')
             item = nil
@@ -175,8 +196,11 @@ end)
 -- cancel / fail
 ---------------------------------
 local function EndDelivery(src, label)
-    if not ActiveDeliveries[src] then return end
+    local delivery = ActiveDeliveries[src]
+    if not delivery then return end
     ActiveDeliveries[src] = nil
+    LastDelivery[src] = os.time() -- cooldown also applies to cancel/fail (stops wagon spawn spam)
+    DeleteDeliveryWagon(delivery)
     local Player = RSGCore.Functions.GetPlayer(src)
     if Player then SendWebhook(label, Player) end
 end
@@ -190,6 +214,13 @@ RegisterNetEvent('rsg-deliveries:server:faildelivery', function(reason)
 end)
 
 AddEventHandler('playerDropped', function()
-    ActiveDeliveries[source] = nil
-    LastDelivery[source] = nil
+    local src = source
+    DeleteDeliveryWagon(ActiveDeliveries[src])
+    ActiveDeliveries[src] = nil
+    LastDelivery[src] = nil
+end)
+
+AddEventHandler('onResourceStop', function(resourceName)
+    if GetCurrentResourceName() ~= resourceName then return end
+    for _, delivery in pairs(ActiveDeliveries) do DeleteDeliveryWagon(delivery) end
 end)

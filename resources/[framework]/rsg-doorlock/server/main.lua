@@ -1,5 +1,4 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
-lib.locale()
 
 -- Doors[id] = { id, name, doors = { {hash, coords}, ... }, textCoords, jobs = {}, distance, locked }
 local Doors = {}
@@ -10,7 +9,7 @@ local ready = false
 -- helpers
 ---------------------------------------------
 local function notify(src, key, ntype, ...)
-    TriggerClientEvent('ox_lib:notify', src, {
+    TriggerClientEvent('RSGCore:Client:Notify', src, {
         title = locale('door_title'),
         description = locale(key, ...),
         type = ntype or 'error',
@@ -116,9 +115,9 @@ CreateThread(function()
     TriggerClientEvent('rsg-doorlock:client:syncAll', -1, Doors)
 end)
 
-lib.callback.register('rsg-doorlock:server:getDoors', function()
+RSGCore.Functions.CreateCallback('rsg-doorlock:server:getDoors', function(_, cb)
     while not ready do Wait(100) end
-    return Doors
+    cb(Doors)
 end)
 
 ---------------------------------------------
@@ -129,7 +128,7 @@ RegisterNetEvent('rsg-doorlock:server:requestToggle', function(doorID)
     if not ready then return end
     local door = type(doorID) == 'number' and Doors[doorID]
     if not door then
-        return Webhook.Security(source, locale('wh_sec_nodoor'), ('doorID = %s (%s)'):format(tostring(doorID), type(doorID)))
+        return Webhook.Security(src, locale('wh_sec_nodoor'), ('doorID = %s (%s)'):format(tostring(doorID), type(doorID)))
     end
 
     local Player = RSGCore.Functions.GetPlayer(src)
@@ -138,6 +137,10 @@ RegisterNetEvent('rsg-doorlock:server:requestToggle', function(doorID)
     local now = GetGameTimer()
     if lastUse[src] and now - lastUse[src] < Config.Cooldown then return end
     lastUse[src] = now
+
+    -- the client hides the prompt in these states; enforce it here too
+    local meta = Player.PlayerData.metadata or {}
+    if meta.isdead or meta.ishandcuffed then return end
 
     local dist = #(GetEntityCoords(GetPlayerPed(src)) - door.textCoords)
     if dist > door.distance + Config.DistanceTolerance then
@@ -172,8 +175,8 @@ RSGCore.Commands.Add(Config.AdminCommand, locale('cmd_help'), {}, false, functio
     TriggerClientEvent('rsg-doorlock:client:openEditor', source)
 end, Config.AdminPermission)
 
-lib.callback.register('rsg-doorlock:server:admin:check', function(src)
-    return isAdmin(src)
+RSGCore.Functions.CreateCallback('rsg-doorlock:server:admin:check', function(src, cb)
+    cb(isAdmin(src))
 end)
 
 -- finite number inside the map bounds (rejects NaN / inf / absurd values)
@@ -245,7 +248,7 @@ local function sanitise(data)
     }
 end
 
-lib.callback.register('rsg-doorlock:server:admin:save', function(src, data)
+local function saveDoor(src, data)
     if not isAdmin(src) then
         Webhook.Security(src, locale('wh_sec_save'), json.encode(data) or '?')
         return false, 'err_perm'
@@ -278,9 +281,13 @@ lib.callback.register('rsg-doorlock:server:admin:save', function(src, data)
     print(('[rsg-doorlock] %s (%s) saved door #%d "%s"'):format(GetPlayerName(src), src, id, door.name))
     Webhook.AdminSaved(src, door, old)
     return true, id
+end
+
+RSGCore.Functions.CreateCallback('rsg-doorlock:server:admin:save', function(src, cb, data)
+    cb(saveDoor(src, data))
 end)
 
-lib.callback.register('rsg-doorlock:server:admin:delete', function(src, id)
+local function deleteDoor(src, id)
     if not isAdmin(src) then
         Webhook.Security(src, locale('wh_sec_delete'), ('id = %s'):format(tostring(id)))
         return false
@@ -294,6 +301,10 @@ lib.callback.register('rsg-doorlock:server:admin:delete', function(src, id)
     print(('[rsg-doorlock] %s (%s) deleted door #%d "%s"'):format(GetPlayerName(src), src, id, old.name))
     Webhook.AdminDeleted(src, old)
     return true
+end
+
+RSGCore.Functions.CreateCallback('rsg-doorlock:server:admin:delete', function(src, cb, id)
+    cb(deleteDoor(src, id))
 end)
 
 -- teleport is done client side; this only logs it (admins only)

@@ -1,6 +1,7 @@
-exports('GET_TASK_FISHING_DATA_EXTRA', (ped) => {
+exports('GET_TASK_FISHING_DATA_EXTRA', () => {
     let buffer = new ArrayBuffer(256);
     let view = new DataView(buffer);
+    // _GET_TASK_FISHING
     let hasMinigameOn = Citizen.invokeNative("0xF3735ACD11ACD500", PlayerPedId(), view);
     let outAsInt = new Int32Array(buffer);
     let outAsFloat = new Float32Array(buffer);
@@ -15,26 +16,12 @@ exports('SET_TASK_FISHING_DATA_EXTRA', (struct) => {
         let k = `f_${i}`;
         let v = struct[k];
         switch (i) {
-            case 1:
-            case 2:
-            case 3:
-            case 4:
-            case 8:
-            case 9:
-            case 13:
-            case 14:
-            case 15:
-            case 17:
-            case 20:
-            case 21:
-            case 22:
-            case 23:
-            case 24:
-            case 25:
-            case 26:
-            case 27:
-                v = Float32ToInt32(v);
+            case 1: case 2: case 3: case 4: case 8: case 9: case 13: case 14: case 15:
+            case 17: case 20: case 21: case 22: case 23: case 24: case 25: case 26: case 27:
+                v = Float32ToInt32(v ?? 0);
                 break;
+            default:
+                v = v ?? 0;
         }
         view.setUint32(i * 8, v, true);
     }
@@ -47,14 +34,3 @@ function Float32ToInt32(num) {
     view.setFloat32(0, num, false); // byteOffset = 0; littleEndian = false
     return view.getInt32(0);
 }
-
-exports('VERTICAL_PROBE', (x, y, z, unkbool) => {
-    const buffer = new ArrayBuffer(8);
-    const view = new DataView(buffer);
-
-    // TEST_VERTICAL_PROBE_AGAINST_ALL_WATER
-    const r = Citizen.invokeNative("0x2B3451FA1E3142E2", x, y, z, unkbool, view);
-    const out = new Float32Array(buffer);
-
-    return [r, out[0]];
-});

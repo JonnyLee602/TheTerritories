@@ -58,15 +58,22 @@ export async function fetchNui<T = unknown>(
   }
 }
 
-// NUI CEF does not grant clipboard-write, so in-game copies go through Lua
-// (ox_lib setClipboard). Browser debug still uses the normal clipboard API.
+// NUI CEF does not grant the async clipboard API, but the legacy
+// execCommand('copy') on a selected textarea still works in-game.
 export async function copyToClipboard(text: string): Promise<void> {
   if (!text) return;
-  if (isDebug) {
-    await navigator.clipboard?.writeText(text);
+  if (isDebug && navigator.clipboard) {
+    await navigator.clipboard.writeText(text);
     return;
   }
-  await fetchNui('copyToClipboard', { text }, { success: true });
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.style.position = 'fixed';
+  el.style.opacity = '0';
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
 }
 
 // Module-level cache shared across every mount of every page for the lifetime of the
