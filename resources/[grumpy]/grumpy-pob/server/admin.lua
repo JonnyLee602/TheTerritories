@@ -37,7 +37,7 @@ RSGCore.Functions.CreateCallback('grumpy-pob:server:adminData', function(source,
     cb({
         businesses = list, types = typeList(), now = os.time(),
         limits = { maxCraft = Config.MaxCraftStations, maxStash = Config.MaxStashes, maxPrice = Config.MaxPrice },
-        gov = Acc.Balance(Acc.GOV),
+        gov = Acc.Balance(Acc.GOV), craftProps = Config.CraftProps,
     })
 end)
 
@@ -63,11 +63,29 @@ local function sign(p)
     return base
 end
 
-local function list(raw, max, withHeading)
+local craftPropModels = {}
+for _, p in ipairs(Config.CraftProps or {}) do craftPropModels[p.model] = true end
+
+-- crafting station: a point, plus an optional prop (only models from Config.CraftProps, close to the point)
+local function craftPoint(raw)
+    local p = point(raw, true)
+    if not p then return nil end
+    local prop = type(raw) == 'table' and raw.prop or nil
+    if prop == nil then return p end
+    if type(prop) ~= 'table' or not craftPropModels[prop.model] then return nil end
+    local base = sign(prop) -- same checks as the sign: finite coords + rsg-gizmo SanitiseRotation
+    if not base or #(vector3(base.x, base.y, base.z) - vector3(p.x, p.y, p.z)) > 3.0 then return nil end
+    base.model = prop.model
+    p.prop = base
+    return p
+end
+
+local function list(raw, max, withHeading, fn)
     local out = {}
     if type(raw) ~= 'table' then return out end
     for i = 1, math.min(#raw, max) do
-        local p = point(raw[i], withHeading)
+        local p
+        if fn then p = fn(raw[i]) else p = point(raw[i], withHeading) end
         if not p then return nil end
         out[#out + 1] = p
     end
@@ -87,7 +105,7 @@ local function sanitise(data, existing)
     local pts = data.points or {}
     local points = {
         npc = point(pts.npc, true), manager = point(pts.manager, true), sign = sign(pts.sign),
-        craft = list(pts.craft, Config.MaxCraftStations, true), stash = list(pts.stash, Config.MaxStashes, true),
+        craft = list(pts.craft, Config.MaxCraftStations, true, craftPoint), stash = list(pts.stash, Config.MaxStashes, true),
     }
     if not points.npc then return nil, 'admin_need_npc' end
     if not points.manager then return nil, 'admin_need_manager' end

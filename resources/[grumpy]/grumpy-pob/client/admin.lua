@@ -14,10 +14,10 @@ RegisterNetEvent('grumpy-pob:client:refresh', function(which)
     if which == 'admin' and POBC.uiOpen == 'admin' then openAdmin(true) end
 end)
 
--- Place a point (NPC, desk, station, stash, door...) with rsg-gizmo. rsg-gizmo's Place() only takes props, so
--- (like grumpy-bartender) a local ghost of the business NPC is spawned and moved with Edit(): it shows exactly
--- where someone stands and which way they face, and you can walk while placing. The result is standing coords
--- (peds spawn at z - 1.0), the same as grumpy-bartender.
+-- Place a point with rsg-gizmo. Where someone stands (NPC, hotel door/room, stable preview): rsg-gizmo's Place()
+-- only takes props, so (like grumpy-bartender) a local ghost of the business NPC is spawned and moved with Edit().
+-- The result is standing coords (peds spawn at z - 1.0), the same as grumpy-bartender.
+-- Objects (manager desk, crafting stations, stashes) use placeMarker below instead.
 local function ghostModel(name, typeKey)
     for _, m in ipairs({ name, Config.Types[typeKey] and Config.Types[typeKey].npcModel }) do
         if type(m) == 'string' then
@@ -32,8 +32,26 @@ local function ghostModel(name, typeKey)
     end
 end
 
+-- Manager desk, crafting station, stash: a small marker you aim at the desk / stove / chest itself.
+-- The point is where the marker sits (the rsg-target zone is centred there).
+local function placeMarker(body, cb)
+    local cur = type(body.current) == 'table' and tonumber(body.current.x) and body.current or nil
+    POBC.HideUI()
+    CreateThread(function()
+        local res = exports['rsg-gizmo']:Place(Config.PointMarker, {
+            title = locale('gizmo_marker', tostring(body.label or '')),
+            maxDistance = Config.PlaceDistance, rotation = 'z',
+            startCoords = cur and vector3(cur.x, cur.y, cur.z) or nil,
+        })
+        POBC.ShowUI()
+        if not res then return cb(nil) end
+        cb({ x = res.coords.x, y = res.coords.y, z = res.coords.z, w = (res.heading or 0.0) % 360.0 })
+    end)
+end
+
 RegisterNUICallback('adminPlacePoint', function(body, cb)
     if exports['rsg-gizmo']:IsActive() then return cb(nil) end
+    if body.kind == 'marker' then return placeMarker(body, cb) end
     local hash = ghostModel(body.model, body.type)
     if not hash then POBC.Notify(locale('invalid_model'), 'error') return cb(nil) end
     local cur = type(body.current) == 'table' and tonumber(body.current.x) and body.current or nil
@@ -59,6 +77,36 @@ RegisterNUICallback('adminPlacePoint', function(body, cb)
         POBC.ShowUI()
         if not res then return cb(nil) end
         cb({ x = res.coords.x, y = res.coords.y, z = res.coords.z, w = (res.heading or 0.0) % 360.0 })
+    end)
+end)
+
+-- Crafting station with its own prop (stove / table from Config.CraftProps) for interiors that have none.
+-- The prop is placed with rsg-gizmo; the crafting target sits CraftPropZoneHeight above its base.
+local function craftProp(model)
+    for _, p in ipairs(Config.CraftProps) do if p.model == model then return p end end
+end
+
+RegisterNUICallback('adminPlaceProp', function(body, cb)
+    if exports['rsg-gizmo']:IsActive() then return cb(nil) end
+    local def = craftProp(body.model)
+    if not def then return cb(nil) end
+    local cur = type(body.current) == 'table' and type(body.current.prop) == 'table' and body.current.prop.model == def.model
+        and body.current.prop or nil
+    POBC.HideUI()
+    CreateThread(function()
+        local res = exports['rsg-gizmo']:Place(def.model, {
+            title = locale('gizmo_craft_prop', def.label),
+            maxDistance = Config.PlaceDistance, rotation = 'z', snapToGround = true,
+            startCoords = cur and vector3(cur.x, cur.y, cur.z) or nil,
+            startRotation = cur and vector3(cur.rx or 0.0, cur.ry or 0.0, cur.rz or 0.0) or nil,
+        })
+        POBC.ShowUI()
+        if not res then return cb(nil) end
+        local c, r = res.coords, res.rotation
+        cb({
+            x = c.x, y = c.y, z = c.z + Config.CraftPropZoneHeight, w = (res.heading or 0.0) % 360.0,
+            prop = { model = def.model, x = c.x, y = c.y, z = c.z, rx = r.x, ry = r.y, rz = r.z },
+        })
     end)
 end)
 

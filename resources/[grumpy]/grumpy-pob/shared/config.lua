@@ -18,8 +18,28 @@ Config.ServerDistance = 6.0              -- server tolerance for "standing at th
 Config.SignModel = 'p_sign_open_close06x' -- data/rdr3_discoveries/objects/object_list.lua (0xD0C40724)
 Config.SignOpenRotation = 180.0          -- yaw added when the business is owned (sign shows "Open")
 
--- /pob editor: every point is placed with rsg-gizmo using a ghost of the business NPC (you can walk while placing)
-Config.PlaceDistance = 30.0              -- how far the ghost may be from you
+-- /pob editor: every point is placed with rsg-gizmo (you can walk while placing).
+-- NPC, hotel door/room and stable preview: a ghost of the business NPC (where someone stands, which way they face).
+-- Manager desk, crafting stations and stashes: a small marker you aim at the desk / stove / chest itself.
+Config.PlaceDistance = 30.0              -- how far the ghost / marker / prop may be from you
+Config.PointMarker = 'p_bottlebeer01x'   -- data/rdr3_discoveries/objects/object_list.lua (0x6DE02925)
+
+-- Crafting station props: "Place prop" puts one of these down when the interior has no stove or bench.
+-- Props are spawned locally for every player near the business. The target sits CraftPropZoneHeight above the
+-- prop's base. Note: rsg-cooking (Config.WorldStations) also adds its Cook option to every p_stove01x/04x/05x/
+-- 06x/07x/09x on the map, so a stove placed here can be cooked on by anyone too. Use a table if you don't want that.
+Config.CraftProps = {
+    { model = 'p_stove01x',        label = 'Stove (1)' },        -- rsg-cooking world station models
+    { model = 'p_stove04x',        label = 'Stove (4)' },
+    { model = 'p_stove05x',        label = 'Stove (5)' },
+    { model = 'p_stove06x',        label = 'Stove (6)' },
+    { model = 'p_stove07x',        label = 'Stove (7)' },
+    { model = 'p_stove09x',        label = 'Stove (9)' },
+    { model = 'p_craftedtable01x', label = 'Crafted table' },   -- data/rdr3_discoveries/objects/object_list.lua
+    { model = 'p_sawbucktable01x', label = 'Sawbuck table' },
+    { model = 'p_gen_table01x',    label = 'Plain table' },
+}
+Config.CraftPropZoneHeight = 0.8         -- metres above the prop's base for the crafting target
 
 ---------------------------------------------------------------------
 -- Grades (one rsg-core job per business: pob_<id>)

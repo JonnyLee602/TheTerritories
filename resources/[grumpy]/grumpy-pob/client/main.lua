@@ -179,7 +179,31 @@ local function despawn(w)
         exports['rsg-target']:removeLocalEntity(w.sign)
         DeleteEntity(w.sign)
     end
-    w.ped, w.sign, w.pedModel = nil, nil, nil
+    for _, obj in ipairs(w.props or {}) do
+        if DoesEntityExist(obj) then DeleteEntity(obj) end
+    end
+    w.ped, w.sign, w.pedModel, w.props = nil, nil, nil, nil
+end
+
+-- Crafting station props (Config.CraftProps), placed with rsg-gizmo in /pob. Local objects, like the sign.
+local function spawnProps(biz, w)
+    w.props = {}
+    for _, p in ipairs(biz.points.craft or {}) do
+        local pr = p.prop
+        if pr and pr.model then
+            local hash = loadModel(pr.model)
+            if hash then
+                local obj = CreateObject(hash, pr.x, pr.y, pr.z, false, false, false)
+                SetModelAsNoLongerNeeded(hash)
+                if DoesEntityExist(obj) then
+                    SetEntityCoordsNoOffset(obj, pr.x, pr.y, pr.z, false, false, false) -- match rsg-gizmo's placed coords
+                    SetEntityRotation(obj, pr.rx or 0.0, pr.ry or 0.0, pr.rz or 0.0, 2, true)
+                    FreezeEntityPosition(obj, true)
+                    w.props[#w.props + 1] = obj
+                end
+            end
+        end
+    end
 end
 
 local function spawnPed(biz, w)
@@ -230,7 +254,8 @@ CreateThread(function()
                     end
                     if not w.ped then spawnPed(biz, w) end
                     if not w.sign and biz.points.sign then spawnSign(biz, w) end
-                elseif w.ped or w.sign then
+                    if not w.props then spawnProps(biz, w) end
+                elseif w.ped or w.sign or w.props then
                     despawn(w)
                 end
             end

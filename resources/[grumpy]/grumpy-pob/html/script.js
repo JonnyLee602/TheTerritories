@@ -570,13 +570,13 @@ function adminEditor(d) {
 
   add(`<div class="section-title">${esc(t('ui_points'))}</div>`);
   add(`<div class="muted">${esc(t('ui_points_hint'))}</div>`);
-  POINTS(type).forEach(([key, label]) => pointRow(label, e.points[key], (p) => { e.points[key] = p; renderAdmin(d); }));
+  POINTS(type).forEach(([key, label]) => pointRow(label, e.points[key], (p) => { e.points[key] = p; renderAdmin(d); }, MARKER_POINTS.has(key) ? 'marker' : 'ped'));
   const sr = add(`<div class="point row ${e.points.sign ? '' : 'missing'}"><div class="row-text"><div class="row-title">${esc(t('ui_pt_sign'))}</div><div class="coords">${esc(fmt(e.points.sign))}</div></div>
     <button class="wood-btn small">${esc(t('ui_place_sign'))}</button></div>`);
   sr.querySelector('button').onclick = async () => { const p = await post('adminPlaceSign', { current: e.points.sign || null }); if (p) { e.points.sign = p; renderAdmin(d); } };
 
-  if (type.crafting) listPoints(d, 'craft', t('ui_pt_craft'), d.limits.maxCraft, 1);
-  listPoints(d, 'stash', t('ui_pt_stash'), d.limits.maxStash, 0);
+  if (type.crafting) listPoints(d, 'craft', t('ui_pt_craft'), d.limits.maxCraft, 1, d.craftProps || []);
+  listPoints(d, 'stash', t('ui_pt_stash'), d.limits.maxStash, 0, null);
 
   const b = add(`<div class="btn-row"><button class="wood-btn">${esc(t('ui_save'))}</button><button class="wood-btn muted">${esc(t('ui_cancel'))}</button></div>`);
   const [save, cancel] = b.querySelectorAll('button');
@@ -584,29 +584,63 @@ function adminEditor(d) {
   save.onclick = () => { post('admin', { op: 'save', id: e.id, data: e }); };
 }
 
-// every point is placed with rsg-gizmo (a ghost of the business NPC you can walk around with)
-const placePoint = (label, current) => post('adminPlacePoint', { label, current: current || null, model: S.edit && S.edit.npcModel, type: S.edit && S.edit.type });
+// Every point is placed with rsg-gizmo (you can walk while placing):
+//   'ped'    = a ghost of the business NPC (NPC, hotel door/room, stable preview: where someone stands)
+//   'marker' = a small marker aimed at the object itself (manager desk, crafting stations, stashes)
+const MARKER_POINTS = new Set(['manager']);
+const placePoint = (label, current, kind) => post('adminPlacePoint', {
+  label, kind, current: current || null, model: S.edit && S.edit.npcModel, type: S.edit && S.edit.type,
+});
+// crafting station with its own stove / table (Config.CraftProps)
+const placeProp = (model, current) => post('adminPlaceProp', { model, current: current || null });
+const propLabel = (props, p) => {
+  const f = p && p.prop && props && props.find(x => x.model === p.prop.model);
+  return f ? f.label : (p && p.prop ? p.prop.model : '');
+};
+const propSelect = (props, selected) => el(`<select class="prop-select">${props.map(x =>
+  `<option value="${esc(x.model)}" ${x.model === selected ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</select>`);
 
-function pointRow(label, p, onSet) {
-  const r = add(`<div class="point row ${p ? '' : 'missing'}"><div class="row-text"><div class="row-title">${esc(label)}</div><div class="coords">${esc(fmt(p))}</div></div>
+function pointRow(label, p, onSet, kind, props) {
+  const extra = p && p.prop ? ' · ' + t('ui_prop', propLabel(props, p)) : '';
+  const r = add(`<div class="point row ${p ? '' : 'missing'}"><div class="row-text"><div class="row-title">${esc(label)}</div><div class="coords">${esc(fmt(p) + extra)}</div></div>
     <button class="wood-btn small">${esc(t('ui_place'))}</button></div>`);
-  r.querySelector('button').onclick = async () => { const c = await placePoint(label, p); if (c) onSet(c); };
+  r.querySelector('button').onclick = async () => { const c = await placePoint(label, p, kind); if (c) onSet(c); };
   return r;
 }
 
-function listPoints(d, key, label, max, min) {
+function listPoints(d, key, label, max, min, props) {
   const e = S.edit;
+  const withProps = !!(props && props.length);
   e.points[key] = e.points[key] || [];
   add(`<div class="section-title">${esc(label)} (${e.points[key].length}/${max}${min ? ', ' + t('ui_min', min) : ''})</div>`);
+  if (withProps) add(`<div class="muted">${esc(t('ui_craft_prop_hint'))}</div>`);
   e.points[key].forEach((p, i) => {
-    const r = pointRow(`${label} ${i + 1}`, p, (np) => { e.points[key][i] = np; renderAdmin(d); });
+    const set = (np) => { e.points[key][i] = np; renderAdmin(d); };
+    const r = pointRow(`${label} ${i + 1}`, p, set, 'marker', props);
+    if (withProps) {
+      const sel = propSelect(props, p.prop && p.prop.model);
+      const pb = el(`<button class="wood-btn small">${esc(t('ui_place_prop'))}</button>`);
+      pb.onclick = async () => { const c = await placeProp(sel.value, p); if (c) set(c); };
+      r.appendChild(sel); r.appendChild(pb);
+      if (p.prop) {
+        const rb = el(`<button class="wood-btn small muted">${esc(t('ui_remove_prop'))}</button>`);
+        rb.onclick = () => set({ x: p.x, y: p.y, z: p.z, w: p.w });
+        r.appendChild(rb);
+      }
+    }
     const x = el(`<button class="wood-btn small muted">✕</button>`);
     x.onclick = () => { e.points[key].splice(i, 1); renderAdmin(d); };
     r.appendChild(x);
   });
   if (e.points[key].length < max) {
     const a = add(`<div class="btn-row"><button class="wood-btn small">${esc(t('ui_add_here', label))}</button></div>`);
-    a.querySelector('button').onclick = async () => { const c = await placePoint(label, null); if (c) { e.points[key].push(c); renderAdmin(d); } };
+    a.querySelector('button').onclick = async () => { const c = await placePoint(label, null, 'marker'); if (c) { e.points[key].push(c); renderAdmin(d); } };
+    if (withProps) {
+      const sel = propSelect(props, null);
+      const pb = el(`<button class="wood-btn small">${esc(t('ui_add_with_prop', label))}</button>`);
+      pb.onclick = async () => { const c = await placeProp(sel.value, null); if (c) { e.points[key].push(c); renderAdmin(d); } };
+      a.appendChild(sel); a.appendChild(pb);
+    }
   }
 }
 

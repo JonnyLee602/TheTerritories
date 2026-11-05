@@ -15,7 +15,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
   - **NPC**: customers buy goods here (rsg-stores shop) or rent rooms (hotel). On-duty staff stock the shop here.
   - **Manager desk**: clock in/out and the manager screen.
   - **Open sign** (`p_sign_open_close06x`, placed with rsg-gizmo): unowned it reads **Closed** and offers **Buy**. Once bought it turns 180° to **Open** and offers **Apply for a job**.
-  - **1 to 3 crafting stations** (types with crafting) and **0 to 3 stashes**, staff only.
+  - **1 to 3 crafting stations** (types with crafting) and **0 to 3 stashes**, staff only. A crafting station can bring its own **stove or table prop** (`Config.CraftProps`) for interiors that have none.
   - **Hotel**: door and room interior points, plus the number of rooms. **Stable**: horse preview spot.
   - Edit, teleport, set owner, reset owner, delete; government account; recipe approvals.
 - **Business types in config.** Saloon, Restaurant, Hotel and Stable are included. Add more by copying a type: shop on/off, which item categories may be stocked, crafting recipes, custom recipe rules, hotel or stable features, price, tax.
@@ -82,7 +82,9 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `AdminCommand` / `AdminPermission` | `pob` / `'admin'` | Admin menu command and permission |
 | `SpawnDistance` / `InteractDistance` / `ServerDistance` | `60` / `2.5` / `6.0` | NPC/sign spawn range, target range, server distance tolerance |
 | `SignModel` / `SignOpenRotation` | `p_sign_open_close06x` / `180` | Sign prop and the turn that shows "Open" |
-| `PlaceDistance` | `30.0` | rsg-gizmo range when placing points (a ghost of the business NPC) |
+| `PlaceDistance` | `30.0` | rsg-gizmo range when placing points, markers and props |
+| `PointMarker` | `p_bottlebeer01x` | Marker aimed at the manager desk, crafting stations and stashes |
+| `CraftProps` / `CraftPropZoneHeight` | 6 stoves + 3 tables / `0.8` | Props a crafting station can place; the crafting target sits this high above the prop's base. rsg-cooking also lets anyone cook on its stove models |
 | `Grades` / `OwnerGrade` | Trainee…Owner / `4` | Grades of every business job (last = owner) |
 | `Permissions` | see file | Minimum grade per action (stock, craft, prices, takeStock, withdraw, hire, fire, rename, wages, …) |
 | `WithdrawDailyLimit` | `{ [3] = 50 }` | Daily withdrawal limit per grade (owner unlimited) |
@@ -115,7 +117,10 @@ This is a community script. It is **not** made or supported by the RSG authors.
 ## How to use
 **Admins** (`/pob`, permission `admin`):
 1. **New business** → pick a type, name and price.
-2. Press **Place** on each point: rsg-gizmo shows a ghost of the business NPC that you can walk around with. Turn it to face the right way and click to set it. Do this for the NPC, manager desk, crafting stations, stashes and the hotel/stable points. You can close the menu at any time and walk off: `/pob` reopens your unsaved changes (only Save, Cancel or the back arrow drop them).
+2. Press **Place** on each point. Everything uses rsg-gizmo, and you can walk while placing:
+   - **NPC, hotel door / room, stable preview:** a ghost of the business NPC. Turn it to face the right way and click.
+   - **Manager desk, crafting stations, stashes:** a small marker. Aim it at the desk, stove or chest itself and click.
+   - **No stove or bench in the interior?** Pick a prop next to the crafting station and press **Place prop** (or **Add crafting station with prop**). The prop is spawned for everyone near the business. **Remove prop** keeps the station without it. You can close the menu at any time and walk off: `/pob` reopens your unsaved changes (only Save, Cancel or the back arrow drop them).
 3. **Place sign**: rsg-gizmo opens; place it so it reads **Closed**. Save.
 4. Approve custom recipes under **Approvals**. Open the government account with the button at the top.
 
