@@ -1,0 +1,141 @@
+$engine: 3
+$onesync: on
+name: The Territories
+version: 2026.11.05
+author: Grumpy
+description: |
+  The Territories RedM server: RSG framework (pinned, with Territories customizations),
+  grumpy-* scripts and the Territories NPC stores. Based on Rexshack's txAdminRecipe.
+
+# Before first use: replace GITHUB_USER/territories-server below with your repository.
+tasks:
+  # ---------------------------------------------------------------- Territories build
+  # Our repository: pinned RSG framework + customizations, grumpy scripts, server.cfg, SQL
+  - action: download_github
+    src: https://github.com/GITHUB_USER/territories-server
+    ref: main
+    dest: ./tmp/territories
+
+  - action: move_path
+    src: ./tmp/territories/recipe/server.cfg
+    dest: ./server.cfg
+
+  - action: move_path
+    src: ./tmp/territories/recipe/rsg/myLogo.png
+    dest: ./myLogo.png
+
+  # ---------------------------------------------------------------- Database
+  # 1. every RSG table (RSG's own recipe SQL, matching the pinned framework)
+  # 2. Territories NPC stores (needs the tables from step 1)
+  # 3. grumpy-* tables (all CREATE TABLE IF NOT EXISTS)
+  - action: connect_database
+  - action: query_database
+    file: ./tmp/territories/recipe/rsg/rsgcore.sql
+  - action: query_database
+    file: ./tmp/territories/recipe/territories_stores.sql
+  - action: query_database
+    file: ./tmp/territories/resources/[grumpy]/grumpy-bartender/install.sql
+  - action: query_database
+    file: ./tmp/territories/resources/[grumpy]/grumpy-groups/install.sql
+  - action: query_database
+    file: ./tmp/territories/resources/[grumpy]/grumpy-hotel/install.sql
+  - action: query_database
+    file: ./tmp/territories/resources/[grumpy]/grumpy-pob/install.sql
+  - action: query_database
+    file: ./tmp/territories/resources/[grumpy]/grumpy-reputation/install.sql
+  - action: query_database
+    file: ./tmp/territories/resources/[grumpy]/grumpy-robbery/install.sql
+  - action: query_database
+    file: ./tmp/territories/resources/[grumpy]/grumpy-trader/install.sql
+
+  # ---------------------------------------------------------------- Resources
+  - action: move_path
+    src: ./tmp/territories/resources/[framework]
+    dest: ./resources/[framework]
+
+  - action: move_path
+    src: ./tmp/territories/resources/[grumpy]
+    dest: ./resources/[grumpy]
+
+  # Standalone libraries (same sources as RSG's recipe)
+  - action: download_github
+    src: https://github.com/citizenfx/cfx-server-data
+    subpath: resources
+    dest: ./resources/[cfx-default]
+
+  - action: download_file
+    path: ./tmp/files/oxmysql.zip
+    url: https://github.com/CommunityOx/oxmysql/releases/latest/download/oxmysql.zip
+  - action: unzip
+    src: ./tmp/files/oxmysql.zip
+    dest: ./resources/[standalone]
+
+  - action: download_github
+    src: https://github.com/Rexshack-RedM/ox_lib
+    ref: main
+    dest: ./resources/[standalone]/ox_lib
+
+  - action: download_github
+    src: https://github.com/Rexshack-RedM/PolyZone
+    ref: main
+    dest: ./resources/[standalone]/PolyZone
+
+  - action: waste_time # prevent github throttling
+    seconds: 10
+
+  - action: download_github
+    src: https://github.com/Xogy/xsound
+    ref: master
+    dest: ./resources/[standalone]/xsound
+
+  - action: download_github
+    src: https://github.com/Rexshack-RedM/interact-sound
+    ref: main
+    dest: ./resources/[standalone]/interact-sound
+
+  - action: download_github
+    src: https://github.com/Rexshack-RedM/menu_base
+    ref: main
+    dest: ./resources/[standalone]/menu_base
+
+  - action: download_github
+    src: https://github.com/Rexshack-RedM/rNotify
+    ref: main
+    dest: ./resources/[standalone]/rNotify
+
+  - action: download_github
+    src: https://github.com/Popisek/redm-female-fix
+    ref: main
+    dest: ./resources/[standalone]/redm-female-fix
+
+  - action: waste_time # prevent github throttling
+    seconds: 10
+
+  # Community and map mods (same as RSG's recipe)
+  - action: download_github
+    src: https://github.com/Nubetastic/Nt_Blackjack
+    ref: main
+    dest: ./resources/[community]/Nt_Blackjack
+
+  - action: download_github
+    src: https://github.com/Nubetastic/Nt_Holdem
+    ref: main
+    dest: ./resources/[community]/Nt_Holdem
+
+  - action: download_github
+    src: https://github.com/Rexshack-RedM/rsg-mapping
+    ref: main
+    dest: ./resources/[mapmods]/rsg-mapping
+
+  - action: download_github
+    src: https://github.com/Rexshack-RedM/redm-ymaps
+    ref: main
+    dest: ./resources/[mapmods]/redm-ymaps
+
+  # ---------------------------------------------------------------- Clean up
+  # rsg-chat replaces the cfx chat
+  - action: remove_path
+    path: ./resources/[cfx-default]/[gameplay]/chat
+
+  - action: remove_path
+    path: ./tmp
