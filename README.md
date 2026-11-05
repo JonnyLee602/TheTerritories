@@ -38,7 +38,7 @@ The commit message on `upstream` lists what RSG changed in each resource. To und
 | Resource | Change | Why |
 |---|---|---|
 | rsg-core | `shared/items.lua`: `cooked_poultry`, `cooked_game_meat`, `hardtack`, `blank_paper`, `custom_note`, `raw_game_meat`, `raw_poultry`, `raw_stringy_meat` | Custom items |
-| rsg-hunting | `Config.Animals`: Territories drops (meat by animal type) + 3 legendaries using RSG's `legendary_*` items | Hunting economy |
+| rsg-hunting | `Config.Animals`: Territories drops (meat by animal type) (legendaries left to rsg-legendary) | Hunting economy |
 | rsg-inventory | ~56 custom images in `html/images` (seeds, meats, custom items, `legendary_pelt.png`) | Item icons |
 | rsg-doorlock | `shared/doorhashes_custom.lua`: 2 custom doors | New doors |
 | rsg-lottery | Ticket-seller NPCs commented out, blip off; `OpenLottery` export | grumpy-bartender sells tickets |
@@ -54,8 +54,13 @@ The commit message on `upstream` lists what RSG changed in each resource. To und
 Every edit made for a grumpy script is marked `[grumpy-bartender hook]`, `[grumpy-pob hook]` or
 `[grumpy-reputation hook]` in the code. The original patch instructions live in each script's `integrations/` folder.
 
-**rsg-multijob is gone on purpose.** Since 2026-10-31 it's built into rsg-core, which `provide`s it. RSG says the
-old resource must not run; its database tables are reused as they are. Remove any `ensure rsg-multijob` from server.cfg.
+**Removed on purpose** (dropped from the `upstream` branch too, so updates don't bring them back):
+
+| Resource | Why |
+|---|---|
+| rsg-multijob | Built into rsg-core since 2026-10-31 (rsg-core `provide`s it). Its tables are reused as they are. |
+| rsg-gangmenu | Replaced by grumpy-groups (which `provide`s rsg-gangmenu; same stash ids and gang funds). |
+| rsg-trader | Replaced by grumpy-trader (imports rsg-trader data on its first start). |
 
 ## Adding a new customization
 
@@ -70,7 +75,7 @@ Edit the file on `main`, then commit it. That's all: the next update keeps it au
 | Download | This repo (`main`), plus the same standalone/community/map resources RSG's recipe uses |
 | `server.cfg` | `recipe/server.cfg`: RSG's server.cfg + `ensure [grumpy]` |
 | Database | `recipe/rsg/rsgcore.sql` (all RSG tables), then `recipe/territories_stores.sql` (our NPC shops), then each grumpy `install.sql` |
-| Resources | `resources/[framework]` (86, pinned) and `resources/[grumpy]` copied as they are in this repo |
+| Resources | `resources/[framework]` (84, pinned) and `resources/[grumpy]` copied as they are in this repo |
 
 In txAdmin: **Setup → Custom Template / Remote URL**, and use
 `https://raw.githubusercontent.com/JonnyLee602/TheTerritories/main/recipe/territories.yaml`.
