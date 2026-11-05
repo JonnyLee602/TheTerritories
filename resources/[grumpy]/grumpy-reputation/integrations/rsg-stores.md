@@ -139,3 +139,5 @@ end
 - The sell preview doesn't know about that cap. The server pays the capped amount and the "Sold ..." message shows it.
   The message shows a negative shop fee when the bonus is bigger than the fee.
 - Standing changes while the shop is open apply to the next purchase (the server always uses the current standing).
+
+> **Territories server (2026-11-05):** the live patch applies the cap even when grumpy-reputation is stopped (falls back to rsg-stores `Config.SellCapFactor`), also scales the cheapest price by the job/gang discount, and the client sends each item's `sellCap` to the NUI so the sell list shows the capped price.

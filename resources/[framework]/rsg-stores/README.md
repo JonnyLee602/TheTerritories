@@ -151,6 +151,8 @@ Replace the files and restart. 3.0.0 adds `upkeep_owed` and `upkeep_next` to `rs
 | `Config.DistanceSpawn` | `20.0` | Distance at which NPCs spawn and despawn |
 | `Config.FadeIn` | `true` | Fade NPCs in and out |
 | `Config.SellPricePercentage` | `0.80` | Players get 80% of the shop price when selling (20% fee) |
+| `Config.SellCapFactor` | `0.70` | NPC shops never pay more than the cheapest price the item sells for anywhere (NPC shop or wholesale) x this. Stops buy-cheap / sell-high loops. grumpy-reputation's `GetArbitrageFactor()` replaces it while that resource runs |
+| `Config.SellCapLog` | `false` | `true` lists every capped item in the console on start; otherwise one summary line |
 | `Config.SellAddsStock` | `true` | Items sold to a shop go back into its stock (limited-stock items only) |
 | `Config.MaxShopStock` | `100` | Most of any one item a shop will hold from player sales (`0` = no cap) |
 | `Config.TargetDistance` | `2.5` | rsg-target interaction range. The server allows up to +5.0 to cover lag |
@@ -391,6 +393,10 @@ rsg-stores/
 ---
 
 ## Changelog
+### 3.1.1 (The Territories)
+- NPC shop sell-backs are always capped at the cheapest buy price x `Config.SellCapFactor`, with or without grumpy-reputation (the cap used to apply only while grumpy-reputation ran). The sell list shows the capped price.
+- The start-up `price exploit: ...` warning per item is replaced by one summary line (`N NPC shop sell-back price(s) capped ...`); `Config.SellCapLog = true` lists them.
+
 ### 3.1.0
 - Target option renamed from "Trade with …" to "Open Store" (NPC shops and player stores).
 - Added store staff: owners hire nearby players with rank presets or custom per-permission access (restock, take stock, prices, wholesale, till, ledger, settings, upkeep), optional daily till withdrawal limit, fire / leave job. New table `rsg_shops_staff`.

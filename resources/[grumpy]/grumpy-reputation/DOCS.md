@@ -74,6 +74,7 @@ Exports that take `src` work for online players only. Use `ActionByCitizenId` fo
 | `GetTier()` | tier name |
 | `GetPriceMultiplier(market, side)` | number (display only) |
 | `GetShopMultipliers(shopName)` | buy, sell, market (display only) |
+| `GetArbitrageFactor()` | number, same as the server export (rsg-stores shows the capped sell-back price with it) |
 | `ShopGreeting(title, buyMult)` | shows "They know your name here: 20% off" / "prices 20% higher" |
 
 Client values are for display. Make decisions on the server.
@@ -141,7 +142,7 @@ Everything is in rsg-core player metadata and saves with the character. Actions 
 - `Adjust` and `SetStanding` have **no cap**: only call them from validated server code.
 - Callers must validate their own jobs (distance, items, cooldowns) before paying out or calling `Action`. An unvalidated payout gives standing as well as money.
 - **Prices:** multipliers are worked out on the server from the stored standing at the moment of the sale. The client exports are display only. Sale-hook adjustments use the same money type as the original payout (bloodmoney stays bloodmoney), never take more than the player holds, and use their own reason, which the rep hooks ignore (no standing from price adjustments).
-- **No money loops:** the rsg-stores patch caps any sell-back at `cheapest store price x GetArbitrageFactor()`. Resources that buy and sell the same goods (rsg-trader) get `maxMult = 1.0` in `SaleHooks`.
+- **No money loops:** the rsg-stores patch caps any sell-back at `cheapest store price x GetArbitrageFactor()` (rsg-stores keeps the cap at `Config.SellCapFactor` when grumpy-reputation is stopped). Resources that buy and sell the same goods (rsg-trader) get `maxMult = 1.0` in `SaleHooks`.
 
 ## 9. Database
 Standing lives in `players.metadata` through rsg-core. One extra table queues actions for offline characters:

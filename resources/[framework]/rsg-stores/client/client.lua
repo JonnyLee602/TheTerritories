@@ -56,14 +56,43 @@ local function standingMults(npc)
     return buy, sell
 end
 
-local function formatShopItems(items, discount)
+-- Display copy of the server's sell cap: cheapest price an item sells for anywhere (open shops + wholesale).
+local function cheapestBuy(name)
+    local c
+    for _, n in pairs(savedNpcs) do
+        if n.shop and not n.packed and n.shop.type ~= 'sell' then
+            for _, it in ipairs(n.shop.items or {}) do
+                local p = tonumber(it.price) or 0
+                if it.name == name and p > 0 and (not c or p < c) then c = p end
+            end
+        end
+    end
+    local w = Config.Wholesale or {}
+    local wc = w.Enabled ~= false and w.Items and tonumber(w.Items[name])
+    if wc and wc > 0 and (not c or wc < c) then c = wc end
+    return c
+end
+
+local function sellCapFactor()
+    if GetResourceState('grumpy-reputation') == 'started' then
+        local ok, f = pcall(function() return exports['grumpy-reputation']:GetArbitrageFactor() end)
+        if ok and tonumber(f) then return tonumber(f) end
+    end
+    return tonumber(Config.SellCapFactor) or 0.7
+end
+
+-- capDisc: job/gang discount at NPC shops (their sell-backs are capped); nil for player stores (no cap)
+local function formatShopItems(items, discount, capDisc)
     local out, d = {}, discount or 0
+    local factor = capDisc and sellCapFactor()
     for _, item in ipairs(items or {}) do
         local label, desc, image, category = itemMeta(item.name)
         local base = tonumber(item.price) or 0
+        local cheapest = capDisc and cheapestBuy(item.name)
         out[#out + 1] = {
             name = item.name, label = item.label or label or item.name,
             price = d ~= 0 and math.floor(base * (1 - d) * 100 + 0.5) / 100 or base, basePrice = base,
+            sellCap = cheapest and cheapest * (1 - capDisc) * factor or nil,
             amount = item.amount, description = desc, image = image, category = category,
         }
     end
@@ -211,7 +240,7 @@ local function OpenCustomShop(npcData, origin)
         shopName       = npcData.shop.name,
         shopLabel      = npcData.shop.label,
         shopType       = npcData.shop.type,
-        items          = formatShopItems(npcData.shop.items, disc),
+        items          = formatShopItems(npcData.shop.items, disc, npcData.kind ~= 'player' and disc or nil),
         playerItems    = GetPlayerItems(),
         playerMoney    = GetPlayerMoney(),
         sellPercentage = pct,

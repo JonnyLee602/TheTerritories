@@ -380,7 +380,9 @@ var ShopUI = {
             (self.items || []).forEach(function(s) {
                 if (s.name === p.name) {
                     var base = parseFloat(s.basePrice != null ? s.basePrice : s.price) || 0;
-                    var sell = Math.max(0.01, Math.round(base * self.sellPercentage * 100) / 100);
+                    var unit = base * self.sellPercentage;
+                    if (typeof s.sellCap === 'number') unit = Math.min(unit, s.sellCap); // server's no-money-loop cap
+                    var sell = Math.max(0.01, Math.round(unit * 100) / 100);
                     out.push({
                         name: p.name,
                         label: p.label || p.name,

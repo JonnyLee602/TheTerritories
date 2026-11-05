@@ -12,6 +12,10 @@ Config.DefaultScenario = 'WORLD_HUMAN_STAND_IMPATIENT'
 Config.DistanceSpawn = 20.0  -- Distance before spawning/despawning the NPC (GTA Units)
 Config.FadeIn = true         -- Enable fade in/out effect
 Config.SellPricePercentage = 0.80  -- Player gets 80% (20% shop fee)
+Config.SellCapFactor = 0.70        -- NPC shops never pay more than (cheapest price the item sells for anywhere) x this,
+                                   -- so cheap shops / wholesale can't be bought out and sold to a general store for profit.
+                                   -- grumpy-reputation's GetArbitrageFactor() replaces it while that resource runs.
+Config.SellCapLog = false          -- true: list every capped item in the console on start (one summary line otherwise)
 Config.SellAddsStock = true        -- Items sold to a shop are added back to its stock (limited-stock items only)
 Config.MaxShopStock = 100          -- Most of any one item a shop will hold from player sales (0 = no cap)
 Config.TargetDistance = 2.5       -- rsg-target range; server allows +5.0 for latency

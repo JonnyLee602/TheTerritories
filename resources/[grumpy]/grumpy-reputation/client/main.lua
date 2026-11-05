@@ -47,6 +47,7 @@ exports('GetTier', function() return (Rep.TierFor(standing())) end)
 -- honor / infamy prices for UIs (display only; the server works out the real price)
 exports('GetPriceMultiplier', function(market, side) return Rep.PriceMultiplier(standing(), market, side) end)
 exports('GetShopMultipliers', function(shopName) return Rep.ShopMultipliers(standing(), shopName) end)
+exports('GetArbitrageFactor', Rep.ArbitrageFactor)
 
 -- one line when a shop's prices differ for this player (called by the rsg-stores patch)
 exports('ShopGreeting', function(title, buyMult)

@@ -127,8 +127,11 @@ local function cheapestBuy(name)
 end
 
 local function arbitrageFactor()
-    local ok, f = pcall(function() return exports['grumpy-reputation']:GetArbitrageFactor() end)
-    return ok and tonumber(f) or 0.7
+    if GetResourceState('grumpy-reputation') == 'started' then
+        local ok, f = pcall(function() return exports['grumpy-reputation']:GetArbitrageFactor() end)
+        if ok and tonumber(f) then return tonumber(f) end
+    end
+    return tonumber(Config.SellCapFactor) or 0.7
 end
 
 -- Positive whole number within [1, MAX_QTY], else nil (blocks 1.5 / -1 / NaN / huge).
@@ -707,9 +710,9 @@ local function LoadCacheFromDB()
     print(('[rsg-stores] ' .. locale('sv_loaded')):format(#CachedNPCs, #CachedBlips))
 end
 
--- Warn the console about price setups players can farm: buying an item somewhere
--- (NPC shop or wholesale) for less than an NPC shop pays for it. Discounts scale both
--- sides equally (see sellItem), so they're left out.
+-- Count NPC shop sell-backs that would beat the cheapest place to buy the item (NPC shop or
+-- wholesale). sellItem caps those payouts (Config.SellCapFactor), so this is one info line,
+-- not a warning per item. Set Config.SellCapLog = true to list each capped item.
 local function checkArbitrage()
     local cheapest = {}
     local function seen(name, cost, where)
@@ -723,15 +726,23 @@ local function checkArbitrage()
     if (Config.Wholesale or {}).Enabled ~= false then
         for name, cost in pairs((Config.Wholesale or {}).Items or {}) do seen(name, tonumber(cost) or 0, 'wholesale') end
     end
+    local capped, factor = 0, arbitrageFactor()
     for _, npc in ipairs(CachedNPCs) do
         if npc.kind == 'npc' and npc.shop and npc.shop.type ~= 'buy' then
             for _, it in ipairs(npc.shop.items) do
                 local c, pays = cheapest[it.name], round2(it.price * SELL_PCT)
-                if c and pays > c.cost then
-                    print(('^3[rsg-stores] price exploit: %s costs $%.2f at %s but %s pays $%.2f^7'):format(it.name, c.cost, c.where, npc.shop.name, pays))
+                if c and pays > c.cost * factor then
+                    capped = capped + 1
+                    if Config.SellCapLog then
+                        print(('[rsg-stores] sell cap: %s sells for $%.2f at %s, so %s pays at most $%.2f (not $%.2f)'):format(
+                            it.name, c.cost, c.where, npc.shop.name, round2(c.cost * factor), pays))
+                    end
                 end
             end
         end
+    end
+    if capped > 0 then
+        print(('[rsg-stores] %d NPC shop sell-back price(s) capped at the cheapest buy price x %.2f (no money loops)'):format(capped, factor))
     end
 end
 
@@ -827,13 +838,14 @@ RegisterNetEvent('rsg-stores:server:sellItem', function(npcId, itemName, quantit
     -- NPC shops: a discounted buyer also sells at the discounted price, so a discount
     -- bigger than the shop fee can't be used to buy and sell back for profit.
     if not isOwned then pct = pct * (1 - discountFor(Player)) end
-    -- [grumpy-reputation hook] honor/infamy sell multiplier. Honorable players buy at a discount, so no one
-    -- (any standing) is paid more per unit than the cheapest discounted price the item sells for anywhere.
-    if not isOwned and shopItem.price > 0 and GetResourceState('grumpy-reputation') == 'started' then
+    -- [grumpy-reputation hook] honor/infamy sell multiplier (1.0 when grumpy-reputation isn't running).
+    -- No money loops: an NPC shop never pays more per unit than the cheapest (discounted) price the item
+    -- sells for anywhere x Config.SellCapFactor. Applies at every standing, with or without grumpy-reputation.
+    if not isOwned and shopItem.price > 0 then
         local _, sellMult = standingMults(src, npc)
         local unit = shopItem.price * pct * sellMult
         local cheapest = cheapestBuy(itemName)
-        if cheapest then unit = math.min(unit, cheapest * arbitrageFactor()) end
+        if cheapest then unit = math.min(unit, cheapest * (1 - discountFor(Player)) * arbitrageFactor()) end
         pct = unit / shopItem.price
     end
     local feePct = math.floor((1 - pct) * 100 + 0.5)
