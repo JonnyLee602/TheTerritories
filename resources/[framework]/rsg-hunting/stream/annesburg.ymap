@@ -1,0 +1,356 @@
+<?xml version="1.0"?>
+<CMapData>
+	<flags value="2"/>
+	<contentFlags value="65"/>
+	<streamingExtentsMin x="2536.477051" y="909.205200" z="-356.529999"/>
+	<streamingExtentsMax x="3339.375000" y="1712.418457" z="444.799999"/>
+	<entitiesExtentsMin x="2886.477051" y="1259.205200" z="-6.529999"/>
+	<entitiesExtentsMax x="2989.375000" y="1362.418457" z="94.799999"/>
+	<entities>
+		<Item type="CEntityDef">
+			<archetypeName>p_table02x</archetypeName>
+			<flags value="1572897"/>
+			<position x="2936.500488" y="1310.898315" z="43.483105"/>
+			<rotation w="0.168939" x="0.000000" y="-0.000000" z="-0.985627"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_butcherknife01x</archetypeName>
+			<flags value="1572897"/>
+			<position x="2936.803467" y="1311.262573" z="44.286823"/>
+			<rotation w="0.614904" x="-0.000000" y="0.000000" z="0.788602"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_vfxbloodspatter</archetypeName>
+			<flags value="1572897"/>
+			<position x="2936.902588" y="1311.971558" z="44.285126"/>
+			<rotation w="0.758406" x="-0.000000" y="0.000000" z="0.651783"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_cs_deercarcasslower</archetypeName>
+			<flags value="1572897"/>
+			<position x="2937.840088" y="1311.780029" z="44.220001"/>
+			<rotation w="0.962683" x="-0.000000" y="0.000000" z="0.270632"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_vfxbloodspatter</archetypeName>
+			<flags value="1572897"/>
+			<position x="2937.995605" y="1311.962891" z="44.285126"/>
+			<rotation w="0.661969" x="-0.000000" y="0.000000" z="0.749531"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_table02x</archetypeName>
+			<flags value="1572897"/>
+			<position x="2937.486328" y="1312.000000" z="43.470001"/>
+			<rotation w="0.831242" x="0.000000" y="-0.000000" z="-0.555910"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_lantern07x</archetypeName>
+			<flags value="1572897"/>
+			<position x="2936.817139" y="1312.418457" z="44.799999"/>
+			<rotation w="0.440658" x="-0.000000" y="0.000000" z="0.897675"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_butcherknife01x</archetypeName>
+			<flags value="1572897"/>
+			<position x="2937.729980" y="1311.839966" z="44.540001"/>
+			<rotation w="0.527049" x="-0.389996" y="0.449129" z="0.606964"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_vfxbloodspatter</archetypeName>
+			<flags value="1572897"/>
+			<position x="2937.628906" y="1311.719116" z="44.270000"/>
+			<rotation w="0.586466" x="-0.000000" y="0.000000" z="0.809973"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_vfxbloodspatter</archetypeName>
+			<flags value="1572897"/>
+			<position x="2936.778320" y="1310.591675" z="44.270000"/>
+			<rotation w="0.178283" x="-0.000000" y="0.000000" z="0.983979"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_filletknife01x</archetypeName>
+			<flags value="1572897"/>
+			<position x="2936.834961" y="1310.513184" z="44.306118"/>
+			<rotation w="0.416146" x="-0.000000" y="0.000000" z="0.909298"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_haybalebloody01x</archetypeName>
+			<flags value="1572897"/>
+			<position x="2938.514893" y="1309.707153" z="43.582939"/>
+			<rotation w="0.391903" x="0.000000" y="-0.000000" z="-0.920007"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_tarpbutcher01x</archetypeName>
+			<flags value="1572897"/>
+			<position x="2937.904297" y="1310.845581" z="43.495419"/>
+			<rotation w="0.579325" x="-0.000000" y="0.000000" z="0.815097"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_woodbin01x</archetypeName>
+			<flags value="1572897"/>
+			<position x="2936.633545" y="1309.212769" z="43.488884"/>
+			<rotation w="0.817977" x="0.000000" y="-0.000000" z="-0.575251"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_vfxbloodspatter</archetypeName>
+			<flags value="1572897"/>
+			<position x="2936.477051" y="1312.170166" z="43.492500"/>
+			<rotation w="0.669331" x="-0.000000" y="0.000000" z="0.742964"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_carcassbonespossum01x</archetypeName>
+			<flags value="1572897"/>
+			<position x="2936.677002" y="1309.205200" z="43.759998"/>
+			<rotation w="0.739692" x="-0.000000" y="0.000000" z="0.672945"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_pantherblood01x</archetypeName>
+			<flags value="1572897"/>
+			<position x="2936.501465" y="1311.015991" z="43.544182"/>
+			<rotation w="0.554347" x="-0.000000" y="0.000000" z="0.832286"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_lantern07x</archetypeName>
+			<flags value="1572897"/>
+			<position x="2938.356934" y="1309.306396" z="44.599998"/>
+			<rotation w="0.962417" x="-0.000000" y="0.000000" z="0.271578"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_cs_deercarcass</archetypeName>
+			<flags value="1572897"/>
+			<position x="2939.300049" y="1310.699951" z="44.200001"/>
+			<rotation w="0.832200" x="0.000000" y="-0.000000" z="-0.554475"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_washtubblood02x</archetypeName>
+			<flags value="1572897"/>
+			<position x="2939.375000" y="1310.830322" z="43.492367"/>
+			<rotation w="0.146830" x="0.000000" y="-0.000000" z="-0.989162"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_vfxbloodspatter</archetypeName>
+			<flags value="1572897"/>
+			<position x="2937.605469" y="1312.011719" z="44.270000"/>
+			<rotation w="0.716099" x="-0.000000" y="0.000000" z="0.697998"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_carcassmedium01x</archetypeName>
+			<flags value="1572897"/>
+			<position x="2936.820068" y="1311.719971" z="44.279999"/>
+			<rotation w="0.751782" x="-0.000000" y="0.000000" z="0.659411"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+		<Item type="CEntityDef">
+			<archetypeName>p_vfxbloodspatter</archetypeName>
+			<flags value="1572897"/>
+			<position x="2936.900146" y="1311.541870" z="44.270000"/>
+			<rotation w="0.639002" x="-0.000000" y="0.000000" z="0.769205"/>
+			<scaleXY value="1"/>
+			<scaleZ value="1"/>
+			<parentIndex value="-1"/>
+			<lodDist value="500"/>
+			<childLodDist value="500"/>
+			<lodLevel>LODTYPES_DEPTH_HD</lodLevel>
+			<numChildren value="0"/>
+			<ambientOcclusionMultiplier value="255"/>
+			<artificialAmbientOcclusion value="255"/>
+		</Item>
+	</entities>
+</CMapData>
