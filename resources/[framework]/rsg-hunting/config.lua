@@ -839,7 +839,7 @@ Config.HuntingXP = {
 -- animal settings
 ----------------------------------
 Config.Animals = {
-    -- Territories: custom drops (meat by animal type, legendaries use RSG's legendary_* items)
+    -- Territories: custom drops (meat by animal type). Legendaries are handled by rsg-legendary.
 
     -- animals
     {
@@ -1642,35 +1642,6 @@ Config.Animals = {
         rewarditem1 = 'a_c_woodpecker_02',
         rewarditem2 = nil,
         rewarditem3 = nil,
-        rewarditem4 = nil,
-        rewarditem5 = nil,
-    },
-
-    -- legendary
-    {
-        modelhash = `a_c_alligator_02`,
-        skinable = true,
-        rewarditem1 = 'legendary_alligator_skin',
-        rewarditem2 = 'consumable_meat_alligator',
-        rewarditem3 = 'resource_tooth_alligator',
-        rewarditem4 = 'resource_bullgatoreye',
-        rewarditem5 = 'raw_game_meat',
-    },
-    {
-        modelhash = `a_c_boarlegendary_01`,
-        skinable = false,
-        rewarditem1 = 'legendary_boar_pelt',
-        rewarditem2 = 'heart_pig_boar',
-        rewarditem3 = 'resource_tusk_boar',
-        rewarditem4 = 'raw_game_meat',
-        rewarditem5 = nil,
-    },
-    {
-        modelhash = `a_c_buffalo_tatanka_01`,
-        skinable = true,
-        rewarditem1 = 'legendary_bison_pelt',
-        rewarditem2 = 'resource_horn_buffalo',
-        rewarditem3 = 'raw_game_meat',
         rewarditem4 = nil,
         rewarditem5 = nil,
     },
