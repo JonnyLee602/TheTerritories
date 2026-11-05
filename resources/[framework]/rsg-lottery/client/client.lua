@@ -146,3 +146,5 @@ AddEventHandler('onResourceStop', function(resource)
     end
     for _, blip in ipairs(blips) do RemoveBlip(blip) end
 end)
+-- Allow external resources to open the lottery UI
+exports('OpenLotteryUI', OpenLotteryUI)

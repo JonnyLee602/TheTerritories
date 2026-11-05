@@ -3,7 +3,8 @@
 --   [doorHash] = { doorHash, modelHash, "modelName", x, y, z },
 -- They are added to the /doorlock editor and locked with the game's door system.
 CustomDoorHashes = {
-    --[1651863461] = { 1651863461, -667091646, "p_door58x", -5528.4658203125, -2953.718994140625, -1.69699990749359 },
+    [1651863461] = { 1651863461, -667091646, "p_door58x", -5528.4658203125, -2953.718994140625, -1.69699990749359 },
+    [-867318905] = { -867318905, -1858047034, "p_door54x", 2967.8603515625, 1351.454833984375, 43.91580200195312 }, 
 }
 
 -- merge into the editor list (format: { doorHash, modelName, x, y, z })

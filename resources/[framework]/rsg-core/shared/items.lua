@@ -126,6 +126,10 @@ RSGShared.Items = {
     toast_orange        = { name = 'toast_orange',          label = 'Orange Jelly Toast',       weight = 100,  type = 'item',  image = 'toast_orange.png',          unique = false,  useable = true,  shouldClose = true,  description = 'A yummy, quick snack.',                                                                           category = 'consumable' },
     tomato              = { name = 'tomato',                label = 'Tomato',                   weight = 100,  type = 'item',  image = 'tomato.png',                unique = false,  useable = true,  shouldClose = true,  description = 'Crop produced from farming.',                                                                     category = 'consumable' },
     water               = { name = 'water',                 label = 'Water',                    weight = 100,  type = 'item',  image = 'water.png',                 unique = false,  useable = true,  shouldClose = true,  description = 'Safe, pure and hydrating. Bottled locally.',                                                      category = 'consumable' },
+    -- added
+    cooked_poultry    = { name = 'cooked_poultry',    label = 'Cooked Poultry',   weight = 50,   type = 'item',  image = 'cooked_poultry.png',   unique = false,  useable = true,  shouldClose = true,  description = 'A light meat snack for the trail.',                          category = 'consumable' },
+    cooked_game_meat  = { name = 'cooked_game_meat',  label = 'Cooked Game Meat', weight = 50,   type = 'item',  image = 'cooked_game_meat.png', unique = false,  useable = true,  shouldClose = true,  description = 'A light meat snack for the trail.',                          category = 'consumable' },
+    hardtack          = { name = 'hardtack',          label = 'Hardtack',         weight = 100,  type = 'item',  image = 'hardtack.png',         unique = false,  useable = true,  shouldClose = true,  description = 'A hot aromatic beverage to keep you alert or sober you up.', category = 'consumable' },
 
     -- cooking
     canned_apricots     = { name = 'canned_apricots',      label = 'Canned Apricots',      weight = 100,  type = 'item',  image = 'canned_apricots.png',      unique = false,  useable = true,   shouldClose = true,  description = 'Apricot fruit canned in a sweet, sugary juice.',           category = 'cooking' },
@@ -669,4 +673,7 @@ RSGShared.Items = {
     resource_pot_distillery = { name = 'resource_pot_distillery',   label = 'Copper Pot Distillery',    weight = 5000, type = 'item', image = 'resource_pot_distillery.png',    unique = false, useable = true,  shouldClose = true, description = 'A copper part for making moonshine stills',                category = 'moonshine', },
     resource_rubbertube     = { name = 'resource_rubbertube',       label = 'Rubber Tube',              weight = 5000, type = 'item', image = 'resource_rubbertube.png',        unique = false, useable = true,  shouldClose = true, description = 'A rubber hose for making moonshine stills',                category = 'moonshine', },
 
+    -- grumpy_notes additions
+    blank_paper             = { name = 'blank_paper',               label = 'Blank Paper',              weight = 10,   type = 'item', image = 'blank_paper.png',                unique = false, useable = true,  shouldClose = true, description = 'A clean sheet of parchment, ready for writing.',           category = 'documents', },
+    custom_note             = { name = 'custom_note',               label = 'Handwritten Note',         weight = 10,   type = 'item', image = 'custom_note.png',                unique = true,  useable = true,  shouldClose = true, description = 'A folded piece of paper with handwriting on it.',          category = 'documents', },
 }
