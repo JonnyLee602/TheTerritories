@@ -43,14 +43,19 @@ The commit message on `upstream` lists what RSG changed in each resource. To und
 | rsg-doorlock | `shared/doorhashes_custom.lua`: 2 custom doors | New doors |
 | rsg-lottery | Ticket-seller NPCs commented out, blip off; `OpenLottery` export | grumpy-bartender sells tickets |
 | rsg-loyalty | Loyalty NPCs commented out; `SetRedeemPoint` / `RemoveRedeemPoint` exports | grumpy-bartender serves loyalty |
-| rsg-stores | Access points, `OpenShop`, `CreateShop` / `ShopExists` / `DeleteShop`, `'none'` model | grumpy-bartender shops |
+| rsg-stores | Access points, `OpenShop`, `CreateShop` / `ShopExists` / `DeleteShop`, `'none'` model | grumpy-bartender + grumpy-pob shops |
+| rsg-stores | `blockJob`, `externalSale` event, `IsReady`, `SetShopData`, image URLs | grumpy-pob business shops |
+| rsg-stores | Honor/infamy buy and sell multipliers, sell-back arbitrage cap | grumpy-reputation |
+| rsg-consume | `RegisterAlias` export, alias refunds | grumpy-pob custom food/drink |
+| rsg-core | `SaveJobDefinition` / `DeleteJobDefinition` exports (`server/multijob/server.lua`) | grumpy-pob business jobs |
+| rsg-inventory | Core refresh on new items, `stashClosed` event, image URLs | grumpy-pob custom items, stock box |
+| rsg-stables | Registered + job-only stables, per-stable caps, `capExempt`, `MoveHorses`, training exports, `OpenStable` | grumpy-pob stable businesses |
 
-Every edit made for a grumpy script is marked `[grumpy-bartender hook]` in the code. The full patch
-instructions live in each script's `integrations/` folder.
+Every edit made for a grumpy script is marked `[grumpy-bartender hook]`, `[grumpy-pob hook]` or
+`[grumpy-reputation hook]` in the code. The original patch instructions live in each script's `integrations/` folder.
 
-**Not applied yet:** the hooks for grumpy-pob (rsg-consume, rsg-core, rsg-inventory, rsg-stables, rsg-stores part 3)
-and grumpy-reputation (rsg-stores honor/infamy prices). Until they are applied, those parts of grumpy-pob and
-grumpy-reputation will not work.
+**rsg-multijob is gone on purpose.** Since 2026-10-31 it's built into rsg-core, which `provide`s it. RSG says the
+old resource must not run; its database tables are reused as they are. Remove any `ensure rsg-multijob` from server.cfg.
 
 ## Adding a new customization
 
