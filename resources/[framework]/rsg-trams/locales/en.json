@@ -1,0 +1,15 @@
+{
+    "tram_blip": "Trolley",
+    "tram_title": "Saint Denis Trolleys",
+    "cmd_help": "Show trolley tracks, turn a track on/off, or reset",
+    "cmd_param_track": "Track (loop) or reset",
+    "cmd_param_state": "on or off",
+    "status_running": "running",
+    "status_spawning": "spawning",
+    "status_off": "off",
+    "cmd_reset": "All trolleys removed, they respawn shortly",
+    "cmd_bad_track": "Unknown track. Use: %s",
+    "cmd_bad_state": "Use on or off",
+    "cmd_on": "Track %s on, its trolley spawns shortly",
+    "cmd_off": "Track %s off, its trolley was removed"
+}
