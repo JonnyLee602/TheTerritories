@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- main panel: gang menu or posse panel -->
+<div id="app" class="hidden">
+  <div class="panel">
+    <div class="panel-header">
+      <button class="circle-btn" id="back" title="">‹</button>
+      <div class="header-text"><div class="title" id="title"></div><div class="subtitle" id="subtitle"></div></div>
+      <button class="circle-btn" id="close" title="">✕</button>
+    </div>
+    <div class="divider"><span>✦</span></div>
+    <div class="view" id="view"></div>
+  </div>
+</div>
+
+<!-- amount / confirm dialog -->
+<div id="dialog" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-title" id="dialog-title"></div>
+    <div class="modal-text" id="dialog-text"></div>
+    <input id="dialog-input" type="number" min="1" class="hidden">
+    <div class="modal-actions">
+      <button class="wood-btn muted" id="dialog-cancel"></button>
+      <button class="wood-btn" id="dialog-ok"></button>
+    </div>
+  </div>
+</div>
+
+<!-- incoming invite (gang recruit or posse) -->
+<div id="invite" class="overlay hidden">
+  <div class="modal">
+    <div class="modal-title" id="invite-title"></div>
+    <div class="modal-text" id="invite-text"></div>
+    <div class="invite-count" id="invite-count"></div>
+    <div class="modal-actions">
+      <button class="wood-btn muted" id="invite-decline"></button>
+      <button class="wood-btn" id="invite-accept"></button>
+    </div>
+  </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>

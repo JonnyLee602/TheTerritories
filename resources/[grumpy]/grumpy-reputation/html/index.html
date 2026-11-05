@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app" class="hidden">
+  <div class="panel">
+    <div class="panel-header">
+      <span class="circle-btn" aria-hidden="true"></span>
+      <div class="header-text"><div class="title" id="title"></div><div class="subtitle" id="subtitle"></div></div>
+      <button class="circle-btn" id="close">✕</button>
+    </div>
+    <div class="divider"><span>✦</span></div>
+
+    <div class="tier">
+      <div class="tier-name" id="tier-name"></div>
+      <div class="tier-desc" id="tier-desc"></div>
+    </div>
+    <div class="axis">
+      <div class="axis-track"><div class="axis-mid"></div><div class="axis-marker" id="marker"></div></div>
+      <div class="axis-labels"><span id="lbl-outlaw"></span><span id="lbl-legit"></span></div>
+      <div class="axis-value" id="value"></div>
+    </div>
+
+    <div class="divider"><span>✦</span></div>
+    <div class="section" id="skills-title"></div>
+    <div class="list" id="list"></div>
+  </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>

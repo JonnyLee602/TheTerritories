@@ -1,0 +1,43 @@
+fx_version 'cerulean'
+rdr3_warning 'I acknowledge that this is a prerelease build of RedM, and I am aware my resources *will* become incompatible once RedM ships.'
+game 'rdr3'
+lua54 'yes'
+
+author 'Grumpy (based on rsg-trader by RexShack)'
+name 'grumpy-trader'
+description 'Dynamic-price NPC traders, legal or illegal (fences), with honor/infamy prices and money laundering. Replaces rsg-trader.'
+version '1.0.0'
+
+shared_scripts {
+    '@rsg-core/shared/locale.lua',
+    'shared/config.lua',
+}
+
+client_scripts {
+    'client/client.lua',
+    'client/npcs.lua',
+}
+
+server_scripts {
+    '@oxmysql/lib/MySQL.lua',
+    'server/webhook_config.lua',
+    'server/webhooks.lua',
+    'server/database.lua',
+    'server/server.lua',
+}
+
+ui_page 'html/index.html'
+
+files {
+    'locales/*.json',
+    'html/index.html',
+    'html/style.css',
+    'html/app.js',
+}
+
+dependencies {
+    'rsg-core',
+    'rsg-inventory',
+    'rsg-target',
+    'oxmysql',
+}

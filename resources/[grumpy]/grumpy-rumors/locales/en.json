@@ -1,0 +1,52 @@
+{
+    "title": "Rumors",
+
+    "target_ask": "Ask about rumors",
+    "target_ask_price": "Ask about rumors ($%s)",
+
+    "got_rumor": "You heard something: %s",
+    "ask_too_soon": "\"I already told you what I know. Come back later.\"",
+    "too_many_notes": "Your pockets are full of rumors already. Act on some first.",
+    "nothing_illegal": "\"Ain't got nothing for the likes of you.\"",
+    "nothing_legal": "\"Nothing I'd share with someone like you.\"",
+    "nothing_any": "\"Quiet around here lately.\"",
+    "no_cash": "Tips cost $%s, and you're short.",
+    "inventory_full": "You've got no room for a note.",
+
+    "note_faded": "The rumor has gone stale. You toss the note.",
+    "notes_faded": "%s stale rumor note(s) crumbled in your pocket.",
+    "note_blank": "The note is unreadable.",
+    "note_missing": "You don't have that note anymore.",
+    "not_your_kind": "This tip isn't meant for someone with your reputation.",
+    "job_unavailable": "Nothing comes of it right now. Try again later.",
+    "acted": "You act on the rumor.",
+    "shared_with_you": "%s let you in on a tip. Check your map.",
+
+    "group_posse": "%s of your posse will ride with you.",
+    "group_gang": "%s of your gang are close enough to join.",
+    "group_job": "%s of your on-duty colleagues are close enough to join.",
+    "group_solo": "You'd be going alone.",
+
+    "info_rumor": "Rumor",
+    "info_good_until": "Good until",
+    "date_format": "%b %d, %H:%M",
+
+    "ui_subtitle": "Overheard",
+    "ui_good_for": "Goes stale in",
+    "ui_act": "Act on it",
+    "ui_put_away": "Put away",
+    "ui_flavour": "Just talk. Nothing to act on.",
+
+    "rumor_stage_title": "Loose Lips at the Saloon",
+    "rumor_stage_text": "A driver's been drinking too much and talking too loud. Says the Valentine stage carries more than mail on Thursdays.",
+    "rumor_stash_title": "An Old Camp Stash",
+    "rumor_stash_text": "Some boys who rode with the O'Driscolls buried their takings near an old camp before the law caught up with them. Nobody's dug it up yet.",
+    "rumor_stash_blip": "Old camp stash",
+    "item_received": "You got: %s.",
+    "rumor_dig_title": "A Buried Strongbox",
+    "rumor_dig_text": "A dying prospector sketched where he buried his strongbox. Follow his scrawl, bring a metal detector, and dig.",
+    "rumor_dig_received": "You copy the sketch onto a proper map: %s.",
+    "rumor_survey_title": "A Missing Survey Crew",
+    "rumor_survey_text": "The railroad's survey crew hasn't checked in for three days. Their boss is offering good money to anyone who finds them.",
+    "rumor_survey_blip": "Last known camp"
+}

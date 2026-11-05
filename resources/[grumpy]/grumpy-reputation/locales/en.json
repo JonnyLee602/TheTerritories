@@ -1,0 +1,46 @@
+{
+    "title": "Reputation",
+
+    "tier_now": "Folks now see you as %s.",
+    "standing_up": "Your standing has improved.",
+    "standing_down": "Your standing has slipped.",
+
+    "tier_upstanding": "Upstanding",
+    "tier_respected": "Respected",
+    "tier_neutral": "Unknown",
+    "tier_outlaw": "Outlaw",
+    "tier_notorious": "Notorious",
+    "tier_desc_upstanding": "Lawmen tip their hats. Crooks keep their mouths shut around you.",
+    "tier_desc_respected": "Honest folk trust you with their business.",
+    "tier_desc_neutral": "Nobody has made their mind up about you yet.",
+    "tier_desc_outlaw": "Decent folk cross the street. The right people will talk to you.",
+    "tier_desc_notorious": "Your name is spoken in back rooms, and on wanted posters.",
+
+    "rep_standing": "Standing",
+    "rep_hunting": "Hunting",
+    "rep_fishing": "Fishing",
+    "rep_cooking": "Cooking",
+    "rep_crafting": "Crafting",
+    "rep_drugs": "Back-room Trade",
+
+    "ui_title": "Reputation",
+    "ui_subtitle": "What folks say about you",
+    "ui_standing": "Standing",
+    "ui_outlaw": "Outlaw",
+    "ui_legit": "Legit",
+    "ui_skills": "Skills & Trades",
+    "ui_no_skills": "You haven't made a name in any trade yet.",
+
+    "cmd_setstanding": "Set a player's standing (admin)",
+    "cmd_arg_id": "Player ID",
+    "cmd_arg_value": "Standing (%s to %s)",
+    "admin_bad_args": "Usage: player ID and a number.",
+    "admin_set": "Player %s standing is now %s.",
+
+    "shop_trusted": "They know your name here: %d%% off.",
+    "shop_distrusted": "The trader eyes you warily: prices %d%% higher.",
+    "price_bonus_legal": "Honest folk pay a fair man well: +$%s.",
+    "price_cut_legal": "The buyer doesn't trust your kind: -$%s.",
+    "price_bonus_underground": "The fence pays well for a known face: +$%s.",
+    "price_cut_underground": "The fence smells a snitch: -$%s."
+}

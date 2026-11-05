@@ -1,0 +1,10 @@
+{
+    "title": "Law",
+    "reported": "Word of your crime has reached the law.",
+    "heat_escaped": "The law has lost your trail. Your name carries further now.",
+    "alert_store_robbery": "Store robbery at %s",
+    "alert_shoplifting": "Shoplifter reported at %s",
+    "alert_generic": "Crime reported %s",
+    "cmd_test": "Show how many NPCs the server and your game can see around you (admin)",
+    "test_result": "Within %s m: server sees %s NPCs, your game sees %s humans (%s networked). Server sees %s NPCs in total."
+}

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app" class="hidden">
+
+    <!-- Admin manager (/bartenders), docked right so the world stays visible -->
+    <div id="manager" class="panel docked hidden">
+        <div class="panel-header">
+            <span class="circle-btn"></span>
+            <div>
+                <div class="title" data-t="ui_manager_title"></div>
+                <div class="subtitle">grumpy-bartender</div>
+            </div>
+            <button class="circle-btn" data-close>&#10005;</button>
+        </div>
+        <div id="tab-bartenders" class="tab-body">
+            <input id="m-search" data-ph="ui_search">
+            <button class="wood-btn full" id="m-new" data-t="ui_new_bartender"></button>
+            <div class="list" id="m-list"></div>
+        </div>
+    </div>
+
+    <!-- Admin editor -->
+    <div id="editor" class="panel hidden">
+        <div class="panel-header">
+            <button class="circle-btn" id="editor-back" title="">&#8249;</button>
+            <div>
+                <div class="title" id="editor-title"></div>
+                <div class="subtitle">grumpy-bartender</div>
+            </div>
+            <button class="circle-btn" data-close>&#10005;</button>
+        </div>
+        <div class="ink-divider"></div>
+        <div class="form">
+            <label data-t="ui_label"></label>
+            <input id="f-label" maxlength="50">
+            <label data-t="ui_model"></label>
+            <select id="f-model"></select>
+            <label data-t="ui_animation"></label>
+            <select id="f-animation"></select>
+
+            <div class="divider" data-t="ui_services"></div>
+            <label data-t="ui_store_id"></label>
+            <div class="inline tight">
+                <input id="f-store" type="number" min="1" step="1">
+                <button class="wood-btn small" id="btn-create-shop" data-t="ui_create_shop"></button>
+            </div>
+            <div class="row-desc" id="store-hint" data-t="ui_store_hint"></div>
+            <div class="row-desc hidden" id="store-auto" data-t="ui_store_auto"></div>
+            <label class="check" id="createshop-wrap"><input type="checkbox" id="f-createshop"> <span data-t="ui_create_shop_new"></span></label>
+            <label data-t="ui_hotel"></label>
+            <select id="f-hotel"></select>
+            <div class="row-desc" data-t="ui_hotel_hint"></div>
+            <label class="check"><input type="checkbox" id="f-lottery"> <span data-t="ui_lottery"></span></label>
+            <label class="check"><input type="checkbox" id="f-loyalty"> <span data-t="ui_loyalty"></span></label>
+            <label class="check"><input type="checkbox" id="f-blip"> <span data-t="ui_blip"></span></label>
+        </div>
+        <div class="modal-actions">
+            <button class="wood-btn" id="btn-place" data-t="ui_place"></button>
+            <button class="wood-btn" id="btn-place-here" data-t="ui_place_here"></button>
+            <button class="wood-btn" id="btn-save" data-t="ui_save"></button>
+        </div>
+        <div class="modal-actions">
+            <button class="wood-btn" id="btn-move" data-t="ui_move"></button>
+            <button class="wood-btn" id="btn-move-here" data-t="ui_move_here"></button>
+            <button class="wood-btn muted" id="btn-delete" data-t="ui_delete"></button>
+        </div>
+    </div>
+
+</div>
+<script src="script.js"></script>
+</body>
+</html>

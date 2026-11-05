@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app" class="hidden">
+
+    <!-- Door (outside interaction point) -->
+    <div id="door" class="panel hidden">
+        <div class="panel-header">
+            <span class="circle-btn"></span>
+            <div><div class="title" id="door-title"></div><div class="subtitle" data-t="ui_rooms"></div></div>
+            <button class="circle-btn" data-close>&#10005;</button>
+        </div>
+        <div class="ink-divider"></div>
+        <div class="list" id="door-list"></div>
+    </div>
+
+    <!-- Rental (bartender / saloon NPC) -->
+    <div id="rental" class="panel hidden">
+        <div class="panel-header">
+            <span class="circle-btn"></span>
+            <div><div class="title" id="rental-title"></div><div class="subtitle" id="rental-sub"></div></div>
+            <button class="circle-btn" data-close>&#10005;</button>
+        </div>
+        <div class="row-desc center" id="rental-price"></div>
+
+        <div id="mine" class="hidden">
+            <div class="divider" data-t="ui_your_room"></div>
+            <div class="card">
+                <div class="row-title" id="mine-room"></div>
+                <div class="row-desc" id="mine-time"></div>
+                <div class="row-desc" id="mine-key"></div>
+                <div class="inline" id="extend-wrap">
+                    <label data-t="ui_days"></label>
+                    <select id="extend-days"></select>
+                    <span class="total" id="extend-total"></span>
+                </div>
+                <div class="row-desc hidden" id="extend-max" data-t="ui_extend_max"></div>
+                <div class="modal-actions">
+                    <button class="wood-btn" id="btn-extend"></button>
+                    <button class="wood-btn muted hidden" id="btn-revoke"></button>
+                    <button class="wood-btn muted" id="btn-checkout"></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="divider" data-t="ui_rooms"></div>
+        <div class="list" id="rental-list"></div>
+        <div class="row-desc center hidden" id="rental-note"></div>
+        <div id="rent-wrap" class="hidden">
+            <div class="ink-divider"></div>
+            <div class="inline">
+                <label data-t="ui_days"></label>
+                <select id="rent-days"></select>
+                <span class="total" id="rent-total"></span>
+            </div>
+            <div class="modal-actions"><button class="wood-btn" id="btn-rent" data-t="ui_rent"></button></div>
+        </div>
+    </div>
+
+    <!-- Room menu (inside) -->
+    <div id="room" class="panel hidden">
+        <div class="panel-header">
+            <span class="circle-btn"></span>
+            <div><div class="title" id="room-title"></div><div class="subtitle" id="room-sub"></div></div>
+            <button class="circle-btn" data-close>&#10005;</button>
+        </div>
+        <div class="ink-divider"></div>
+        <div class="card">
+            <div class="row-desc" id="room-renter"></div>
+            <div class="row-desc" id="room-time"></div>
+            <div class="row-desc" id="room-role"></div>
+        </div>
+        <div id="room-key-wrap" class="hidden">
+            <div class="divider" data-t="ui_key_holder"></div>
+            <div class="inline tight">
+                <span class="row-title grow" id="room-key"></span>
+                <button class="wood-btn small muted hidden" id="btn-room-revoke"></button>
+            </div>
+        </div>
+        <div class="divider" data-t="ui_occupants"></div>
+        <div class="list" id="room-occupants"></div>
+        <div class="modal-actions">
+            <button class="wood-btn" id="btn-stash" data-t="ui_stash"></button>
+            <button class="wood-btn muted" id="btn-leave" data-t="ui_leave"></button>
+        </div>
+    </div>
+
+    <!-- Admin (/hotellist), docked so the world stays visible -->
+    <div id="admin" class="panel docked hidden">
+        <div class="panel-header">
+            <button class="circle-btn" id="admin-back">&#8249;</button>
+            <div><div class="title" id="admin-title"></div><div class="subtitle">grumpy-hotel</div></div>
+            <button class="circle-btn" data-close>&#10005;</button>
+        </div>
+
+        <div id="admin-list-view" class="tab-body">
+            <button class="wood-btn full" id="btn-new-hotel" data-t="ui_new_hotel"></button>
+            <div class="list" id="admin-list"></div>
+        </div>
+
+        <div id="admin-renters-view" class="tab-body hidden">
+            <div class="list" id="renters-list"></div>
+        </div>
+
+        <div id="admin-editor-view" class="tab-body hidden">
+            <div class="form">
+                <label data-t="ui_name"></label>
+                <input id="f-label" maxlength="50">
+                <div class="grid3">
+                    <div><label data-t="ui_room_count"></label><input id="f-rooms" type="number" min="1" step="1"></div>
+                    <div><label data-t="ui_daily_rate"></label><input id="f-price" type="number" min="0" step="0.05"></div>
+                    <div><label data-t="ui_max_days_label"></label><input id="f-days" type="number" min="1" step="1"></div>
+                </div>
+                <label class="check"><input type="checkbox" id="f-blip"> <span data-t="ui_blip"></span></label>
+
+                <div class="divider" data-t="ui_door_point"></div>
+                <div class="row-desc" data-t="ui_door_hint"></div>
+                <div class="inline tight">
+                    <span class="coords grow" id="f-door"></span>
+                    <button class="wood-btn small" id="btn-cap-door" data-t="ui_use_position"></button>
+                </div>
+
+                <div class="divider" data-t="ui_interior_point"></div>
+                <div class="row-desc" data-t="ui_interior_hint"></div>
+                <div class="inline tight">
+                    <span class="coords grow" id="f-interior"></span>
+                    <button class="wood-btn small" id="btn-cap-interior" data-t="ui_use_position"></button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="wood-btn" id="btn-save" data-t="ui_save"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Knock prompt (sits on top of anything else) -->
+    <div id="knock" class="modal hidden">
+        <div class="title small" data-t="ui_knocking"></div>
+        <div class="row-title center" id="knock-name"></div>
+        <div class="bar"><div class="fill stat-warn" id="knock-bar"></div></div>
+        <div class="modal-actions">
+            <button class="wood-btn" id="btn-let-in" data-t="ui_let_in"></button>
+            <button class="wood-btn muted" id="btn-ignore" data-t="ui_ignore"></button>
+        </div>
+    </div>
+
+</div>
+<script src="script.js"></script>
+</body>
+</html>
