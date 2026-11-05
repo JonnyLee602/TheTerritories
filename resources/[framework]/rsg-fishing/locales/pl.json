@@ -20,5 +20,9 @@
   "sv_discord_c": "Złowiono ",
   "cl_no_bait": "No bait on your rod",
   "cl_use_bait_hint": "Use bait from your inventory",
-  "cl_bait": "Bait"
+  "cl_bait": "Bait",
+  "cl_hud_title": "Wędkarstwo",
+  "sv_inventory_full": "Masz pełne kieszenie, nie uniesiesz tej ryby.",
+  "cl_line_tension": "Napięcie żyłki",
+  "cl_line_snapped": "Żyłka pękła! Ryba uciekła razem z przynętą."
 }

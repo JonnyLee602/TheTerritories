@@ -724,7 +724,7 @@
     "ui_guide_selling_title": "Πώληση",
     "ui_guide_selling": "Οδήγησε τα βοοειδή σε σημείο πώλησης για να τα πουλήσεις ή πούλα γουρούνια, αγελάδες και πρόβατα από την καρτέλα Αγορά. Τα ζώα στην ακμή τους αξίζουν περισσότερο.",
     "cl_wellpump_title": "Αντλία πηγαδιού",
-    "cl_wellpump_place_help": "[Αρ. κλικ] Τοποθέτηση   [Q / E] Περιστροφή   [Πάνω / Κάτω] Ύψος   [Δεξ. κλικ] Ακύρωση",
+    "cl_wellpump_place_help": "[ENTER] Τοποθέτηση   [Αριστερά / Δεξιά] Περιστροφή   [Πάνω / Κάτω] Ύψος   [Δεξ. κλικ / Backspace] Ακύρωση",
     "cl_wellpump_too_far": "Πολύ μακριά",
     "cl_wellpump_cancelled": "Ακυρώθηκε",
     "cl_wellpump_fill_target": "Γέμισμα κουβά",
@@ -989,5 +989,14 @@
     "sv_adm_ranch_created": "%s created - its NPC is where you are standing",
     "sv_adm_ranch_deleted": "Ranch deleted",
     "cl_adm_command_help": "Open the ranch administration panel",
-    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that"
+    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that",
+    "ui_respawn": "Επανεμφάνιση",
+    "ui_respawn_hint": "Αν το ζώο έχει χαθεί από τον κόσμο, επανεμφάνισέ το στην τελευταία αποθηκευμένη θέση του.",
+    "sv_respawn_done": "Το ζώο επανεμφανίστηκε - θα εμφανιστεί σύντομα αν είσαι κοντά.",
+    "sv_respawn_cooldown": "Περίμενε λίγα δευτερόλεπτα πριν το ξαναδοκιμάσεις.",
+    "ui_adm_return_spawn": "Επιστροφή στο Σημείο Εμφάνισης",
+    "ui_adm_return_all": "Επιστροφή Όλων στο Σημείο Εμφάνισης",
+    "ui_adm_confirm_return_all": "Να επιστρέψουν και τα %s ζώα του %s στο σημείο εμφάνισης ζώων του ράντσου;",
+    "sv_adm_returned": "Τα ζώα επέστρεψαν στο σημείο εμφάνισης του ράντσου",
+    "sv_adm_no_spawn": "Αυτό το ράντσο δεν έχει ορισμένο σημείο εμφάνισης ζώων"
 }

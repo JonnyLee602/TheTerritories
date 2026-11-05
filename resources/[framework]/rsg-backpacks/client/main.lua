@@ -73,7 +73,7 @@ RegisterNetEvent('rsg-backpacks:client:wear', function(itemName, serial)
 
     local cfg = Config.backpackByItem[itemName]
     if not cfg then
-        lib.notify({
+        RSGCore.Functions.Notify({
             title = locale('error_title'),
             description = locale('backpack_config_missing'),
             type = 'error',
@@ -84,17 +84,20 @@ RegisterNetEvent('rsg-backpacks:client:wear', function(itemName, serial)
 
     if worn and worn.serial == serial then return end
     if worn then RemoveBackpackProp() end
-    EquipBackpackProp(cfg, serial)
+    if not EquipBackpackProp(cfg, serial) then
+        -- model failed to load: keep the serial so the monitor retries attaching it
+        worn = { cfg = cfg, serial = serial, entity = 0, ped = 0 }
+    end
 end)
 
 -- take the worn backpack off
 RegisterCommand('removebackpack', function()
     if not worn then
-        lib.notify({ title = locale('backpack_title'), description = locale('backpack_not_worn'), type = 'error', duration = 4000 })
+        RSGCore.Functions.Notify({ title = locale('backpack_title'), description = locale('backpack_not_worn'), type = 'error', duration = 4000 })
         return
     end
     RemoveBackpackProp()
-    lib.notify({ title = locale('backpack_title'), description = locale('backpack_taken_off'), type = 'inform', duration = 4000 })
+    RSGCore.Functions.Notify({ title = locale('backpack_title'), description = locale('backpack_taken_off'), type = 'inform', duration = 4000 })
 end, false)
 
 CreateThread(function()
@@ -142,7 +145,7 @@ CreateThread(function()
                     if misses >= 2 then
                         RemoveBackpackProp()
                         misses = 0
-                        lib.notify({
+                        RSGCore.Functions.Notify({
                             title = locale('backpack_title'),
                             description = locale('backpack_lost'),
                             type = 'warning',

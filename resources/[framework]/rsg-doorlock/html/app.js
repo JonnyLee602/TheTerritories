@@ -7,7 +7,7 @@ let maxDoors = 8;
 let defaultDistance = 1.25;
 let form = null; // { id, name, jobs[], distance, locked, doors[] }
 let pendingDelete = null;
-let L = {}; // locale dictionary sent from Lua (ox_lib locales/*.json)
+let L = {}; // locale dictionary sent from Lua (rsg-core locale(), locales/*.json)
 
 // t('key', a, b) -> replaces each %s in order, falls back to the key itself
 function t(key, ...args) {

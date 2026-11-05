@@ -5,10 +5,10 @@ game 'rdr3'
 author 'RexShack'
 name 'rsg-beekeeper'
 description 'Beekeeper script for RSG Framework'
-version '3.0.1'
+version '3.2.0'
 
 shared_scripts {
-    '@ox_lib/init.lua',
+    '@rsg-core/shared/locale.lua',
     'shared/config.lua',
 }
 
@@ -20,15 +20,14 @@ server_scripts {
 }
 
 client_scripts {
-    'client/placement.lua',
-    'client/client.lua'
+    'client/client.lua',
 }
 
 dependencies {
     'rsg-core',
     'rsg-inventory',
-    'ox_lib',
-    'ox_target',
+    'rsg-target',
+    'rsg-gizmo',
     'oxmysql',
 }
 

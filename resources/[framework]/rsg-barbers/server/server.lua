@@ -1,120 +1,85 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
-lib.locale()
+local cooldowns = {}
 
-RegisterServerEvent("rsg-barber:server:SaveSkin")
-AddEventHandler("rsg-barber:server:SaveSkin", function(CreatorCache)
+local function notify(src, title, description, ntype)
+    TriggerClientEvent('RSGCore:Client:Notify', src, { title = title, description = description, type = ntype, duration = 5000 })
+end
+
+local function decode(str)
+    if type(str) ~= 'string' or str == '' then return nil end
+    local ok, data = pcall(json.decode, str)
+    return ok and type(data) == 'table' and data or nil
+end
+
+RSGCore.Functions.CreateCallback('rsg-barbers:server:purchase', function(source, cb, barberid, payload)
     local src = source
-    local player = RSGCore.Functions.GetPlayer(src)
-    local citizenid = player.PlayerData.citizenid
-    local price = Config.BarberCost
-    local money = player.Functions.GetMoney('cash')
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return cb({ ok = false, reason = 'error' }) end
 
-    if money < price then
-        TriggerClientEvent('ox_lib:notify', src, {title = locale('sv_error_1'), description = locale('sv_error_2'), type = 'error' })
-        return
+    local now = os.time()
+    if cooldowns[src] and now - cooldowns[src] < Config.Cooldown then return cb({ ok = false, reason = 'busy' }) end
+    cooldowns[src] = now
+
+    local loc = type(barberid) == 'string' and Barber.GetLocation(barberid)
+    if not loc or type(payload) ~= 'table' then return cb({ ok = false, reason = 'error' }) end
+
+    if #(GetEntityCoords(GetPlayerPed(src)) - loc.seat.xyz) > Config.MaxDistance then
+        return cb({ ok = false, reason = 'too_far' })
     end
 
-    if not next(CreatorCache) then
-        return
+    local citizenid = Player.PlayerData.citizenid
+    local row = MySQL.single.await('SELECT skin FROM playerskins WHERE citizenid = ? ORDER BY id DESC LIMIT 1', { citizenid })
+    local skin = row and decode(row.skin)
+    if not skin then return cb({ ok = false, reason = 'error' }) end
+
+    local isMale = (tonumber(Player.PlayerData.charinfo and Player.PlayerData.charinfo.gender) or 0) == 0
+    local gender = isMale and 'male' or 'female'
+    local changed = false
+
+    -- hair / beard: client sends model+texture indexes, server resolves the hash
+    local categories = isMale and { 'hair', 'beard' } or { 'hair' }
+    for _, cat in ipairs(categories) do
+        local sel = payload[cat]
+        if type(sel) == 'table' then
+            local hash = Barber.ResolveHash(gender, cat, sel.model, sel.texture)
+            if not hash then return cb({ ok = false, reason = 'error' }) end
+            if hash ~= Barber.StoredHash(gender, cat, skin[cat]) then
+                skin[cat] = { hash = hash }
+                changed = true
+            end
+        end
     end
 
-    local result = MySQL.Sync.fetchAll('SELECT skin FROM playerskins WHERE citizenid = @citizenid',
-    {
-        citizenid = citizenid
-    })
-
-    if result[1] == nil then return end
-
-    local skin = {}
-    skin = json.decode(result[1].skin)
-
-    skin["hair"] = CreatorCache["hair"] or 0
-    skin["beard"] = CreatorCache["beard"] or 0
-
-    if CreatorCache['beardstabble_t'] ~= nil then
-        skin['beardstabble_t'] = tostring(CreatorCache['beardstabble_t'])
+    -- makeup: whitelisted keys with integer ranges from config
+    for _, def in ipairs(Config.Makeup) do
+        local value = payload[def.key]
+        if value ~= nil and (isMale or not def.maleOnly) then
+            value = math.tointeger(tonumber(value))
+            if not value or value < def.min or value > def.max then return cb({ ok = false, reason = 'error' }) end
+            if tonumber(skin[def.key]) ~= value then
+                skin[def.key] = value
+                changed = true
+            end
+        end
     end
 
-    if CreatorCache['beardstabble_op'] ~= nil then
-        skin['beardstabble_op'] = tostring(CreatorCache['beardstabble_op'])
+    if not changed then return cb({ ok = false, reason = 'no_changes' }) end
+
+    local price = Barber.GetPrice(loc)
+    if price > 0 and not Player.Functions.RemoveMoney('cash', price, 'barber-' .. loc.barberid) then
+        return cb({ ok = false, reason = 'no_money', price = price })
     end
 
-    if CreatorCache['shadows_t'] ~= nil then
-        skin['shadows_t'] = tostring(CreatorCache['shadows_t'])
+    local affected = MySQL.update.await('UPDATE playerskins SET skin = ? WHERE citizenid = ?', { json.encode(skin), citizenid })
+    if not affected or affected == 0 then
+        if price > 0 then Player.Functions.AddMoney('cash', price, 'barber-refund') end
+        return cb({ ok = false, reason = 'error' })
     end
 
-    if CreatorCache['shadows_op'] ~= nil then
-        skin['shadows_op'] = tostring(CreatorCache['shadows_op'])
-    end
+    notify(src, locale('purchased_title'), locale('purchased', price), 'success')
+    cb({ ok = true })
+end)
 
-    if CreatorCache['shadows_id'] ~= nil then
-        skin['shadows_id'] = tostring(CreatorCache['shadows_id'])
-    end
-
-    if CreatorCache['shadows_c1'] ~= nil then
-        skin['shadows_c1'] = tostring(CreatorCache['shadows_c1'])
-    end
-
-    if CreatorCache['blush_t'] ~= nil then
-        skin['blush_t'] = tostring(CreatorCache['blush_t'])
-    end
-
-    if CreatorCache['blush_op'] ~= nil then
-        skin['blush_op'] = tostring(CreatorCache['blush_op'])
-    end
-
-    if CreatorCache['blush_id'] ~= nil then
-        skin['blush_id'] = tostring(CreatorCache['blush_id'])
-    end
-
-    if CreatorCache['blush_c1'] ~= nil then
-        skin['blush_c1'] = tostring(CreatorCache['blush_c1'])
-    end
-
-    if CreatorCache['lipsticks_t'] ~= nil then
-        skin['lipsticks_t'] = tostring(CreatorCache['lipsticks_t'])
-    end
-
-    if CreatorCache['lipsticks_op'] ~= nil then
-        skin['lipsticks_op'] = tostring(CreatorCache['lipsticks_op'])
-    end
-
-    if CreatorCache['lipsticks_id'] ~= nil then
-        skin['lipsticks_id'] = tostring(CreatorCache['lipsticks_id'])
-    end
-
-    if CreatorCache['lipsticks_c1'] ~= nil then
-        skin['lipsticks_c1'] = tostring(CreatorCache['lipsticks_c1'])
-    end
-
-    if CreatorCache['lipsticks_c2'] ~= nil then
-        skin['lipsticks_c2'] = tostring(CreatorCache['lipsticks_c2'])
-    end
-
-    if CreatorCache['eyeliners_t'] ~= nil then
-        skin['eyeliners_t'] = tostring(CreatorCache['eyeliners_t'])
-    end
-
-    if CreatorCache['eyeliners_op'] ~= nil then
-        skin['eyeliners_op'] = tostring(CreatorCache['eyeliners_op'])
-    end
-
-    if CreatorCache['eyeliners_id'] ~= nil then
-        skin['eyeliners_id'] = tostring(CreatorCache['eyeliners_id'])
-    end
-
-    if CreatorCache['eyeliners_c1'] ~= nil then
-        skin['eyeliners_c1'] = tostring(CreatorCache['eyeliners_c1'])
-    end
-
-    MySQL.query.await("UPDATE playerskins SET skin = @skin WHERE citizenid = @citizenid",
-    {
-        ['citizenid'] = citizenid,
-        ['skin'] = json.encode(skin)
-    })
-
-    player.Functions.RemoveMoney('cash', price)
-
-    TriggerClientEvent('ox_lib:notify', src, {title = locale('sv_success_1'), description = locale('sv_success_2'), type = 'success' })
-
+AddEventHandler('playerDropped', function()
+    cooldowns[source] = nil
 end)

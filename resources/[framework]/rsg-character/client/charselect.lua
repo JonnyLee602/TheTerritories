@@ -55,6 +55,7 @@ local function EndScene()
     LocalPlayer.state.inCharacterSelect = false
     ClearOverrideWeather()
     NetworkClearClockTimeOverride()
+    Citizen.InvokeNative(0x193DFC0526830FD6, -1.0) -- _SET_RAIN: -1 hands rain back to the weather system (0.0 set for the scene blocks rain forever)
     pcall(function() exports['rsg-weather']:setSyncEnabled(true) end)
     ClearPeds()
     if sceneCam then
@@ -567,7 +568,7 @@ end)
 RegisterNetEvent('rsg-character:client:CharSelectFailed', function()
     pendingDeleteLoading = false
     UI.HideLoadingScreen()
-    lib.notify({
+    RSGCore.Functions.Notify({
         title = locale('charselect.login_failed.title'),
         description = locale('charselect.login_failed.description'),
         type = 'error',

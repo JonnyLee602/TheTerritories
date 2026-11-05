@@ -26,7 +26,7 @@ local function doorList()
         end
         list[#list + 1] = {
             id = id, name = d.name, jobs = d.jobs, distance = d.distance, locked = d.locked, doors = hashes,
-            dist = math.floor(#(GetEntityCoords(cache.ped) - d.textCoords) + 0.5)
+            dist = math.floor(#(GetEntityCoords(PlayerPedId()) - d.textCoords) + 0.5)
         }
     end
     table.sort(list, function(a, b) return a.dist < b.dist end)
@@ -62,11 +62,8 @@ end
 local localeSent = false
 local function sendLocale()
     if localeSent then return end
-    local dict = lib.getLocales and lib.getLocales()
-    if not dict or not next(dict) then -- fallback for older ox_lib
-        dict = json.decode(LoadResourceFile(GetCurrentResourceName(), 'locales/en.json') or '{}') or {}
-    end
-    SendNUIMessage({ action = 'locale', locale = dict })
+    -- rsg-core locale() with no key returns the active (flattened) dictionary
+    SendNUIMessage({ action = 'locale', locale = locale() })
     localeSent = true
 end
 
@@ -111,7 +108,7 @@ local function startPicking()
 
     CreateThread(function()
         while picking do
-            local ped = cache.ped
+            local ped = PlayerPedId()
             local pcoords = GetEntityCoords(ped)
 
             -- rescan the door list around the player twice a second
@@ -205,7 +202,7 @@ end
 ---------------------------------------------
 RegisterNetEvent('rsg-doorlock:client:openEditor', function()
     if editorOpen then return end
-    if not lib.callback.await('rsg-doorlock:server:admin:check', false) then return end
+    if not RSGCore.Functions.AwaitCallback('rsg-doorlock:server:admin:check', 5000) then return end
     setEditorState(true)
     openUI()
 end)
@@ -222,6 +219,7 @@ RegisterNUICallback('close', function(_, cb)
 end)
 
 RegisterNUICallback('pick', function(data, cb)
+    if not editorOpen or picking then return cb('ok') end
     EditingId = tonumber(data.id)
     selected = {}
     for _, d in ipairs(data.doors or {}) do
@@ -238,20 +236,21 @@ RegisterNUICallback('pick', function(data, cb)
 end)
 
 RegisterNUICallback('save', function(data, cb)
-    local ok, res, a, b = lib.callback.await('rsg-doorlock:server:admin:save', false, data)
+    local ok, res, a, b = RSGCore.Functions.AwaitCallback('rsg-doorlock:server:admin:save', 10000, data)
     cb({ ok = ok, id = res, error = not ok and locale(res or 'err_invalid', a, b) or nil, message = ok and locale('saved') or nil })
 end)
 
 RegisterNUICallback('delete', function(data, cb)
-    local ok = lib.callback.await('rsg-doorlock:server:admin:delete', false, data.id)
+    local ok = RSGCore.Functions.AwaitCallback('rsg-doorlock:server:admin:delete', 10000, data.id)
     cb({ ok = ok, message = ok and locale('deleted') or locale('err_invalid') })
 end)
 
 RegisterNUICallback('teleport', function(data, cb)
+    if not editorOpen then return cb('ok') end
     local door = Doors[tonumber(data.id)]
     if door then
         local c = door.textCoords
-        SetEntityCoords(cache.ped, c.x, c.y, c.z - 1.0, false, false, false, false)
+        SetEntityCoords(PlayerPedId(), c.x, c.y, c.z - 1.0, false, false, false, false)
         TriggerServerEvent('rsg-doorlock:server:admin:teleported', door.id or tonumber(data.id))
     end
     cb('ok')

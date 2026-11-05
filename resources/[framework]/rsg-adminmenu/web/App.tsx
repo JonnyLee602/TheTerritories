@@ -139,7 +139,7 @@ function AppInner() {
             <Sidebar self={self} permissions={permissions} currentPage={page} onPageChange={setPage} onClose={handleClose} />
             <div className="flex-1 overflow-y-auto p-8">
               <div className="w-full h-full flex flex-col">
-                {page === 'dashboard' && <Dashboard self={self} onViewAllPlayers={() => setPage('players')} />}
+                {page === 'dashboard' && <Dashboard self={self} permissions={permissions} onViewAllPlayers={() => setPage('players')} />}
                 {page === 'statistics' && <Statistics />}
                 {page === 'players' && <Players permissions={permissions} />}
                 {page === 'whitelist' && <Whitelist />}

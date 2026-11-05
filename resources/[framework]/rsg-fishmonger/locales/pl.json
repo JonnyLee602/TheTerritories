@@ -84,5 +84,16 @@
     "wh_started": "`%s` v%s działa.",
     "wh_test_title": "Test webhooka",
     "wh_test_desc": "Wiadomość testowa dla kanału **%s**.",
-    "cmd_webhooktest_help": "Wysyła wiadomość testową do wszystkich skonfigurowanych webhooków handlarza ryb"
+    "cmd_webhooktest_help": "Wysyła wiadomość testową do wszystkich skonfigurowanych webhooków handlarza ryb",
+    "cl_target_shop": "Przeglądaj sprzęt wędkarski",
+    "sv_closed": "Handlarz rybami jest zamknięty. Otwarte od %s:00 do %s:00",
+    "sv_stock_left": "Handlarz kupi dziś jeszcze tylko %s ryb",
+    "sv_stock_full": "Handlarz kupił już dziś wszystkie potrzebne ryby",
+    "shop_label": "%s – zaopatrzenie",
+    "ui_sell_all": "Sprzedaj wszystko",
+    "ui_demand": "Dzisiejszy popyt",
+    "ui_bonus": "Twój bonus",
+    "ui_stock_left": "Skup dzisiaj",
+    "ui_unlimited": "Bez limitu",
+    "ui_over_stock": "Więcej ryb, niż handlarz kupi dzisiaj"
 }

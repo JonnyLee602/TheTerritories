@@ -78,6 +78,7 @@ local function BuildRanchPayload(ranchid)
         isOwner = owner == PlayerData.citizenid,
         isBoss = isBoss,
         canManageStaff = canManageStaff,
+        canSell = (Config.StaffManagement.Permissions[grade] or {}).canSell == true,
         isTrainee = grade == 0,
         herdingEnabled = Config.HerdingEnabled == true,
         cash = PlayerData.money.cash or 0,
@@ -208,6 +209,7 @@ end)
 -- simple fire-and-forget actions: action name -> server event + argument builder
 local Actions = {
     sellAnimal     = function(d) TriggerServerEvent('rsg-ranch:server:sellAtRanch', d.animalid) end,
+    respawnAnimal  = function(d) TriggerServerEvent('rsg-ranch:server:respawnAnimal', d.animalid) end,
     slaughter      = function(d) TriggerServerEvent('rsg-ranch:server:slaughterAtRanch', d.animalid) end,
     orderSupply    = function(d) TriggerServerEvent('rsg-ranch:server:placeSupplyOrder', d.item, tonumber(d.amount) or 1) end,
     collectOrder   = function(d) TriggerServerEvent('rsg-ranch:server:collectSupplyOrder', d.orderid) end,

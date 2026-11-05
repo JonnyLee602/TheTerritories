@@ -724,7 +724,7 @@
     "ui_guide_selling_title": "Verkaufen",
     "ui_guide_selling": "Treibe Rinder zu einem Verkaufspunkt, um sie zu verkaufen, oder verkaufe Schweine, Kühe und Schafe im Markt-Tab. Tiere im besten Alter bringen am meisten.",
     "cl_wellpump_title": "Brunnenpumpe",
-    "cl_wellpump_place_help": "[LMT] Platzieren   [Q / E] Drehen   [Hoch / Runter] Höhe   [RMT] Abbrechen",
+    "cl_wellpump_place_help": "[ENTER] Platzieren   [Links / Rechts] Drehen   [Hoch / Runter] Höhe   [RMT / Rücktaste] Abbrechen",
     "cl_wellpump_too_far": "Zu weit weg",
     "cl_wellpump_cancelled": "Abgebrochen",
     "cl_wellpump_fill_target": "Eimer füllen",
@@ -989,5 +989,14 @@
     "sv_adm_ranch_created": "%s created - its NPC is where you are standing",
     "sv_adm_ranch_deleted": "Ranch deleted",
     "cl_adm_command_help": "Open the ranch administration panel",
-    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that"
+    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that",
+    "ui_respawn": "Neu spawnen",
+    "ui_respawn_hint": "Wenn das Tier aus der Welt verschwunden ist, lass es an seiner letzten Position neu erscheinen.",
+    "sv_respawn_done": "Tier neu gespawnt - es erscheint gleich, wenn du in der Nähe bist.",
+    "sv_respawn_cooldown": "Bitte warte ein paar Sekunden, bevor du erneut spawnst.",
+    "ui_adm_return_spawn": "Zum Spawnpunkt",
+    "ui_adm_return_all": "Alle zum Spawnpunkt",
+    "ui_adm_confirm_return_all": "Alle %s Tiere auf %s zum Tier-Spawnpunkt der Ranch zurückschicken?",
+    "sv_adm_returned": "Tier(e) zum Spawnpunkt der Ranch zurückgebracht",
+    "sv_adm_no_spawn": "Diese Ranch hat keinen Tier-Spawnpunkt"
 }

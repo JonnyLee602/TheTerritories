@@ -54,6 +54,13 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 #bobber .fish{display:none}
 #bobber.hooked .float{display:none}
 #bobber.hooked .fish{display:block;transform-origin:50% 50%}
+.tension{margin-top:10px}
+.tension-head{display:flex;justify-content:space-between;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--rdr-muted);margin-bottom:5px}
+.tension-track{height:8px;border-radius:2px;border:1px solid var(--rdr-gold-dim);background:var(--rdr-black);overflow:hidden}
+.tension-fill{height:100%;width:0;background:var(--rdr-cost-ok);transition:width .1s linear,background .2s ease}
+.tension.warn .tension-fill{background:var(--rdr-amber)}
+.tension.danger .tension-fill{background:var(--rdr-cost-over)}
+.tension.danger .tension-head{color:var(--rdr-cost-over)}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 @keyframes tug{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(5px) rotate(-8deg)}75%{transform:translateY(3px) rotate(8deg)}}
 </style>
@@ -79,12 +86,16 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
   </div>
   <div id="panel" class="panel hidden">
     <div class="head">
-      <div class="title">Fishing</div>
+      <div class="title" id="title">Fishing</div>
       <div class="sub" id="sub"></div>
       <div class="info hidden" id="info"></div>
     </div>
     <div class="divider">✦</div>
     <div class="rows" id="rows"></div>
+    <div class="tension hidden" id="tension">
+      <div class="tension-head"><span id="tensionLabel">Line Tension</span><span id="tensionPct">0%</span></div>
+      <div class="tension-track"><div class="tension-fill" id="tensionFill"></div></div>
+    </div>
   </div>
 </div>
 <script>
@@ -95,6 +106,16 @@ const infoEl=document.getElementById('info');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 window.addEventListener('message',e=>{
   const d=e.data; if(!d)return;
+  if(d.action==='locale'){if(d.title)document.getElementById('title').textContent=d.title;if(d.tension)document.getElementById('tensionLabel').textContent=d.tension;return;}
+  if(d.action==='tension'){
+    const t=document.getElementById('tension');
+    if(!d.show){t.classList.add('hidden');return;}
+    const v=Math.max(0,Math.min(1,d.value||0));
+    document.getElementById('tensionFill').style.width=(v*100)+'%';
+    document.getElementById('tensionPct').textContent=Math.round(v*100)+'%';
+    t.classList.toggle('warn',v>=0.5&&v<0.8);t.classList.toggle('danger',v>=0.8);
+    t.classList.remove('hidden');return;
+  }
   if(d.action==='bobber'){
     if(!d.show){bob.classList.add('hidden');return;}
     if(d.size){bob.style.width=d.size+'px';bob.style.height=d.size+'px';}

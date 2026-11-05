@@ -724,7 +724,7 @@
     "ui_guide_selling_title": "Vânzare",
     "ui_guide_selling": "Mână vitele la un punct de vânzare ca să le vinzi sau vinde porci, vaci și oi din fila Piață. Animalele în floarea vârstei aduc cei mai mulți bani.",
     "cl_wellpump_title": "Pompă de fântână",
-    "cl_wellpump_place_help": "[Click st.] Plasează   [Q / E] Rotește   [Sus / Jos] Înălțime   [Click dr.] Anulează",
+    "cl_wellpump_place_help": "[ENTER] Plasează   [Stânga / Dreapta] Rotește   [Sus / Jos] Înălțime   [Click dr. / Backspace] Anulează",
     "cl_wellpump_too_far": "Prea departe",
     "cl_wellpump_cancelled": "Anulat",
     "cl_wellpump_fill_target": "Umple găleata",
@@ -989,5 +989,14 @@
     "sv_adm_ranch_created": "%s created - its NPC is where you are standing",
     "sv_adm_ranch_deleted": "Ranch deleted",
     "cl_adm_command_help": "Open the ranch administration panel",
-    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that"
+    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that",
+    "ui_respawn": "Respawn",
+    "ui_respawn_hint": "Dacă animalul a dispărut din lume, readu-l la ultima poziție salvată.",
+    "sv_respawn_done": "Animal readus - va apărea în curând dacă ești în apropiere.",
+    "sv_respawn_cooldown": "Așteaptă câteva secunde înainte de a încerca din nou.",
+    "ui_adm_return_spawn": "Întoarce la punctul de spawn",
+    "ui_adm_return_all": "Toate la punctul de spawn",
+    "ui_adm_confirm_return_all": "Trimiți toate cele %s animale de la %s înapoi la punctul de spawn al fermei?",
+    "sv_adm_returned": "Animal(e) întoarse la punctul de spawn al fermei",
+    "sv_adm_no_spawn": "Această fermă nu are un punct de spawn pentru animale"
 }

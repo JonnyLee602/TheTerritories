@@ -84,5 +84,16 @@
     "wh_started": "`%s` v%s が稼働中です。",
     "wh_test_title": "Webhookテスト",
     "wh_test_desc": "**%s** チャンネルのテストメッセージです。",
-    "cmd_webhooktest_help": "設定済みのすべての魚屋Webhookにテストメッセージを送信"
+    "cmd_webhooktest_help": "設定済みのすべての魚屋Webhookにテストメッセージを送信",
+    "cl_target_shop": "釣り道具を見る",
+    "sv_closed": "魚屋は閉店しています。営業時間 %s:00〜%s:00",
+    "sv_stock_left": "魚屋は今日あと%s匹しか買い取りません",
+    "sv_stock_full": "魚屋は今日必要な魚をすべて買い取りました",
+    "shop_label": "%s 釣具店",
+    "ui_sell_all": "所持分をすべて売る",
+    "ui_demand": "今日の需要",
+    "ui_bonus": "あなたのボーナス",
+    "ui_stock_left": "本日の買取枠",
+    "ui_unlimited": "無制限",
+    "ui_over_stock": "魚屋が今日買い取る数を超えています"
 }

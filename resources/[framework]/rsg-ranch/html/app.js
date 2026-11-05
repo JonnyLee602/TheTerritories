@@ -103,7 +103,7 @@ function tabList() {
     const tabs = [{ id: 'herd', icon: '&#10022;', label: t('ui_tab_herd') }];
     if (s.grade >= 1) {
         tabs.push({ id: 'storage', icon: '&#9635;', label: t('ui_tab_storage') });
-        tabs.push({ id: 'market', icon: '&#9878;', label: t('ui_tab_market') });
+        if (s.canSell) tabs.push({ id: 'market', icon: '&#9878;', label: t('ui_tab_market') });
         if (s.catalog) tabs.push({ id: 'supplies', icon: '&#9998;', label: t('ui_tab_supplies') });
     }
     if (s.canManageStaff) tabs.push({ id: 'staff', icon: '&#9733;', label: t('ui_tab_staff') });
@@ -204,8 +204,10 @@ function showAnimal(id) {
             <div><div class="k">${esc(t('ui_product'))}</div>${esc(a.product_ready ? t('ui_ready') : t('ui_not_ready'))}</div>
         </div>
         <div class="stats single">${bar(t('ui_health'), a.health)}${bar(t('ui_hunger'), a.hunger)}${bar(t('ui_thirst'), a.thirst)}</div>
-        <p class="spaced">${esc(t('ui_animal_hint'))}</p>`,
-        [{ label: t('ui_close'), muted: true }]);
+        <p class="spaced">${esc(t('ui_animal_hint'))}</p>
+        <p class="spaced">${esc(t('ui_respawn_hint'))}</p>`,
+        [{ label: t('ui_respawn'), onClick: () => action('respawnAnimal', { animalid: a.animalid }) },
+         { label: t('ui_close'), muted: true }]);
 }
 
 // ---------- storage ----------

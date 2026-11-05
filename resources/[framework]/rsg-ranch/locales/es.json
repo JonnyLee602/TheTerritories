@@ -724,7 +724,7 @@
     "ui_guide_selling_title": "Venta",
     "ui_guide_selling": "Arrea el ganado a un punto de venta para venderlo, o vende cerdos, vacas y ovejas en la pestaña Mercado. Los animales en su mejor edad valen más.",
     "cl_wellpump_title": "Bomba de pozo",
-    "cl_wellpump_place_help": "[Clic izq.] Colocar   [Q / E] Girar   [Arriba / Abajo] Altura   [Clic der.] Cancelar",
+    "cl_wellpump_place_help": "[ENTER] Colocar   [Izquierda / Derecha] Girar   [Arriba / Abajo] Altura   [Clic der. / Retroceso] Cancelar",
     "cl_wellpump_too_far": "Demasiado lejos",
     "cl_wellpump_cancelled": "Cancelado",
     "cl_wellpump_fill_target": "Llenar cubo",
@@ -989,5 +989,14 @@
     "sv_adm_ranch_created": "%s created - its NPC is where you are standing",
     "sv_adm_ranch_deleted": "Ranch deleted",
     "cl_adm_command_help": "Open the ranch administration panel",
-    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that"
+    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that",
+    "ui_respawn": "Reaparecer",
+    "ui_respawn_hint": "Si este animal ha desaparecido del mundo, hazlo reaparecer en su última posición guardada.",
+    "sv_respawn_done": "Animal reaparecido: aparecerá en breve si estás cerca.",
+    "sv_respawn_cooldown": "Espera unos segundos antes de volver a intentarlo.",
+    "ui_adm_return_spawn": "Volver al punto de aparición",
+    "ui_adm_return_all": "Devolver todos al punto de aparición",
+    "ui_adm_confirm_return_all": "¿Enviar los %s animales de %s de vuelta al punto de aparición de animales del rancho?",
+    "sv_adm_returned": "Animal(es) devuelto(s) al punto de aparición del rancho",
+    "sv_adm_no_spawn": "Este rancho no tiene un punto de aparición de animales"
 }

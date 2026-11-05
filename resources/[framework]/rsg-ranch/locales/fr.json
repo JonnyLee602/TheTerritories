@@ -724,7 +724,7 @@
     "ui_guide_selling_title": "Vente",
     "ui_guide_selling": "Amenez le bétail à un point de vente pour le vendre, ou vendez cochons, vaches et moutons dans l'onglet Marché. Les animaux dans la force de l'âge rapportent le plus.",
     "cl_wellpump_title": "Pompe à eau",
-    "cl_wellpump_place_help": "[Clic G] Placer   [Q / E] Tourner   [Haut / Bas] Hauteur   [Clic D] Annuler",
+    "cl_wellpump_place_help": "[ENTRÉE] Placer   [Gauche / Droite] Tourner   [Haut / Bas] Hauteur   [Clic D / Retour arrière] Annuler",
     "cl_wellpump_too_far": "Trop loin",
     "cl_wellpump_cancelled": "Annulé",
     "cl_wellpump_fill_target": "Remplir le seau",
@@ -989,5 +989,14 @@
     "sv_adm_ranch_created": "%s created - its NPC is where you are standing",
     "sv_adm_ranch_deleted": "Ranch deleted",
     "cl_adm_command_help": "Open the ranch administration panel",
-    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that"
+    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that",
+    "ui_respawn": "Réapparaître",
+    "ui_respawn_hint": "Si cet animal a disparu du monde, faites-le réapparaître à sa dernière position enregistrée.",
+    "sv_respawn_done": "Animal réapparu - il apparaîtra bientôt si vous êtes à proximité.",
+    "sv_respawn_cooldown": "Veuillez patienter quelques secondes avant de réessayer.",
+    "ui_adm_return_spawn": "Renvoyer au point d'apparition",
+    "ui_adm_return_all": "Tout renvoyer au point d'apparition",
+    "ui_adm_confirm_return_all": "Renvoyer les %s animaux de %s au point d'apparition des animaux du ranch ?",
+    "sv_adm_returned": "Animal(aux) renvoyé(s) au point d'apparition du ranch",
+    "sv_adm_no_spawn": "Ce ranch n'a pas de point d'apparition pour les animaux"
 }

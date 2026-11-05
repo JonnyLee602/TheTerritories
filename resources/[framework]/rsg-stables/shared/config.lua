@@ -10,6 +10,7 @@ Config.StoreDistance       = 8.0    -- max distance player's mount can be from s
 Config.PaymentAccount      = 'cash' -- 'cash' or 'bank'
 Config.WhistleStopDistance = 1.0 -- whistled horse stops this many meters in front of the player (measured to the horse's nose)
 Config.WhistleAnim = 'WHISTLEHORSESHORT' -- whistle sound + animation played on H ('WHISTLEHORSESHORT', 'WHISTLEHORSELONG', 'WHISTLEHORSEDOUBLE'), false to disable
+Config.WhistleSpawnDistance = 12.0 -- when moved closer, the horse is placed on open ground about this far away (preferring behind you) with a clear run to you
 Config.WhistleTeleportDistance = 60.0 -- if the active horse is farther than this when whistled, it's moved near the player instead of walking/running over
 Config.AllowTwoPlayersRide = false
 
@@ -61,9 +62,24 @@ Config.HorseNeeds = {
     healthRegenPerTick = 1,     -- health % gained per decay tick while well fed/watered (capped at 100)
 }
 
+-- ===================== HITCHED HORSES =====================
+-- RedM has no "is hitched" native, so a horse counts as hitched when you're off it and it is
+-- standing right next to one of these hitching-post props. Natural drinking/grazing is skipped
+-- while hitched so the horse doesn't pull itself off the post and wander.
+Config.HorseHitch = {
+    blockNaturalNeeds = true,
+    detectRadius      = 3.0,   -- how close the horse must be to a post to count as hitched
+    postModels = {
+        'p_hitchingpost01x', 'p_hitchingpost02x', 'p_hitchingpost03x', 'p_hitchingpost04x',
+        'p_hitchingpost05x', 'p_hitchingpost06x', 'p_hitchingpost07x', 'p_horsehitchnbd01x',
+        'p_hitchpost01x', 'p_hitchpost02x',
+    },
+}
+
 -- ===================== NATURAL DRINKING (rivers / lakes / troughs) =====================
 Config.HorseNaturalDrink = {
     enabled         = true,
+    maxPlayerDistance = 50.0, -- server check: the horse must be within this distance of its owner to drink
     thirstThreshold = 40,    -- horse only drinks when thirst is at/below this
     thirstRestore   = 100,   -- thirst is restored to this value (0-100)
     checkInterval   = 2000,  -- ms between proximity checks
@@ -81,6 +97,7 @@ Config.HorseNaturalDrink = {
 -- ===================== NATURAL GRAZING (hay near the player) =====================
 Config.HorseNaturalGraze = {
     enabled         = true,
+    maxPlayerDistance = 50.0, -- server check: the horse must be within this distance of its owner to graze
     hungerThreshold = 40,     -- horse only goes looking for hay when hunger is at/below this
     hungerRestore   = 100,    -- hunger is restored to this value (0-100)
     checkInterval   = 3000,   -- ms between checks for nearby hay
@@ -101,6 +118,27 @@ Config.HorseNaturalGraze = {
 -- ===================== HORSE LANTERN =====================
 -- Using the item toggles a saddle lantern on your active horse (item is not consumed).
 -- Hashes as used by rsg-horses (github.com/RexShack/rsg-horses, client/client.lua)
+-- When true, long guns are only stored on the horse if a holster is fitted (mirrors RDR2 player_horse.c).
+-- When false, the game default applies (any owned horse stores long guns).
+Config.HolsterStoresLongarms = true
+
+-- ===================== HORSESHOES =====================
+-- Horses without horseshoes ride much worse. Shoes wear down the longer the horse is ridden; once fully
+-- worn they come off and the horse stays degraded until new shoes are fitted at a stable (tack menu -> Horseshoes).
+Config.Horseshoes = {
+    enabled        = true,
+    unshodMoveRate = 0.80,  -- move-rate multiplier while riding without shoes (1.0 = no slow-down)
+    unshodStaminaDrain = 1.5, -- extra stamina drained per second while moving fast without shoes (0 = off)
+    wearSeconds    = 14400, -- seconds of riding a set of shoes lasts (14400 = 4 hours in the saddle)
+    gallopWearMultiplier = 1.5, -- shoes wear this much faster while moving at minSpeed or above (1.0 = same)
+    minMoveSpeed   = 1.0,   -- horse speed (m/s) needed for riding time to count (standing still doesn't wear shoes)
+    reportInterval = 60,    -- seconds between wear saves to the server
+    warnAt         = { 25, 10 }, -- warn the rider when shoe condition drops to these percentages
+    minSpeed       = 5.0,   -- horse speed (m/s) treated as fast riding (about a canter) for wear + unshod stamina drain
+    newHorsesShod  = true,  -- bought horses and foals come with shoes fitted (wild horses never do)
+    remindOnMount  = true,  -- tell the player when they mount a horse that has no shoes
+}
+
 Config.HorseLantern = {
     enabled  = true,
     item     = 'horse_lantern',
@@ -111,7 +149,9 @@ Config.HorseLantern = {
 
 -- ===================== BRUSHING =====================
 Config.HorseBrushItem = 'horse_brush' -- item required (not consumed) to Brush Horse; using it from the inventory brushes your horse
-Config.HorseBrushDistance = 3.0 -- how close you must be to your horse to use the brush or a feed item from the inventory
+Config.HorseBrushDistance = 4.0 -- how close you must be to your horse to use the brush or a feed item from the inventory (measured to the horse's centre)
+Config.DebugHorseChecks = false -- prints why a feed/water/brush server check failed to the server console
+Config.HorseBrushMounted = true -- allow brushing from the saddle (Interaction_Brush, rdr3_discoveries tasks/TASK_ANIMAL_INTERACTION)
 
 -- ===================== BONDING =====================
 Config.HorseBonding = {
@@ -121,14 +161,14 @@ Config.HorseBonding = {
     brushGain = 2, -- bonding gained per successful Brush Horse (grooming bonds the most)
 }
 
-Config.HideNativeBrushFeed = true -- hide the game's own Brush / Feed horse prompts (ox_target options are used instead)
+Config.HideNativeBrushFeed = true -- hide the game's own Brush / Feed horse prompts (rsg-target options are used instead)
 
 -- ===================== HORSE INVENTORY =====================
 Config.HorseInventory = {
     enabled   = true,     -- adds an "Open Saddlebags" target prompt to the player's active horse (rsg-inventory stash)
     maxweight = 40000,    -- stash max weight (grams)
     slots     = 20,       -- stash slots
-    distance  = 2.5,      -- ox_target interaction distance
+    distance  = 2.5,      -- rsg-target interaction distance
     nativeCargoPrompt = true, -- the game's Horse Cargo prompt (B) beside the horse opens this stash
     requireSaddlebags = true, -- true: the horse stash can only be opened when saddlebags are fitted (tack); false: always accessible
 }
@@ -140,6 +180,78 @@ Config.HorseFlee = {
     storeOnFlee      = false, -- true: horse is stored back at its nearest stable, player must go retrieve it
                               -- false: horse stays "checked out"; whistling brings it running back to the player
     respawnDistance  = 15.0,  -- distance behind the player a fled horse is respawned at before it runs over (whistle recall)
+}
+
+-- ===================== HORSE ACTIONS =====================
+-- "Horse Actions" NUI panel from a target option on your active horse (and a command) to make it rest, sleep, graze, roll etc.
+-- Scenario names from RDR3 decompiled scripts (1436) + rdr3_discoveries scenario_types_with_conditional_anims.lua
+-- Horse action ids from rdr3_discoveries tasks/TASK_HORSE_ACTION
+Config.HorseActions = {
+    enabled     = true,
+    command     = 'horseaction', -- opens the actions menu near your horse; false to disable
+    actionCommands = true,       -- one command per action: /horse<id> e.g. /horserest /horsesleep /horsegraze /horsewallow /horserear /horsestay /horsefollow
+    stopCommand = 'horsestop',   -- ends the current action; false to disable
+    maxDistance = 6.0,           -- how close you must be to use the command
+    restRegen = {                -- while resting/sleeping the horse slowly refills its stamina and health cores
+        enabled  = true,
+        interval = 5000,         -- ms between ticks
+        stamina  = 2,            -- core points per tick (0-100)
+        health   = 1,
+    },
+    -- keybind to make your horse rear up while riding.
+    -- Control from rdr3_discoveries Controls/README.md: INPUT_SPECIAL_ABILITY_ACTION = Q / RB, active OnMount.
+    -- Optional modifier = hold this control too (e.g. `INPUT_HORSE_STOP` = Ctrl); false for a single key.
+    -- On foot use /horserear or the Horse Actions panel.
+    rearKey = {
+        enabled  = true,
+        modifier = false,
+        control  = `INPUT_SPECIAL_ABILITY_ACTION`,
+        cooldown = 3000,   -- ms between rears
+        -- TASK_HORSE_ACTION rear-ups throw the rider, so while riding the rearing anims are played directly
+        -- (rdr3_discoveries animations/ingameanims). rider = false to only animate the horse.
+        mountedAnim = {
+            -- flag: rdr3-native-enums eScriptedAnimFlags. 8208 = AF_SECONDARY (16) + AF_FORCE_START (8192):
+            -- plays over the ridden horse's movement task, which otherwise overrides a normal anim
+            horse = { dict = 'creatures_mammal@horse@normal@rearing', clip = 'rear_fwd', flag = 8208 },
+            rider = { dict = 'veh_horseback@seat_saddle@male@normal@rearing', clip = 'rear_fwd' },
+        },
+    },
+    actions = {
+        { id = 'rest', glyph = '\u{2726}', regen = true, anim = {
+            dict  = 'amb_creature_mammal@world_horse_resting@base', base  = 'base',
+            enterDict = 'amb_creature_mammal@world_horse_resting@stand_enter', enter = 'enter',
+            exitDict  = 'amb_creature_mammal@world_horse_resting@stand_exit',  exit  = 'exit',
+        } },
+        -- sleep scenario has ScenarioExitNearPlayer (horse gets up when you're close), so play its anims directly
+        -- dicts/clips from rdr3_discoveries animations/ingameanims
+        { id = 'sleep', glyph = '\u{263E}',  regen = true, anim = {
+            dict  = 'amb_creature_mammal@world_horse_sleeping@base', base  = 'base',
+            enterDict = 'amb_creature_mammal@world_horse_sleeping@stand_enter', enter = 'enter',
+            exitDict  = 'amb_creature_mammal@world_horse_sleeping@stand_exit',  exit  = 'exit',
+        } },
+        { id = 'graze', glyph = '\u{2618}', anim = {
+            dict  = 'amb_creature_mammal@world_horse_grazing@base', base  = 'base',
+            enterDict = 'amb_creature_mammal@world_horse_grazing@stand_enter', enter = 'enter',
+            exitDict  = 'amb_creature_mammal@world_horse_grazing@stand_exit',  exit  = 'exit',
+        } },
+        { id = 'wallow', glyph = '\u{21BB}', anim = {
+            dict  = 'amb_creature_mammal@world_horse_wallow_shake@base', base  = 'base',
+            enterDict = 'amb_creature_mammal@world_horse_wallow_shake@stand_enter', enter = 'enter',
+            exitDict  = 'amb_creature_mammal@world_horse_wallow_shake@stand_exit',  exit  = 'exit',
+        } },
+        { id = 'rear', glyph = '\u{2191}',   horseAction = 5 },  -- rear up
+        { id = 'stay', glyph = '\u{270B}',   stay = true },      -- stand still until told otherwise
+        -- TASK_LEAD_HORSE / TASK_STOP_LEADING_HORSE / _IS_PED_LEADING_HORSE (rsg-redm-brain natives/db/TASK.md),
+        -- as used by the decompiled av_walk_with_horse.c: walk your horse by the reins
+        { id = 'lead', glyph = '\u{2194}', lead = true },
+        -- TASK_FOLLOW_TO_OFFSET_OF_ENTITY (rsg-redm-brain natives/db/TASK.md): walks behind you until stopped, mounted or whistled
+        { id = 'follow', glyph = '\u{27A4}', follow = {
+            offset = vector3(0.8, -2.5, 0.0), -- metres to your right / behind you
+            speed = 3.0,                      -- 1.0 walk, 2.0 trot, 3.0 run; it slows down as it reaches you
+            stoppingRange = 1.0,
+            teleportDistance = 60.0,          -- if left this far behind it is moved close to you
+        } },
+    },
 }
 
 -- ===================== WILD HORSES =====================
@@ -1655,7 +1767,7 @@ Config.TackCategories = {
     { key = 'mane',       label = 'Mane' },
     { key = 'mask',       label = 'Mask' },
     { key = 'mustache',   label = 'Mustache' },
-    { key = 'holster',    label = 'Holster', required = true }, -- required = a style must be fitted (no 'None'); the holster is needed to carry weapons on the horse
+    { key = 'holster',    label = 'Holster' }, -- optional: without a holster, long guns stay on the player instead of being stored on the horse (see Config.HolsterStoresLongarms)
     { key = 'bridle',     label = 'Bridle' },
     { key = 'horseshoe',  label = 'Horseshoes' },
 }
@@ -1665,7 +1777,7 @@ Config.TackItems = {
         { label = 'Saddle Style 2', hash = 0x8FFCF06B, price = 25, verified = true }, -- hashid 2
         { label = 'Saddle Style 3', hash = 0x5546EB7A, price = 30, verified = true }, -- hashid 3
         { label = 'Saddle Style 4', hash = 0x8E64DDB5, price = 30, verified = true }, -- hashid 4
-        { label = 'Saddle Style 5', hash = 0x7092A211, price = 40, verified = true }, -- hashid 5
+        { label = 'Saddle Style 5', hash = 0x7092A211, price = 40, verified = true, bonus = { stamina = 2, speed = 1 } }, -- hashid 5
         { label = 'Saddle Style 6', hash = 0xC0C04297, price = 20, verified = true }, -- hashid 6
         { label = 'Saddle Style 7', hash = 0xBE703DF7, price = 20, verified = true }, -- hashid 7
         { label = 'Saddle Style 8', hash = 0xE5510BB8, price = 20, verified = true }, -- hashid 8
@@ -2273,3 +2385,181 @@ Config.TackItems = {
         { label = 'Horseshoes Style 1', hash = 0x0865A270, price = 10, verified = true }, -- hashid 1
     },
 }
+
+-- ===================== HORSE CARD =====================
+-- Live horse information panel (target "Horse Stats" on your horse, or the command below)
+Config.HorseCard = {
+    command     = 'horseinfo', -- false to disable the command
+    maxDistance = 15.0,        -- how close you must be to your horse to open it (mounted always works)
+}
+
+-- ===================== HORSE MEDICINE =====================
+-- Health counterpart to the stimulant (SP: CONSUMABLE_HORSE_CARE_PACKAGE / horse medicine)
+Config.HorseMedicine = {
+    enabled     = true,
+    item        = 'horse_medicine',
+    label       = 'Horse Medicine',
+    healPercent = 50,   -- % of max health restored
+    fillCore    = true, -- also refill the health core
+    useDistance = 3.0,
+    cooldown    = 60,   -- seconds between doses
+}
+
+-- ===================== HORSE REVIVER =====================
+-- SP: CONSUMABLE_HORSE_REVIVER. When your horse goes down you have `window` seconds to revive it
+-- in the field with the item before it counts as dead (insurance / death rules then apply as normal).
+Config.HorseReviver = {
+    enabled       = true,
+    item          = 'horse_reviver',
+    label         = 'Horse Reviver',
+    window        = 90,   -- seconds to reach the horse and revive it
+    useDistance   = 3.0,
+    revivedHealth = 30,   -- % health after reviving
+    bondingLoss   = 5,    -- bonding lost when the horse goes down (0 = none)
+}
+
+-- ===================== TACK STAT BONUSES =====================
+-- Tack gives bonus ranks like it does in SP (player_horse.c reads each item's effects into
+-- SET_ATTRIBUTE_BONUS_RANK). Stats: health, stamina, speed, accel. Bonuses stack with training.
+-- A per-item `bonus = { speed = 1 }` on any Config.TackItems entry overrides its category default.
+Config.TackBonuses = {
+    enabled = true,
+    categoryDefaults = {
+        saddle    = { stamina = 1 },
+        stirrups  = { accel = 1 },
+        horseshoe = { speed = 1 },
+        blanket   = { health = 1 },
+    },
+}
+
+-- ===================== SELLING HORSES =====================
+-- Sell a stabled horse back to the stablehand (Sell Horse in the horse menu)
+Config.HorseSell = {
+    enabled      = true,
+    percent      = 0.5,  -- of the breed's buy price
+    perTrainedLevel = 5, -- extra $ per trained level (all stats)
+    minPrice     = 5,
+    -- appraisal (like the decompiled shop_horse_shop.c / loanshark_sellhorse1.c horse valuation):
+    -- the stablehand inspects the horse and adjusts the base price. The breakdown is shown before you sell.
+    appraisal = {
+        enabled        = true,
+        conditionWeight = 0.3,  -- up to -30% for a horse in poor condition (average of health, hunger and thirst)
+        bondingBonus   = 0.2,   -- up to +20% at full bonding
+        stage          = { young = 0.8, adult = 1.0, old = 0.6 }, -- multiplier by age stage (Config.HorseAging)
+        shodBonus      = 5,     -- flat $ if the horse has shoes fitted
+    },
+}
+
+-- Horse fence: sell wild or stolen (unowned) horses for blood money, no questions asked.
+-- SP/MP have horse fences (SHOP_*_HORSE_FENCE in the decompile) but their coords aren't in the
+-- brain data, so add your own locations below (vector4 x, y, z, heading for the fence NPC).
+Config.HorseFence = {
+    enabled   = true,
+    account   = 'bloodmoney',
+    percent   = 0.35,  -- of the breed's buy price
+    cooldown  = 300,   -- seconds between sales per player
+    sellDistance = 10.0, -- horse and player must be this close to the fence NPC
+    pedModel  = `u_m_m_bwmstablehand_01`, -- same model the stables use
+    blip      = false, -- fences are usually secret
+    locations = {
+        -- { label = 'Horse Fence', coords = vector4(0.0, 0.0, 0.0, 0.0) },
+    },
+}
+
+-- ===================== HORSE TRAINING =====================
+-- Trained levels are applied as attribute BONUS ranks (SET_ATTRIBUTE_BONUS_RANK), the same layer
+-- Rockstar uses for tack bonuses in player_horse.c, so a breed's own base stats are never overwritten.
+-- Attribute IDs: rsg-redm-brain data/rdr3-native-enums/PedAttribute__AttributeType.md
+Config.Training = {
+    enabled = true,
+    debug   = false,
+
+    stats = {
+        health  = { attribute = 0 }, -- PA_Health
+        stamina = { attribute = 1 }, -- PA_Stamina
+        speed   = { attribute = 5 }, -- PA_Speed
+        accel   = { attribute = 6 }, -- PA_Acceleration
+        courage = { attribute = 3 }, -- PA_Courage: less spooking at gunfire / predators
+    },
+    statOrder = { 'health', 'stamina', 'speed', 'accel', 'courage' },
+    courageFromBonding = 25, -- +1 courage bonus rank per this much bonding (0-100); 0 = off
+
+    levelXp       = { 100, 250, 450, 700, 1000 }, -- total XP needed for level 1..n (n = max level)
+    bonusPerLevel = 1,                             -- bonus ranks added per trained level
+
+    -- passive XP from riding your own horse (distance measured on the server)
+    riding = {
+        enabled     = true,
+        interval    = 60,     -- seconds between ride ticks
+        metersPerXp = 100.0,  -- metres ridden per 1 XP
+        maxXpPerTick = 12,
+        maxSpeed    = 22.0,   -- m/s; anything faster is treated as a teleport and ignored
+        split       = { stamina = 0.6, speed = 0.4 }, -- how ride XP is shared between stats
+    },
+
+    -- paid training sessions at a stable (rsg-target on your horse)
+    session = {
+        enabled        = true,
+        price          = { health = 10, stamina = 10, speed = 15, accel = 15, courage = 10 }, -- taken from Config.PaymentAccount
+        rounds         = 5,     -- timing rounds per session
+        roundMs        = 2000,  -- how long the marker takes to sweep once (NUI)
+        baseXp         = 20,    -- XP for finishing a session
+        xpPerHit       = 12,    -- extra XP per successful round
+        cooldown       = 900,   -- seconds between sessions for the same horse
+        stableDistance = 25.0,  -- how close to a stable (ped/store/preview point) you must be
+        horseDistance  = 6.0,   -- how close to your horse you must be
+    },
+}
+
+-- ===================== SPOOKING =====================
+-- Gunfire and explosions near your horse can spook it (decompiled beat_spooked_horse.c): it rears up,
+-- may throw you and bolt. Courage (training + bonding, PA_Courage attribute 3) lowers the chance.
+-- A spooked horse stays skittish until you calm it (rsg-target "Calm Horse", Interaction_PositiveLongAgitated
+-- from rdr3_discoveries tasks/TASK_ANIMAL_INTERACTION) or the timer runs out.
+Config.HorseSpook = {
+    enabled        = true,
+    checkInterval  = 400,    -- ms between checks while riding / near your horse
+    radius         = 25.0,   -- gunfire / explosions within this many metres of the horse count
+    baseChance     = 0.35,   -- chance per scare at courage rank 0
+    minChance      = 0.02,   -- chance never drops below this, even at max courage
+    throwChance    = 0.35,   -- of a spook while ridden: chance the rider is thrown (else it only rears)
+    skittishMult   = 1.75,   -- spook chance multiplier while already skittish
+    cooldown       = 8000,   -- ms between spooks
+    skittishTime   = 120,    -- seconds a spooked horse stays skittish
+    calmedTime     = 90,     -- seconds a calmed horse ignores gunfire
+    bolt = { distance = 40.0, time = 6000 }, -- TASK_SMART_FLEE_PED after throwing its rider
+}
+
+-- ===================== FIELD SALVAGE =====================
+-- When your (uninsured) horse dies out in the world its body stays for a while so you can search
+-- its saddlebags (rsg-target, Interaction_LootSaddleBags) before it's gone (decompiled av_dead_horse.c).
+-- The saddlebags can still be emptied at its stable afterwards.
+Config.HorseSalvage = {
+    enabled  = true,
+    duration = 600,   -- seconds the body stays
+    distance = 3.0,   -- how close you must be to search it
+}
+
+-- ===================== HORSE RACES =====================
+-- Checkpoint races run by a stablehand (decompiled beat_horse_race.c). Pay the entry fee, ride your own
+-- horse through every checkpoint and beat the goal time to win the prize. Best times go on a leaderboard.
+-- Checkpoints are timed and validated on the server (distance + minimum travel time per leg).
+-- Build routes in-game: /raceroute add (at each checkpoint), /raceroute print (prints the config to F8), /raceroute clear.
+Config.HorseRaces = {
+    enabled      = true,
+    routeCommand = 'raceroute', -- admin-only route builder (false to disable)
+    radius       = 8.0,        -- checkpoint trigger radius (m)
+    maxSpeed     = 25.0,       -- m/s; faster legs are rejected as teleports
+    dismountTimeout = 10,      -- seconds off your horse before the race is forfeited
+    leaderboardSize = 5,
+    blip         = { sprite = 'blip_ambient_horse', color = 'BLIP_MODIFIER_MP_COLOR_8' }, -- rdr3_discoveries textures/blips + blip_modifiers
+    races = {
+        -- example: replace the checkpoints with your own route (see /raceroute)
+        -- {
+        --     id = 'valentine_sprint', stable = 'valentine', label = 'Valentine Sprint',
+        --     entryFee = 5, prize = 25, goalTime = 90, timeLimit = 240, cooldown = 600,
+        --     checkpoints = { vector3(0.0, 0.0, 0.0), vector3(0.0, 0.0, 0.0) },
+        -- },
+    },
+}
+

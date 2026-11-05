@@ -4,6 +4,7 @@ Config.DefaultDistance   = 1.25  -- interaction range when a door has no 'distan
 Config.DistanceTolerance = 2.0   -- extra server-side leeway for the proximity check (latency)
 Config.SyncDistance      = 30.0  -- doors within this range are kept in their synced state
 Config.Cooldown          = 1500  -- ms between door uses per player (server enforced)
+Config.HoldDuration      = 750   -- ms the player must hold ENTER to use a door
 Config.RequireOnDuty     = false -- true = player must be on duty to use job doors
 
 Config.AdminPermission   = 'admin' -- RSG permission needed for /doorlock (god, developer, headadmin, admin, mod)
@@ -11,7 +12,7 @@ Config.AdminCommand      = 'doorlock'
 Config.AdminBypass       = true  -- admins can open every lock (incl. ones with no jobs)
 Config.MaxDoorsPerLock   = 8     -- e.g. 2 for double doors
 Config.PickRange         = 2.0   -- how close your aim must be to a door to select it in the editor
-Config.Debug            = false  -- print MLO door lookups to the F8 console
+Config.Debug             = false  -- print MLO door lookups to the F8 console
 Config.AllowCustomDoors  = true  -- allow picking MLO / custom door objects that aren't in shared/doorhashes.lua
 
 -- Doors are stored in the database (table: rsg_doorlocks) and managed in game with /doorlock.

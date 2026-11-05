@@ -14,12 +14,14 @@ CREATE TABLE IF NOT EXISTS `rsg_stables_horses` (
   `name` VARCHAR(50) NOT NULL DEFAULT 'Unnamed Horse',
   `outfit` INT(11) NOT NULL DEFAULT 0,
   `tack` TEXT DEFAULT NULL,
+  `shoe_wear` FLOAT NOT NULL DEFAULT 0,
   `coat` TEXT DEFAULT NULL,
   `health` FLOAT NOT NULL DEFAULT 100,
   `stamina` FLOAT NOT NULL DEFAULT 100,
   `hunger` FLOAT NOT NULL DEFAULT 100,
   `thirst` FLOAT NOT NULL DEFAULT 100,
   `bonding` FLOAT NOT NULL DEFAULT 0,
+  `training` TEXT DEFAULT NULL,
   `speed` INT(11) NOT NULL DEFAULT 50,
   `accel` INT(11) NOT NULL DEFAULT 50,
   `handling` INT(11) NOT NULL DEFAULT 50,
@@ -49,4 +51,15 @@ CREATE TABLE IF NOT EXISTS `rsg_stables_breeding` (
   PRIMARY KEY (`id`),
   KEY `citizenid` (`citizenid`),
   KEY `stable` (`stable`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `rsg_stables_races` (
+  `citizenid` VARCHAR(50) NOT NULL,
+  `race` VARCHAR(50) NOT NULL,
+  `rider` VARCHAR(100) NOT NULL DEFAULT '',
+  `horse` VARCHAR(50) NOT NULL DEFAULT '',
+  `best_ms` INT(11) NOT NULL,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`citizenid`, `race`),
+  KEY `race_best` (`race`, `best_ms`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

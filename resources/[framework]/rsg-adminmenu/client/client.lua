@@ -1,22 +1,8 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
-lib.locale()
 
--- shared toggle state (declared up front so the NUI callbacks below and the
--- RegisterNetEvent handlers further down both close over the same locals)
-local invisible = false
-local godmode = false
-local playerBlipsEnabled = false
-local playerBlips = {}
-local blipUpdateThread = nil
-
-RegisterRawKeymap("adminmenu", nil, function()
-    local playerData = RSGCore.Functions.GetPlayerData()
-    if playerData and playerData.citizenid then
-        ExecuteCommand('adminmenu')
-    end
-end, 0x21, false)
-
--- 0x21 = Page up key
+local function Notify(title, description, notifyType)
+    RSGCore.Functions.Notify({ title = title, description = description, type = notifyType or 'inform' })
+end
 
 -------------------------------
 -- open the admin dashboard (server only fires this after a permission check)
@@ -24,27 +10,32 @@ end, 0x21, false)
 RegisterNetEvent('rsg-adminmenu:client:openadminmenu', function(data)
     local playerData = RSGCore.Functions.GetPlayerData()
     if not playerData or not playerData.citizenid then return end
-
-    local displayName = (data and data.discordName) or (playerData.charinfo.firstname .. ' ' .. playerData.charinfo.lastname)
+    data = data or {}
+    local flags = data.roleFlags or {}
 
     NUI.Open({
         mode = 'admin',
         self = {
-            name = displayName,
+            name = data.discordName or (playerData.charinfo.firstname .. ' ' .. playerData.charinfo.lastname),
             citizenid = playerData.citizenid,
             job = { label = playerData.job and playerData.job.label or nil },
-            avatarUrl = data and data.discordAvatar or nil,
+            avatarUrl = data.discordAvatar,
         },
         permissions = {
             isAdmin = true,
             enablePlayerBlips = Config.EnablePlayerBlips == true,
-            canManageHistory = data and data.roleFlags and data.roleFlags.canManageHistory == true,
-            canManageAdmins = data and data.roleFlags and data.roleFlags.canManageAdmins == true,
-            atLeastMod = data and data.roleFlags and data.roleFlags.atLeastMod == true,
-            atLeastAdmin = data and data.roleFlags and data.roleFlags.atLeastAdmin == true,
-            fullAccess = data and data.roleFlags and data.roleFlags.fullAccess == true,
+            canManageHistory = flags.canManageHistory == true,
+            canManageAdmins = flags.canManageAdmins == true,
+            atLeastMod = flags.atLeastMod == true,
+            atLeastAdmin = flags.atLeastAdmin == true,
+            fullAccess = flags.fullAccess == true,
         },
     })
+end)
+
+-- sent when this player's staff role is removed while the panel is open
+RegisterNetEvent('rsg-adminmenu:client:forceclose', function()
+    NUI.Close()
 end)
 
 -------------------------------
@@ -67,7 +58,7 @@ RegisterNuiCallback('getPlayerInfo', function(data, cb)
 end)
 
 -------------------------------
--- player actions
+-- player actions (all validated again on the server)
 -------------------------------
 RegisterNuiCallback('revivePlayer', function(data, cb)
     TriggerServerEvent('rsg-adminmenu:server:playerrevive', { id = data.id })
@@ -76,6 +67,7 @@ end)
 
 RegisterNuiCallback('openInventory', function(data, cb)
     TriggerServerEvent('rsg-adminmenu:server:openinventory', { id = data.id })
+    NUI.Close() -- the inventory needs focus
     cb({ success = true })
 end)
 
@@ -100,35 +92,14 @@ RegisterNuiCallback('bringPlayer', function(data, cb)
 end)
 
 RegisterNuiCallback('toggleFreeze', function(data, cb)
-    local targetName = GetPlayerName(GetPlayerFromServerId(data.id)) or (locale('cl_client_id_prefix') .. ' ' .. data.id)
-    TriggerServerEvent('rsg-adminmenu:server:freezeplayer', { id = data.id, name = targetName })
+    TriggerServerEvent('rsg-adminmenu:server:freezeplayer', { id = data.id })
     cb({ success = true })
 end)
 
 RegisterNuiCallback('toggleSpectate', function(data, cb)
     TriggerServerEvent('rsg-adminmenu:server:spectateplayer', { id = data.id })
+    NUI.Close() -- nothing to watch with the panel covering the screen
     cb({ success = true })
-end)
-
--------------------------------
--- give item (search happens client-side against RSGCore.Shared.Items, as before)
--------------------------------
-RegisterNuiCallback('searchItems', function(data, cb)
-    local items = RSGCore.Shared.Items
-    local keyword = (data.query or ''):lower()
-    local options = {}
-
-    if keyword ~= '' then
-        for _, item in pairs(items) do
-            local label = item.label or item.name
-            if label:lower():find(keyword, 1, true) then
-                options[#options + 1] = { value = item.name, label = label }
-                if #options >= 30 then break end
-            end
-        end
-    end
-
-    cb(options)
 end)
 
 RegisterNuiCallback('giveItem', function(data, cb)
@@ -137,7 +108,7 @@ RegisterNuiCallback('giveItem', function(data, cb)
 end)
 
 -------------------------------
--- dashboard stats
+-- dashboard / players page / statistics
 -------------------------------
 RegisterNuiCallback('getDashboardStats', function(_, cb)
     RSGCore.Functions.TriggerCallback('rsg-adminmenu:server:getdashboardstats', function(stats)
@@ -169,223 +140,191 @@ RegisterNuiCallback('getStatistics', function(_, cb)
     end)
 end)
 
--------------------------------
--- server weather
--------------------------------
-RegisterNuiCallback('openWeatherSync', function(_, cb)
-    TriggerEvent('weathersync:openAdminUi')
-    cb({ success = true })
-end)
-
 -------------------------------------------------------------------
--- admin options: teleport / self revive / toggle IDs
+-- self tools: the server authorises + logs each toggle, then it's applied here
 -------------------------------------------------------------------
-RegisterNuiCallback('teleportToMarker', function(_, cb)
-    TriggerEvent('RSGCore:Command:GoToMarker')
-    cb({ success = true })
-end)
+local godmode = false
+local invisible = false
+local playerBlipsEnabled = false
+local playerBlips = {}
 
-RegisterNuiCallback('selfRevive', function(_, cb)
-    TriggerEvent('rsg-medic:client:playerRevive')
-    cb({ success = true })
-end)
+local function ClearPlayerBlips()
+    for _, blip in pairs(playerBlips) do RemoveBlip(blip) end
+    playerBlips = {}
+end
 
-RegisterNuiCallback('toggleIds', function(_, cb)
-    ExecuteCommand('txAdmin:menu:togglePlayerIDs')
-    cb({ success = true })
-end)
-
-RegisterNuiCallback('toggleInvisible', function(_, cb)
-    TriggerEvent('rsg-adminmenu:client:goinvisible')
-    cb({ enabled = invisible == true })
-end)
-
-RegisterNuiCallback('toggleGodmode', function(_, cb)
-    TriggerEvent('rsg-adminmenu:client:godmode')
-    cb({ enabled = godmode == true })
-end)
-
-RegisterNuiCallback('togglePlayerBlips', function(_, cb)
-    TriggerEvent('rsg-adminmenu:client:toggleplayerblips')
-    cb({ enabled = playerBlipsEnabled == true })
-end)
-
--------------------------------------------------------------------
--- toggle player blips
--------------------------------------------------------------------
-RegisterNetEvent('rsg-adminmenu:client:toggleplayerblips', function()
-    local playerId = PlayerId()
-    local serverId = GetPlayerServerId(playerId)
-    local playerName = GetPlayerName(playerId)
-
-    playerBlipsEnabled = not playerBlipsEnabled
-
-    if playerBlipsEnabled then
-        lib.notify({ title = locale('cl_client_156'), description = locale('cl_client_157'), type = 'inform' })
-        TriggerServerEvent('rsg-log:server:CreateLog', 'adminmenu', locale('cl_adminmenu'), 'red',
-            playerName .. ' (ID: ' .. serverId .. ') ' .. locale('cl_adminmenu_e'))
-
-        if not blipUpdateThread then
-            blipUpdateThread = CreateThread(function()
-                while playerBlipsEnabled do
-                    Wait(1000)
-                    RSGCore.Functions.TriggerCallback('rsg-adminmenu:server:getplayers', function(players)
-                        for _, player in pairs(players) do
-                            if player.id ~= playerId then
-                                if not playerBlips[player.id] then
-                                    local blip = BlipAddForCoords(1664425300, player.coords.x, player.coords.y,
-                                        player.coords.z)
-                                    SetBlipSprite(blip, GetHashKey('blip_ambient_companion'))
-                                    SetBlipScale(blip, 0.6)
-                                    local steamName = GetPlayerName(GetPlayerFromServerId(player.id))
-                                    SetBlipName(blip, 'ID: ' .. player.id .. ' ' .. steamName)
-                                    playerBlips[player.id] = blip
-                                else
-                                    SetBlipCoords(playerBlips[player.id], player.coords.x, player.coords.y,
-                                        player.coords.z)
-                                end
-                            end
-                        end
-
-                        for blipId, blip in pairs(playerBlips) do
-                            local found = false
-                            for _, player in pairs(players) do
-                                if player.id == blipId then
-                                    found = true
-                                    break
-                                end
-                            end
-                            if not found then
-                                RemoveBlip(blip)
-                                playerBlips[blipId] = nil
-                            end
-                        end
-                    end)
-                end
-                blipUpdateThread = nil
-            end)
-        end
-    else
-        lib.notify({ title = locale('cl_client_158'), description = locale('cl_client_159'), type = 'inform' })
-        TriggerServerEvent('rsg-log:server:CreateLog', 'adminmenu', locale('cl_adminmenu'), 'red',
-            playerName .. ' (ID: ' .. serverId .. ') ' .. locale('cl_adminmenu_f'))
-
-        for _, blip in pairs(playerBlips) do
-            RemoveBlip(blip)
-        end
-        playerBlips = {}
-    end
-end)
-
--------------------------------------------------------------------
--- go invisible
--------------------------------------------------------------------
-RegisterNetEvent('rsg-adminmenu:client:goinvisible', function()
-    local playerId = PlayerId()
-    local serverId = GetPlayerServerId(playerId)
-    local playerName = GetPlayerName(playerId)
-
-    if invisible then
-        -- Invisibility disabled
-        SetEntityVisible(cache.ped, true)
-        invisible = false
-        lib.notify({ title = locale('cl_client_42'), description = locale('cl_client_43'), type = 'inform' })
-        TriggerServerEvent(
-            'rsg-log:server:CreateLog',
-            'adminmenu',
-            locale('cl_adminmenu'),
-            'red',
-            playerName .. ' (ID: ' .. serverId .. ') ' .. locale('cl_adminmenu_d') -- disabled invisibility
-        )
-    else
-        -- Invisibility enabled
-        SetEntityVisible(cache.ped, false)
-        invisible = true
-        lib.notify({ title = locale('cl_client_44'), description = locale('cl_client_45'), type = 'inform' })
-        TriggerServerEvent(
-            'rsg-log:server:CreateLog',
-            'adminmenu',
-            locale('cl_adminmenu'),
-            'red',
-            playerName .. ' (ID: ' .. serverId .. ') ' .. locale('cl_adminmenu_a') -- enabled invisibility
-        )
-    end
-end)
-
--------------------------------------------------------------------
--- god mode
--------------------------------------------------------------------
-RegisterNetEvent('rsg-adminmenu:client:godmode', function()
-    godmode = not godmode
-
-    local playerId = PlayerId()
-    local serverId = GetPlayerServerId(playerId)
-    local playerName = GetPlayerName(playerId)
-
-    if godmode then
-        -- Godmode enabled
-        lib.notify({ title = locale('cl_client_46'), description = locale('cl_client_47'), type = 'inform' })
-        TriggerServerEvent(
-            'rsg-log:server:CreateLog',
-            'adminmenu',
-            locale('cl_adminmenu'),
-            'red',
-            playerName .. ' (ID: ' .. serverId .. ') ' .. locale('cl_adminmenu_b') -- enabled godmode
-        )
-        -- SetPlayerInvincible is a sticky flag, not a per-frame state — it stays
-        -- set until explicitly changed, so this never needed a Wait(0) loop
-        -- re-calling it hundreds of times a second. Still loop, just slowly, so
-        -- a ped change mid-godmode (death/respawn) gets re-flagged invincible.
+local function SetGodmode(enabled)
+    godmode = enabled
+    SetPlayerInvincible(PlayerId(), enabled)
+    if enabled then
+        -- re-applied slowly so a respawn (new ped) mid-godmode stays covered
         CreateThread(function()
             while godmode do
-                SetPlayerInvincible(cache.ped, true)
+                SetPlayerInvincible(PlayerId(), true)
                 Wait(2000)
             end
         end)
-    else
-        -- Godmode disabled
-        SetPlayerInvincible(cache.ped, false)
-        lib.notify({ title = locale('cl_client_48'), description = locale('cl_client_49'), type = 'inform' })
-        TriggerServerEvent(
-            'rsg-log:server:CreateLog',
-            'adminmenu',
-            locale('cl_adminmenu'),
-            'red',
-            playerName .. ' (ID: ' .. serverId .. ') ' .. locale('cl_adminmenu_c') -- disabled godmode
-        )
     end
+end
+
+local function SetInvisible(enabled)
+    invisible = enabled
+    SetEntityVisible(PlayerPedId(), not enabled)
+end
+
+local function UpdatePlayerBlips(players)
+    local seen = {}
+    local myId = GetPlayerServerId(PlayerId())
+    for _, player in ipairs(players or {}) do
+        if player.id ~= myId then
+            seen[player.id] = true
+            local blip = playerBlips[player.id]
+            if not blip then
+                blip = BlipAddForCoords(1664425300, player.coords.x, player.coords.y, player.coords.z)
+                SetBlipSprite(blip, joaat('blip_ambient_companion'), true)
+                SetBlipScale(blip, 0.6)
+                SetBlipName(blip, 'ID: ' .. player.id .. ' ' .. (player.name or ''))
+                playerBlips[player.id] = blip
+            else
+                SetBlipCoords(blip, player.coords.x, player.coords.y, player.coords.z)
+            end
+        end
+    end
+    for id, blip in pairs(playerBlips) do
+        if not seen[id] then
+            RemoveBlip(blip)
+            playerBlips[id] = nil
+        end
+    end
+end
+
+local function SetPlayerBlips(enabled)
+    playerBlipsEnabled = enabled
+    if not enabled then return ClearPlayerBlips() end
+    CreateThread(function()
+        while playerBlipsEnabled do
+            local players = RSGCore.Functions.AwaitCallback('rsg-adminmenu:server:getplayers')
+            if not playerBlipsEnabled then break end
+            UpdatePlayerBlips(players)
+            Wait(2000)
+        end
+        ClearPlayerBlips()
+    end)
+end
+
+local selfToggles = {
+    godmode = { get = function() return godmode end, set = SetGodmode, on = { 'cl_client_46', 'cl_client_47' }, off = { 'cl_client_48', 'cl_client_49' } },
+    invisible = { get = function() return invisible end, set = SetInvisible, on = { 'cl_client_44', 'cl_client_45' }, off = { 'cl_client_42', 'cl_client_43' } },
+    playerblips = { get = function() return playerBlipsEnabled end, set = SetPlayerBlips, on = { 'cl_client_156', 'cl_client_157' }, off = { 'cl_client_158', 'cl_client_159' } },
+    -- DoorIds lives in client_doorid.lua, which loads after this file
+    doorids = { get = function() return DoorIds.IsEnabled() end, set = function(v) DoorIds.SetEnabled(v) end, on = { 'cl_door_on' }, off = { 'cl_door_off' } },
+}
+
+RegisterNuiCallback('getSelfToolState', function(_, cb)
+    cb({ godmode = godmode, invisible = invisible, playerblips = playerBlipsEnabled, doorids = DoorIds.IsEnabled() })
 end)
 
-------------------------
--- kick / ban announcements arrive through the server events unchanged
-------------------------
+RegisterNuiCallback('selfTool', function(data, cb)
+    local tool = data and data.tool
+
+    if tool == 'revive' then
+        local result = RSGCore.Functions.AwaitCallback('rsg-adminmenu:server:selfrevive')
+        return cb({ success = result and result.success == true })
+    end
+
+    if tool == 'marker' then
+        local result = RSGCore.Functions.AwaitCallback('rsg-adminmenu:server:selftool', nil, { tool = 'marker' })
+        if result and result.success then TriggerEvent('RSGCore:Command:GoToMarker') end
+        return cb({ success = result and result.success == true })
+    end
+
+    local toggle = selfToggles[tool]
+    if not toggle then return cb({ success = false }) end
+
+    local enabled = not toggle.get()
+    local result = RSGCore.Functions.AwaitCallback('rsg-adminmenu:server:selftool', nil, { tool = tool, enabled = enabled })
+    if not result or not result.success then return cb({ success = false, enabled = toggle.get() }) end
+
+    toggle.set(enabled)
+    local text = enabled and toggle.on or toggle.off
+    Notify(locale(text[1]), text[2] and locale(text[2]) or nil)
+    cb({ success = true, enabled = enabled })
+end)
 
 --------------------
 -- spectate player
 --------------------
-
-local lastSpectateCoord = nil
 local isSpectating = false
+local lastSpectateCoord = nil
 
-RegisterNetEvent('rsg-adminmenu:client:spectateplayer', function(targetPed)
-    local targetplayer = GetPlayerFromServerId(targetPed)
-    local target = GetPlayerPed(targetplayer)
-    if not isSpectating then
-        isSpectating = true
-        SetEntityVisible(cache.ped, false)                  -- Set invisible
-        SetEntityCollision(cache.ped, false, false)         -- Set collision
-        SetEntityInvincible(cache.ped, true)                -- Set invincible
-        NetworkSetEntityInvisibleToNetwork(cache.ped, true) -- Set invisibility
-        lastSpectateCoord = GetEntityCoords(cache.ped)      -- save my last coords
-        NetworkSetInSpectatorMode(true, target)             -- Enter Spectate Mode
-    else
-        isSpectating = false
-        NetworkSetInSpectatorMode(false, target)             -- Remove From Spectate Mode
-        NetworkSetEntityInvisibleToNetwork(cache.ped, false) -- Set Visible
-        SetEntityCollision(cache.ped, true, true)            -- Set collision
-        SetEntityCoords(cache.ped, lastSpectateCoord)        -- Return Me To My Coords
-        SetEntityVisible(cache.ped, true)                    -- Remove invisible
-        SetEntityInvincible(cache.ped, false)                -- Remove godmode
-        lastSpectateCoord = nil                              -- Reset Last Saved Coords
+local function SetSpectatorBody(spectating)
+    local ped = PlayerPedId()
+    SetEntityVisible(ped, not spectating and not invisible)
+    SetEntityCollision(ped, not spectating, not spectating)
+    SetEntityInvincible(ped, spectating)
+    FreezeEntityPosition(ped, spectating)
+    NetworkSetEntityInvisibleToNetwork(ped, spectating)
+end
+
+local function StopSpectating()
+    if not isSpectating then return end
+    isSpectating = false
+    NetworkSetInSpectatorMode(false, PlayerPedId())
+    if lastSpectateCoord then
+        SetEntityCoords(PlayerPedId(), lastSpectateCoord.x, lastSpectateCoord.y, lastSpectateCoord.z, false, false, false, false)
     end
+    SetSpectatorBody(false)
+    lastSpectateCoord = nil
+end
+
+RegisterNetEvent('rsg-adminmenu:client:spectateplayer', function(targetServerId, targetCoords)
+    if isSpectating then return StopSpectating() end
+
+    local ped = PlayerPedId()
+    lastSpectateCoord = GetEntityCoords(ped)
+    isSpectating = true
+    SetSpectatorBody(true)
+
+    -- a far-away target isn't streamed in yet: move (hidden) below them until it is
+    local targetPlayer = GetPlayerFromServerId(targetServerId)
+    if targetPlayer == -1 and targetCoords then
+        SetEntityCoords(ped, targetCoords.x, targetCoords.y, targetCoords.z - 15.0, false, false, false, false)
+        local timeout = GetGameTimer() + 5000
+        while GetPlayerFromServerId(targetServerId) == -1 and GetGameTimer() < timeout do Wait(100) end
+        targetPlayer = GetPlayerFromServerId(targetServerId)
+    end
+
+    local targetPed = targetPlayer ~= -1 and GetPlayerPed(targetPlayer) or 0
+    if targetPed == 0 then
+        StopSpectating()
+        return Notify(locale('cl_spectate'), locale('cl_report_player_offline'), 'error')
+    end
+
+    NetworkSetInSpectatorMode(true, targetPed)
+    Notify(locale('cl_spectate'), locale('cl_spectate_stop_hint'))
+
+    -- stop automatically when the target leaves
+    CreateThread(function()
+        while isSpectating do
+            Wait(1000)
+            if not NetworkIsPlayerActive(GetPlayerFromServerId(targetServerId)) then StopSpectating() end
+        end
+    end)
+end)
+
+-- Page Up opens the panel, or ends spectating when active
+RegisterRawKeymap('adminmenu', nil, function()
+    if isSpectating then return StopSpectating() end
+    local playerData = RSGCore.Functions.GetPlayerData()
+    if playerData and playerData.citizenid and not NUI.IsOpen() then
+        ExecuteCommand('adminmenu')
+    end
+end, 0x21, false)
+
+AddEventHandler('onResourceStop', function(resource)
+    if resource ~= GetCurrentResourceName() then return end
+    StopSpectating()
+    ClearPlayerBlips()
+    if godmode then SetPlayerInvincible(PlayerId(), false) end
+    if invisible then SetEntityVisible(PlayerPedId(), true) end
 end)

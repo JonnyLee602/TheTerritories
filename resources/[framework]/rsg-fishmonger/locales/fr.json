@@ -84,5 +84,16 @@
     "wh_started": "`%s` v%s est en cours d'exécution.",
     "wh_test_title": "Test du webhook",
     "wh_test_desc": "Message de test pour le canal **%s**.",
-    "cmd_webhooktest_help": "Envoie un message de test à tous les webhooks du poissonnier"
+    "cmd_webhooktest_help": "Envoie un message de test à tous les webhooks du poissonnier",
+    "cl_target_shop": "Voir le matériel de pêche",
+    "sv_closed": "Le poissonnier est fermé. Ouvert de %s:00 à %s:00",
+    "sv_stock_left": "Le poissonnier n'achètera plus que %s poissons aujourd'hui",
+    "sv_stock_full": "Le poissonnier a acheté tout le poisson dont il a besoin aujourd'hui",
+    "shop_label": "Fournitures – %s",
+    "ui_sell_all": "Tout vendre",
+    "ui_demand": "Demande du jour",
+    "ui_bonus": "Votre bonus",
+    "ui_stock_left": "Achats du jour",
+    "ui_unlimited": "Illimité",
+    "ui_over_stock": "Plus de poissons que le poissonnier n'en achètera aujourd'hui"
 }

@@ -1,6 +1,5 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
 local W = SvConfig.Webhooks
-lib.locale()
 
 Webhook = {}
 

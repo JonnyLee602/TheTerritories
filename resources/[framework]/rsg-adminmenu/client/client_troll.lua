@@ -1,5 +1,4 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
-lib.locale()
 
 RegisterNuiCallback('wildAttack', function(data, cb)
     TriggerServerEvent('rsg-adminmenu:server:wildattack', { id = data.id })
@@ -12,53 +11,38 @@ RegisterNuiCallback('setOnFire', function(data, cb)
 end)
 
 -------------------------------------------------------------------
--- wild attack troll action
+-- both effects run on the target's own client, so they work at any
+-- distance from the admin who triggered them
+-- (wolf / bear / dog models as used by the original version of this action)
 -------------------------------------------------------------------
-local attackAnimals = {
-    joaat("a_c_wolf_small"),
-    joaat("a_c_bearblack_01"),
-    joaat("a_c_dogrufus_01")
-}
+local attackAnimals = { joaat('a_c_wolf_small'), joaat('a_c_bearblack_01'), joaat('a_c_dogrufus_01') }
+local ANIMAL_DESPAWN_MS = 60000
 
-local animalGroupHash = joaat("Animal")
-local playerGroupHash = joaat("PLAYER")
-
-RegisterNetEvent('rsg-adminmenu:client:wildattack', function(player)
-    local targetplayer = GetPlayerFromServerId(player)
-    local playerPed = GetPlayerPed(targetplayer)
+RegisterNetEvent('rsg-adminmenu:client:wildattack', function()
+    local playerPed = PlayerPedId()
     local animalHash = attackAnimals[math.random(#attackAnimals)]
-    local coordsBehindPlayer = GetOffsetFromEntityInWorldCoords(playerPed, 100, -15.0, 0)
-    local playerHeading = GetEntityHeading(playerPed)
-    local belowGround, groundZ, vec3OnFloor = GetGroundZAndNormalFor_3dCoord(coordsBehindPlayer.x, coordsBehindPlayer.y, coordsBehindPlayer.z)
+    local spawn = GetOffsetFromEntityInWorldCoords(playerPed, 0.0, -15.0, 0.0)
+    local _, groundZ = GetGroundZAndNormalFor_3dCoord(spawn.x, spawn.y, spawn.z + 10.0)
 
-    -- request model
-    RequestModel(animalHash)
-    while not HasModelLoaded(animalHash) do
-        Wait(15)
-    end
+    if not pcall(RSGCore.Functions.RequestModel, animalHash, 5000) then return end
 
-    -- creating animal
-    animalPed = CreatePed(animalHash, coordsBehindPlayer.x, coordsBehindPlayer.y, groundZ, playerHeading, true, false)
-    EquipMetaPedOutfitPreset(animalPed, 1, 0)
-
-    -- setting player as enemy
-    SetPedFleeAttributes(animalPed, 0, 0)
-    SetPedRelationshipGroupHash(animalPed, animalGroupHash)
-    TaskSetBlockingOfNonTemporaryEvents(animalPed, true)
-    TaskCombatHatedTargetsAroundPed(animalPed, 30.0, 0)
-    ClearPedTasks(animalPed)
-    TaskPutPedDirectlyIntoMelee(animalPed, playerPed, 0.0, -1.0, 0.0, 0)
-    SetRelationshipBetweenGroups(5, animalGroupHash, playerGroupHash)
-    SetRelationshipBetweenGroups(5, playerGroupHash, animalGroupHash)
+    local animalPed = CreatePed(animalHash, spawn.x, spawn.y, groundZ ~= 0 and groundZ or spawn.z, GetEntityHeading(playerPed), true, false, false, false)
     SetModelAsNoLongerNeeded(animalHash)
+    if not DoesEntityExist(animalPed) then return end
 
+    SetRandomOutfitVariation(animalPed, true)
+    SetPedFleeAttributes(animalPed, 0, false)
+    SetBlockingOfNonTemporaryEvents(animalPed, true)
+    TaskCombatPed(animalPed, playerPed, 0, 16)
+
+    -- don't leave the animal in the world forever
+    SetTimeout(ANIMAL_DESPAWN_MS, function()
+        if DoesEntityExist(animalPed) then
+            SetEntityAsNoLongerNeeded(animalPed)
+        end
+    end)
 end)
 
--------------------------------------------------------------------
--- set player on fire troll action
--------------------------------------------------------------------
-RegisterNetEvent('rsg-adminmenu:client:playerfire', function(player)
-    local targetplayer = GetPlayerFromServerId(player)
-    local playerPed = GetPlayerPed(targetplayer)
-    StartEntityFire(playerPed)
+RegisterNetEvent('rsg-adminmenu:client:playerfire', function()
+    StartEntityFire(PlayerPedId(), 1.0, 0, 0)
 end)

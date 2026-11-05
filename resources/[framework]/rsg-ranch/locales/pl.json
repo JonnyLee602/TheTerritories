@@ -724,7 +724,7 @@
     "ui_guide_selling_title": "Sprzedaż",
     "ui_guide_selling": "Zaganiaj bydło do punktu sprzedaży, aby je sprzedać, albo sprzedawaj świnie, krowy i owce w zakładce Targ. Zwierzęta w kwiecie wieku są warte najwięcej.",
     "cl_wellpump_title": "Pompa studzienna",
-    "cl_wellpump_place_help": "[LPM] Postaw   [Q / E] Obróć   [Góra / Dół] Wysokość   [PPM] Anuluj",
+    "cl_wellpump_place_help": "[ENTER] Postaw   [Lewo / Prawo] Obróć   [Góra / Dół] Wysokość   [PPM / Backspace] Anuluj",
     "cl_wellpump_too_far": "Za daleko",
     "cl_wellpump_cancelled": "Anulowano",
     "cl_wellpump_fill_target": "Napełnij wiadro",
@@ -989,5 +989,14 @@
     "sv_adm_ranch_created": "%s created - its NPC is where you are standing",
     "sv_adm_ranch_deleted": "Ranch deleted",
     "cl_adm_command_help": "Open the ranch administration panel",
-    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that"
+    "sv_no_grade_permission": "Your job grade at this ranch is not allowed to do that",
+    "ui_respawn": "Odrodź",
+    "ui_respawn_hint": "Jeśli to zwierzę zniknęło ze świata, odródź je w ostatniej zapisanej pozycji.",
+    "sv_respawn_done": "Zwierzę odrodzone - pojawi się wkrótce, jeśli jesteś w pobliżu.",
+    "sv_respawn_cooldown": "Poczekaj kilka sekund przed ponowną próbą.",
+    "ui_adm_return_spawn": "Wróć do punktu odrodzenia",
+    "ui_adm_return_all": "Wszystkie do punktu odrodzenia",
+    "ui_adm_confirm_return_all": "Odesłać wszystkie %s zwierząt z %s do punktu odrodzenia zwierząt rancza?",
+    "sv_adm_returned": "Zwierzęta wróciły do punktu odrodzenia rancza",
+    "sv_adm_no_spawn": "To ranczo nie ma ustawionego punktu odrodzenia zwierząt"
 }

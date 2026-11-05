@@ -178,12 +178,12 @@ function setStatus(msg, ok) {
 }
 
 /* ---------- crafting progress ---------- */
-function startProgress(ms, label, qty) {
+function startProgress(ms, label, qty, elapsed = 0) {
     state.crafting = true;
     $('progress-wrap').classList.remove('hidden');
     $('progress-label').textContent = fmt(state.L.ui_crafting, fmt(state.L.amount_item, qty, label));
     const bar = $('progress-bar');
-    const start = Date.now();
+    const start = Date.now() - elapsed;
     bar.style.width = '0%';
     clearInterval(state.progressTimer);
     state.progressTimer = setInterval(() => {
@@ -257,6 +257,12 @@ window.addEventListener('message', (e) => {
             $('app').classList.remove('hidden');
             applyPos();
             renderAll();
+            if (d.active) {
+                state.selected = d.active.id;
+                state.category = 'all';
+                renderAll();
+                startProgress(d.active.duration, d.active.label, d.active.qty, d.active.elapsed);
+            }
             break;
         case 'refresh':
             state.xp = d.xp || 0;

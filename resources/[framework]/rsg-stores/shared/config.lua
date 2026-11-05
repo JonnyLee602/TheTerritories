@@ -14,8 +14,120 @@ Config.FadeIn = true         -- Enable fade in/out effect
 Config.SellPricePercentage = 0.80  -- Player gets 80% (20% shop fee)
 Config.SellAddsStock = true        -- Items sold to a shop are added back to its stock (limited-stock items only)
 Config.MaxShopStock = 100          -- Most of any one item a shop will hold from player sales (0 = no cap)
-Config.TargetDistance = 2.5       -- ox_target range; server allows +5.0 for latency
+Config.TargetDistance = 2.5       -- rsg-target range; server allows +5.0 for latency
 
+-- Player-owned stores: created by admins in /createshop ("Run by: Player"), no NPC is spawned.
+-- The owner stocks the store from their own inventory, sets prices and collects the till.
+Config.OwnedStores = {
+    Enabled           = true,
+    ZoneRadius        = 1.2,    -- size of the counter target zone at the store position
+    BuyBackPercentage = 0.80,   -- customers selling to an owned store get price x this, paid from the till
+    MaxListings       = 50,     -- most different items one store can list
+    MaxStock          = 500,    -- most of any one item a store can hold (0 = no cap)
+    MaxPrice          = 10000,  -- highest price an owner can set per item
+    NotifyOwner       = true,   -- tell the owner (if online) when a customer buys or sells
+    MinQuality        = 75,     -- stacks below this quality (worn/spoiled) can't be stocked or sold to any shop (0 = off)
+    -- Items owners may not stock (money items, unique/metadata items are always refused)
+    BlacklistItems    = { 'dollar', 'cent', 'blood_dollar', 'blood_cent' },
+}
+
+-- Staff: owners of player stores hire nearby players and choose what each one may do.
+-- Staff can never buy from / sell to the store they work at, pack it up, move it or hire others.
+-- Permissions: restock (put items on the shelf), takestock (take items off), prices (set prices,
+-- remove listings - also needs takestock), wholesale, till (withdraw), ledger, settings, upkeep.
+Config.Staff = {
+    Enabled            = true,
+    MaxStaff           = 5,     -- staff per store
+    MaxJobsPerPlayer   = 2,     -- stores one character can work at (0 = no limit)
+    HireDistance       = 5.0,   -- the player being hired must stand this close to the owner
+    DailyWithdrawLimit = 0,     -- most a staff member can take from the till per real day (0 = no limit)
+    -- Ranks are quick presets in the hire panel (label = locale key ui_rank_<name>).
+    -- The owner can also pick "Custom" and tick permissions one by one.
+    Ranks = {
+        { name = 'clerk',      perms = { 'restock' } },
+        { name = 'stocker',    perms = { 'restock', 'takestock', 'wholesale' } },
+        { name = 'supervisor', perms = { 'restock', 'takestock', 'prices', 'wholesale', 'ledger', 'upkeep' } },
+        { name = 'manager',    perms = { 'restock', 'takestock', 'prices', 'wholesale', 'till', 'ledger', 'settings', 'upkeep' } },
+    },
+}
+
+-- Shop sign item: admins give players the item (e.g. /giveitem [id] shopsign 1).
+-- Using it places a sign in front of the player and opens a player-owned store they own.
+-- Customers and the owner target the sign to trade / manage.
+Config.ShopSign = {
+    Enabled        = true,
+    Item           = 'shopsign',
+    Model          = 'p_sandwichboard02x', -- rdr3_discoveries objects/object_list.lua (0x456CF4F4)
+    MaxPerPlayer   = 1,       -- sign stores one character can own (0 = no limit)
+    MinSpacing     = 8.0,     -- metres from any other store/NPC shop
+    PlaceDistance  = 1.5,     -- start distance in front of the player (owner can adjust 0.75 - 3.0)
+    DefaultType    = 'buy',   -- starting counter type: 'buy' | 'sell' | 'both'
+    ReturnOnPackUp = true,    -- give the sign back when the owner packs the store up
+    -- Pick up & move: the owner takes the sign back and re-places it anywhere with the item.
+    -- Name, type, stock, prices, till and ledger are kept; upkeep is paused while picked up.
+    AllowMove      = true,
+    -- Upkeep (rent) for sign stores, taken from the till each period. Unpaid upkeep closes the store
+    -- to customers until the owner pays; after EvictAfterMissed unpaid periods the store is repossessed
+    -- (stock and till forfeited, sign not returned).
+    Upkeep = { Enabled = true, Amount = 5.0, IntervalHours = 24, EvictAfterMissed = 3 },
+    Blip = { Enabled = true, Sprite = 1475879922, Color = 'BLIP_MODIFIER_MP_COLOR_32' }, -- blip_shop_store, from Config.BlipTypes
+    -- Auto-registered in rsg-core if your items list doesn't have it yet
+    ItemDefinition = {
+        name = 'shopsign', label = 'Shop Sign', weight = 2000, type = 'item', image = 'shopsign.png',
+        unique = false, useable = true, shouldClose = true, description = 'Place it to open your own store',
+    },
+}
+
+
+-- Shopkeeper speech (NPC shops). Lines/params from RDR3 decompiled shop_general.c
+-- (PLAY_PED_AMBIENT_SPEECH_NATIVE). Set a line to false to skip it.
+Config.Speech = {
+    Enabled = true,
+    Greet   = 'WELCOME',
+    Thanks  = 'THANKS',
+    Goodbye = 'GOODBYE_POS',
+    Params  = 'SPEECH_PARAMS_FORCE_NORMAL_CLEAR',
+}
+
+-- Opening hours (in-game clock, 0-23). Close < Open wraps past midnight (e.g. 18 -> 2).
+Config.OpeningHours = {
+    Enabled     = false,
+    Open        = 7,
+    Close       = 21,
+    OwnedStores = false,   -- also apply to player-owned stores
+    Shops = {              -- per-shop override by shop id (shop_name), e.g.
+        -- ['valsaloon'] = { Open = 12, Close = 3 },
+    },
+}
+
+-- Job / gang discounts on NPC shop purchases (player-owned stores set their own prices).
+-- The best matching discount applies; worked out on the server.
+Config.Discounts = {
+    Enabled     = false,
+    MaxDiscount = 0.50,
+    Jobs  = { -- ['vallaw'] = 0.10,
+    },
+    Gangs = { -- ['odriscoll'] = 0.05,
+    },
+}
+
+-- Wholesale: owners of player stores buy stock straight onto the shelf from a supplier.
+Config.Wholesale = {
+    Enabled = true,
+    PayFrom = 'either',    -- 'till' | 'cash' | 'either' (till first, then cash)
+    Markup  = 1.5,         -- default shelf price for a new listing = cost x Markup
+    Items = {              -- item = cost each
+        bread = 0.10,
+        water = 0.10,
+    },
+}
+
+-- Sales ledger shown to owners in the management panel.
+Config.Ledger = {
+    Enabled = true,
+    Keep    = 100,   -- entries kept per store
+    Show    = 50,    -- entries shown in the panel
+}
 
 -- Labels are locale keys (locales/*.json), translated when the admin menu opens.
 Config.BlipTypes = {

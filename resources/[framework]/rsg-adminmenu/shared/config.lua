@@ -1,28 +1,17 @@
 Config = {}
 
+Config.AutoDatabase = true -- create/upgrade the database tables on start; set false to import install.sql manually
+
 Config.EnablePlayerBlips = true
 
--- Used to resolve an admin's real Discord username for the "Hey, {name}" dashboard greeting.
--- Create an application + bot at https://discord.com/developers/applications, copy its token
--- here. The bot does NOT need to be invited to your Discord server for this lookup to work.
--- Leave blank to fall back to the in-game character name instead.
-Config.DiscordBot = {
-    Token = "TOKEN HERE",
+Config.Whitelist = {
+    Enforce = false, -- true = characters without an active Whitelist entry are dropped when they load in (staff are exempt)
 }
 
-Config.Webhooks = {
-    AdminLogs = "YOUR_DISCORD_WEBHOOK_URL_HERE",        -- any admin action (kick, ban, teleport, permission changes, etc.)
-    PlayerManagement = "YOUR_DISCORD_WEBHOOK_URL_HERE", -- player-targeted actions, including finances (give/remove money)
-    WorldSettings = "YOUR_DISCORD_WEBHOOK_URL_HERE",    -- server actions (kick-all, close server, announcements) + time/weather/wind/timescale/resource changes
-}
+-- The Discord bot token and every webhook URL live in server/sv_config.lua
+-- (server only). Never put them here: this file is downloaded by every client.
 
 Config.Reports = {
-    Webhooks = {
-        Main = "YOUR_DISCORD_WEBHOOK_URL_HERE",
-        Bug = "",      -- Leave empty to use Main
-        Player = "",   -- Leave empty to use Main
-        Question = "", -- Leave empty to use Main
-    },
     Discord = {
         EnableRoleMention = true, -- Enable/disable Discord role mentions
         -- List of Discord role IDs to mention (add as many as you want)
@@ -43,29 +32,6 @@ Config.Reports = {
     },
     NearbyDistance = 50.0, -- Distance (in units) to detect players near the reporter
     Cooldown = 60, -- Cooldown time (in seconds) before being able to create a new report
-}
-
-Config.AdminHorse = {
-    {
-         horsename = 'Arabian White',
-         horsehash = `a_c_horse_arabian_white`,
-    },
-    {
-         horsename = 'Missouri Foxtrotter',
-         horsehash = `a_c_horse_missourifoxtrotter_sablechampagne`,
-    },
-    {
-         horsename = 'Nokota Whiteroan',
-         horsehash = `a_c_horse_nokota_whiteroan`,
-    },
-    {
-         horsename = 'Turkoman Gold',
-         horsehash = `a_c_horse_turkoman_gold`,
-    },
-    {
-         horsename = 'Thoroughbred',
-         horsehash = `a_c_horse_thoroughbred_reversedappleblack`,
-    },
 }
 
 -- https://raw.githubusercontent.com/femga/rdr3_discoveries/master/doorHashes/doorhashes.lua

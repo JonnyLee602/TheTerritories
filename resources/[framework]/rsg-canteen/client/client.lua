@@ -1,5 +1,4 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
-lib.locale()
 
 local busy = false
 local heldProp = nil
@@ -12,9 +11,8 @@ local function playAnim(anim, duration)
         print(('[rsg-canteen] invalid anim dict: %s'):format(anim.dict))
         return
     end
-    lib.requestAnimDict(anim.dict)
-    TaskPlayAnim(cache.ped, anim.dict, anim.clip, 8.0, -8.0, duration, 1, 0, false, false, false)
-    RemoveAnimDict(anim.dict)
+    RSGCore.Functions.RequestAnimDict(anim.dict)
+    TaskPlayAnim(PlayerPedId(), anim.dict, anim.clip, 8.0, -8.0, duration, 1, 0, false, false, false)
 end
 
 local function removeProp()
@@ -30,17 +28,18 @@ local function attachProp()
         print(('[rsg-canteen] invalid prop model: %s'):format(Config.CanteenProp))
         return
     end
-    lib.requestModel(model)
-    local coords = GetEntityCoords(cache.ped)
+    RSGCore.Functions.RequestModel(model)
+    local ped = PlayerPedId()
+    local coords = GetEntityCoords(ped)
     heldProp = CreateObject(model, coords.x, coords.y, coords.z + 0.2, true, true, false, false, true)
-    local bone = GetEntityBoneIndexByName(cache.ped, Config.PropBone)
+    local bone = GetEntityBoneIndexByName(ped, Config.PropBone)
     local o, r = Config.PropOffset, Config.PropRotation
-    AttachEntityToEntity(heldProp, cache.ped, bone, o.x, o.y, o.z, r.x, r.y, r.z, true, true, false, true, 1, true)
+    AttachEntityToEntity(heldProp, ped, bone, o.x, o.y, o.z, r.x, r.y, r.z, true, true, false, true, 1, true)
     SetModelAsNoLongerNeeded(model)
 end
 
 local function progress(label, duration, disableMove)
-    return lib.progressBar({
+    return RSGCore.Functions.ProgressBar({
         duration = duration,
         label = label,
         useWhileDead = false,
@@ -52,23 +51,28 @@ end
 ---------------------------------
 -- fill at pump
 ---------------------------------
-local function fillCanteen(data)
+-- shared fill flow for pumps and open water; `stillValid` re-checks the source after the bar
+local function doFill(coords, fromWater, stillValid)
     if busy then return end
     busy = true
 
-    local pumpCoords = GetEntityCoords(data.entity)
-    local ok = lib.callback.await('rsg-canteen:server:startFill', false, pumpCoords)
+    local ok = RSGCore.Functions.AwaitCallback('rsg-canteen:server:startFill', 5000, coords, fromWater)
     if ok then
         playAnim(Config.FillAnim, Config.FillTime)
         local done = progress(locale('progress_fill'), Config.FillTime, true)
-        ClearPedTasks(cache.ped)
-        TriggerServerEvent('rsg-canteen:server:finishFill', done)
+        ClearPedTasks(PlayerPedId())
+        TriggerServerEvent('rsg-canteen:server:finishFill', done and (not stillValid or stillValid()))
     end
 
     busy = false
 end
 
-exports.ox_target:addModel(Config.PumpModels, {
+local function fillCanteen(data)
+    if not data.entity or not DoesEntityExist(data.entity) then return end
+    doFill(GetEntityCoords(data.entity), false)
+end
+
+exports['rsg-target']:addModel(Config.PumpModels, {
     {
         name = 'rsg_canteen_fill',
         icon = 'fa-solid fa-bottle-water',
@@ -87,7 +91,7 @@ exports.ox_target:addModel(Config.PumpModels, {
 local waterPrompt
 
 local function inFillableWater()
-    local ped = cache.ped
+    local ped = PlayerPedId()
     if not IsEntityInWater(ped) or IsPedSwimming(ped) or IsPedOnMount(ped) or IsPedInAnyVehicle(ped, false) then
         return false
     end
@@ -102,18 +106,7 @@ local function inFillableWater()
 end
 
 local function fillFromWater()
-    if busy then return end
-    busy = true
-
-    local ok = lib.callback.await('rsg-canteen:server:startFill', false, GetEntityCoords(cache.ped), true)
-    if ok then
-        playAnim(Config.FillAnim, Config.FillTime)
-        local done = progress(locale('progress_fill'), Config.FillTime, true)
-        ClearPedTasks(cache.ped)
-        TriggerServerEvent('rsg-canteen:server:finishFill', done and inFillableWater())
-    end
-
-    busy = false
+    doFill(GetEntityCoords(PlayerPedId()), true, inFillableWater)
 end
 
 -- the prompt only exists while standing in fillable water; a permanently
@@ -168,7 +161,7 @@ RegisterNetEvent('rsg-canteen:client:drink', function()
     attachProp()
     playAnim(Config.DrinkAnim, Config.DrinkTime)
     local done = progress(locale('progress_drink'), Config.DrinkTime, false)
-    ClearPedTasks(cache.ped)
+    ClearPedTasks(PlayerPedId())
     removeProp()
 
     TriggerServerEvent('rsg-canteen:server:finishDrink', done)
@@ -179,7 +172,7 @@ end)
 -- thirst (validated + sent by server after a drink)
 ---------------------------------
 RegisterNetEvent('rsg-canteen:client:addThirst', function(amount)
-    if GetInvokingResource() then return end
+    if GetInvokingResource() or type(amount) ~= 'number' then return end
     local thirst = (LocalPlayer.state.thirst or 0) + amount
     TriggerEvent('hud:client:UpdateThirst', math.max(0, math.min(Config.MaxThirst, thirst)))
 end)
@@ -189,7 +182,8 @@ end)
 ---------------------------------
 AddEventHandler('onResourceStop', function(res)
     if res ~= GetCurrentResourceName() then return end
-    exports.ox_target:removeModel(Config.PumpModels, 'rsg_canteen_fill')
+    exports['rsg-target']:removeModel(Config.PumpModels, 'rsg_canteen_fill')
     removeProp()
     deleteWaterPrompt()
+    if busy then ClearPedTasks(PlayerPedId()) end
 end)

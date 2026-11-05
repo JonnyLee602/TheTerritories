@@ -2,9 +2,9 @@ BP = BP or {}
 
 BP.BackpackByItem = Config.backpackByItem
 
--- ox_lib notification to a player (texts come from locales)
+-- rsg-core notification to a player (texts come from locales)
 function BP.Notify(src, nType, titleKey, descKey, ...)
-    TriggerClientEvent('ox_lib:notify', src, {
+    TriggerClientEvent('RSGCore:Client:Notify', src, {
         title = locale(titleKey),
         description = descKey and locale(descKey, ...) or nil,
         type = nType or 'inform',

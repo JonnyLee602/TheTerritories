@@ -7,8 +7,7 @@ Talking to a foreman opens a NUI contract board listing every destination from t
 ## Dependencies
 
 - [rsg-core](https://github.com/Rexshack-RedM/rsg-core)
-- [ox_lib](https://github.com/Rexshack-RedM/ox_lib)
-- [ox_target](https://github.com/Rexshack-RedM/ox_target)
+- [rsg-target](https://github.com/Rexshack-RedM/rsg-target)
 - [rsg-inventory](https://github.com/Rexshack-RedM/rsg-inventory)
 - OneSync (needed for the server-side wagon check, see `Config.RequireWagonAtDestination`)
 
@@ -16,14 +15,14 @@ Talking to a foreman opens a NUI contract board listing every destination from t
 
 1. Talk to a foreman and pick a contract on the board.
 2. The server checks you are at the hub, have no active delivery and are off cooldown, then the wagon spawns and a GPS route is set.
-3. Drive the wagon to the marked drop-off before the time limit runs out. A wrecked or lost wagon fails the contract.
+3. Drive the wagon to the marked drop-off before the time limit runs out. A wrecked or lost wagon, or dying, fails the contract.
 4. When the wagon reaches the drop-off, the server checks the player, wagon and travel time, then pays the cash and rolls the item reward.
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `canceldelivery` | Cancels the active delivery |
+| `canceldelivery` | Cancels the active delivery (the cooldown still applies) |
 
 ## Configuration
 
@@ -37,7 +36,7 @@ All options are in `shared/config.lua`.
 | `Config.FadeIn` | bool | `true` | Fade NPCs in/out on spawn/despawn |
 | `Config.SpawnVehDistance` | float | `5.0` | Radius to check for blocking vehicles at cart spawn |
 | `Config.DestinationMarker` | bool | `true` | Show destination marker on the ground |
-| `Config.UIPosition` | string | `"top-center"` | ox_lib text UI position |
+| `Config.UIPosition` | string | `"top-center"` | rsg-core `DrawText` position for the timer UI |
 | `Config.FadeIncrement` | int | `51` | Alpha step for NPC fade effect |
 | `Config.DefaultDeliveryTime` | int | `30` | Time limit per delivery (minutes) |
 | `Config.MaxRewardAmount` | int | `500` | Maximum cash reward cap |
@@ -53,7 +52,11 @@ All options are in `shared/config.lua`.
 | `Config.MaxAverageSpeed` | float | `25.0` | Deliveries finished faster than `distance / speed` seconds are rejected (teleport check) |
 | `Config.RequireWagonAtDestination` | bool | `true` | Server checks the delivery wagon is at the drop-off (needs OneSync) |
 
-### Discord Webhook (`Config.Webhook`)
+Other server-side protections: only hub/route indexes come from the client, the start is distance-checked against the hub, the registered wagon must match the contract's model, the completion event is consumed on first use, and delivery wagons are deleted on cancel, fail, completion, disconnect and resource stop.
+
+### Discord Webhook (`SvConfig.Webhook` in `server/sv_config.lua`)
+
+The webhook lives in a server-only file so the URL is never sent to clients.
 
 | Option | Type | Description |
 |--------|------|-------------|
@@ -140,7 +143,7 @@ All rewards are worked out on the server from the config. The cash total is capp
 
 ## Locales
 
-Player-facing text, including the contract board UI, is in `locales/en.json`. Copy it to a new file (for example `locales/de.json`) to translate, and set `ox:locale` in your server config.
+Player-facing text, including the contract board UI, ships in en, de, el, es, fr, ja, nl, pl, pt-br and ro (`locales/*.json`, loaded by rsg-core). Set the language with `setr rsg:locale de` in your server config.
 
 ## Adding New Deliveries
 

@@ -84,5 +84,16 @@
     "wh_started": "`%s` v%s está en ejecución.",
     "wh_test_title": "Prueba de webhook",
     "wh_test_desc": "Mensaje de prueba para el canal **%s**.",
-    "cmd_webhooktest_help": "Envía un mensaje de prueba a todos los webhooks del pescadero"
+    "cmd_webhooktest_help": "Envía un mensaje de prueba a todos los webhooks del pescadero",
+    "cl_target_shop": "Ver suministros de pesca",
+    "sv_closed": "El pescadero está cerrado. Abre de %s:00 a %s:00",
+    "sv_stock_left": "El pescadero solo comprará %s peces más hoy",
+    "sv_stock_full": "El pescadero ya ha comprado todo el pescado que necesita hoy",
+    "shop_label": "Suministros de %s",
+    "ui_sell_all": "Vender todo",
+    "ui_demand": "Demanda de hoy",
+    "ui_bonus": "Tu bonificación",
+    "ui_stock_left": "Compra hoy",
+    "ui_unlimited": "Ilimitado",
+    "ui_over_stock": "Más peces de los que el pescadero comprará hoy"
 }

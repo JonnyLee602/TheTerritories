@@ -1,16 +1,6 @@
 Config = {}
 
 ---------------------------------
--- discord webhook settings
----------------------------------
-Config.Webhook = {
-    url = '', -- Discord webhook URL (leave empty to disable)
-    title = 'RSG Deliveries',
-    color = 8531968, -- embed color (decimal)
-    footer = 'rsg-deliveries',
-}
-
----------------------------------
 -- blip settings
 ---------------------------------
 Config.Blip = {
@@ -29,8 +19,8 @@ Config.FadeIn = true
 ---------------------------------
 Config.SpawnVehDistance = 5.0 -- check to see if another cart has spawned
 Config.DestinationMarker = true
-Config.UIPosition = "top-center" -- text UI position
-Config.ShowDeliveryTimerUI = false -- toggle lib.showTextUI for the delivery timer on/off
+Config.UIPosition = "top-center" -- rsg-core DrawText position (left, right, top-center)
+Config.ShowDeliveryTimerUI = false -- toggle the rsg-core text UI for the delivery timer on/off
 Config.FadeIncrement = 51 -- alpha fade increment
 Config.DefaultDeliveryTime = 30 -- default delivery time limit in minutes
 Config.MaxRewardAmount = 500 -- maximum cash reward to prevent exploitation

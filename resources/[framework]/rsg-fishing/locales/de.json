@@ -20,5 +20,9 @@
   "sv_discord_c": "hat gefangen: ",
   "cl_no_bait": "No bait on your rod",
   "cl_use_bait_hint": "Use bait from your inventory",
-  "cl_bait": "Bait"
+  "cl_bait": "Bait",
+  "cl_hud_title": "Angeln",
+  "sv_inventory_full": "Deine Taschen sind voll, du kannst den Fisch nicht tragen.",
+  "cl_line_tension": "Schnurspannung",
+  "cl_line_snapped": "Deine Schnur ist gerissen! Der Fisch ist mit dem Köder entkommen."
 }

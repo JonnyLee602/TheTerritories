@@ -84,5 +84,16 @@
     "wh_started": "`%s` v%s läuft.",
     "wh_test_title": "Webhook-Test",
     "wh_test_desc": "Testnachricht für den Kanal **%s**.",
-    "cmd_webhooktest_help": "Sendet eine Testnachricht an alle konfigurierten Fischhändler-Webhooks"
+    "cmd_webhooktest_help": "Sendet eine Testnachricht an alle konfigurierten Fischhändler-Webhooks",
+    "cl_target_shop": "Angelbedarf ansehen",
+    "sv_closed": "Der Fischhändler hat geschlossen. Geöffnet von %s:00 bis %s:00",
+    "sv_stock_left": "Der Fischhändler kauft heute nur noch %s Fische",
+    "sv_stock_full": "Der Fischhändler hat heute schon genug Fisch gekauft",
+    "shop_label": "%s – Bedarf",
+    "ui_sell_all": "Alles verkaufen",
+    "ui_demand": "Heutige Nachfrage",
+    "ui_bonus": "Dein Bonus",
+    "ui_stock_left": "Ankauf heute",
+    "ui_unlimited": "Unbegrenzt",
+    "ui_over_stock": "Mehr Fisch, als der Fischhändler heute kauft"
 }

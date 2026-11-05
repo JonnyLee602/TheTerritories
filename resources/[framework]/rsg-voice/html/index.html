@@ -73,7 +73,16 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 .wbtn.mut{background:linear-gradient(180deg,#1c1c1c,#0a0a0a);color:var(--rdr-muted)}
 .wbtn:disabled{opacity:.45;cursor:not-allowed;filter:none}
 .foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px;gap:10px}
+.fbtns{display:flex;gap:8px;flex:none}
 .foot i{font-size:11.5px;color:var(--rdr-muted)}
+/* Invite modal */
+#invite{position:absolute;top:22%;left:50%;transform:translateX(-50%);width:380px;padding:18px 22px 20px;text-align:center;pointer-events:auto;z-index:5}
+#invite h2{margin:0;font-size:20px;font-weight:700;text-transform:uppercase;letter-spacing:1px;text-shadow:0 2px 4px #000}
+.ink{width:70%;height:1px;margin:10px auto 14px;background:linear-gradient(90deg,transparent,var(--rdr-gold-dim),transparent)}
+#invite p{margin:0 0 14px;font-size:14px;font-style:italic;color:var(--rdr-text)}
+.track{height:6px;margin:0 0 16px;background:rgba(0,0,0,.45);border:1px solid var(--rdr-gold-dim);border-radius:3px;box-shadow:inset 0 1px 2px #000;overflow:hidden}
+.fill{height:100%;width:100%;border-radius:3px 0 0 3px;background:linear-gradient(90deg,#eec06a,var(--rdr-amber))}
+.acts{display:flex;justify-content:center;gap:10px}
 </style>
 </head>
 <body>
@@ -81,6 +90,9 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
   <div id="hint" class="panel hidden"></div>
   <div id="v" class="panel hidden"><div id="dot"></div><span id="label"></span><div id="bars"></div><span id="ptag"></span></div>
   <div id="party" class="panel hidden"></div>
+  <div id="invite" class="panel hidden"><h2 id="ivT"></h2><div class="ink"></div><p id="ivB"></p>
+    <div class="track"><div class="fill" id="ivF"></div></div>
+    <div class="acts"><button class="wbtn mut" id="ivNo"></button><button class="wbtn" id="ivYes"></button></div></div>
 </div>
 <script>
 const v=document.getElementById('v'),label=document.getElementById('label'),bars=document.getElementById('bars'),hint=document.getElementById('hint');
@@ -143,7 +155,7 @@ function renderParty(){
   const d=PD||{nearby:[]},p=d.party,me=d.me,amLeader=p&&p.leader===me,full=p&&p.members.length>=p.max;
   let h=`<div class="hdr"><button class="cbtn" data-a="refresh" title="${esc(S.refresh)}">&#8635;</button>
     <div class="t"><h1>${esc(S.title)}</h1><small>${esc(S.subtitle)}</small></div>
-    <button class="cbtn" data-a="close">&#10005;</button></div>`;
+    <button class="cbtn" data-a="close" title="${esc(S.close)}">&#10005;</button></div>`;
   h+=`<div class="div">${esc(S.members)}${p?` &middot; ${p.members.length}/${p.max}`:''}</div><div class="list">`;
   if(!p)h+=`<div class="empty">${esc(S.none)}</div>`;
   else p.members.forEach(m=>{
@@ -160,7 +172,8 @@ function renderParty(){
     h+=n.busy?`<span class="pill">${esc(S.busy)}</span>`:`<button class="wbtn" data-a="invite" data-id="${n.id}" ${can?'':'disabled'}>${esc(S.invite)}</button>`;
     h+=`</div>`;
   });
-  h+=`</div><div class="foot"><i>${esc(S.hint)}</i>${p?`<button class="wbtn mut" data-a="leave">${esc(S.leave)}</button>`:''}</div>`;
+  const share=p&&S.share&&p.members.length>1?`<button class="wbtn" data-a="share">${esc(S.share)}</button>`:'';
+  h+=`</div><div class="foot"><i>${esc(S.hint)}</i><span class="fbtns">${share}${p?`<button class="wbtn mut" data-a="leave">${esc(S.leave)}</button>`:''}</span></div>`;
   party.innerHTML=h;
 }
 party.addEventListener('click',e=>{
@@ -171,6 +184,7 @@ party.addEventListener('click',e=>{
   else if(a==='invite'){b.disabled=true;post('partyInvite',{id});}
   else if(a==='kick')post('partyKick',{id});
   else if(a==='leave')post('partyLeave');
+  else if(a==='share')post('partyShare');
 });
 function closeParty(){party.classList.add('hidden');post('partyClose');}
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!party.classList.contains('hidden'))closeParty();});
@@ -182,6 +196,25 @@ window.addEventListener('message',({data:d})=>{
     case 'partyHud':ptag.textContent=d.count>1?`⚑ ${d.count}`:'';ptag.classList.toggle('show',d.count>1);break;
     case 'partyTalk':v.classList.toggle('ptalk',!!d.state);break;
   }
+});
+
+/* ---------- Invite dialog ---------- */
+const inv=document.getElementById('invite'),ivF=document.getElementById('ivF');
+function answer(a){if(inv.classList.contains('hidden'))return;inv.classList.add('hidden');post('inviteRespond',{accept:a});}
+document.getElementById('ivYes').onclick=()=>answer(true);
+document.getElementById('ivNo').onclick=()=>answer(false);
+window.addEventListener('keydown',e=>{if(inv.classList.contains('hidden'))return;if(e.key==='Enter')answer(true);else if(e.key==='Escape'){e.stopImmediatePropagation();answer(false);}},true);
+window.addEventListener('message',({data:d})=>{
+  if(d.action==='inviteOpen'){
+    const s=d.strings||{};
+    document.getElementById('ivT').textContent=s.inviteTitle||'';
+    document.getElementById('ivB').textContent=d.body||'';
+    document.getElementById('ivYes').textContent=s.accept||'';
+    document.getElementById('ivNo').textContent=s.decline||'';
+    ivF.style.transition='none';ivF.style.width='100%';void ivF.offsetWidth;
+    ivF.style.transition=`width ${d.timeout||30}s linear`;ivF.style.width='0%';
+    inv.classList.remove('hidden');
+  }else if(d.action==='inviteClose')inv.classList.add('hidden');
 });
 </script>
 </body>

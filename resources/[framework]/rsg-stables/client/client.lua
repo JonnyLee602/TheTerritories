@@ -1,15 +1,26 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
-lib.locale()
 
 local stablePeds = {}
 local stableBlips = {}
 local activeHorse = nil -- { entity = int, dbId = int, maxhealth = int, snapshot = table, hunger = num, thirst = num }
+
+-- read-only accessor for the other client files (actions.lua)
+function GetActiveHorseEntity()
+    local ent = activeHorse and activeHorse.entity
+    if ent and DoesEntityExist(ent) and not IsEntityDead(ent) then return ent end
+    return nil
+end
+
+function GetActiveHorseName()
+    local snap = activeHorse and activeHorse.snapshot
+    return (snap and snap.name) or locale('your_horse')
+end
 local horseBlip = nil
 local pendingHorse = nil -- horse that is 'out' in the DB but has no entity (fled, or restored after relog); whistle recalls it
 local recallPendingHorse
 local NuiStatsDialog
 local CARE_COOLDOWN = 60000 -- ms; mirrors server.lua's CARE_COOLDOWN (client-side cooldown is UX only, server enforces the real limit)
-local HORSE_TARGETS = { 'rsg_stables_feed', 'rsg_stables_water', 'rsg_stables_brush', 'rsg_stables_stats', 'rsg_stables_store', 'rsg_stables_flee', 'rsg_stables_inventory' }
+local HORSE_TARGETS = { 'rsg_stables_feed', 'rsg_stables_water', 'rsg_stables_brush', 'rsg_stables_stats', 'rsg_stables_store', 'rsg_stables_flee', 'rsg_stables_inventory', 'rsg_stables_actions', 'rsg_stables_calm' }
 
 local function healthPctOf(entity)
     return math.floor((GetEntityHealth(entity) / math.max(1, GetEntityMaxHealth(entity))) * 100)
@@ -63,12 +74,54 @@ local function applyTackTable(entity, tack)
     end
 end
 
+-- network id of the active horse, sent with care requests so the server can check the horse is really there
+local function activeHorseNetId()
+    local ent = activeHorse and activeHorse.entity
+    if not ent or not DoesEntityExist(ent) or not NetworkGetEntityIsNetworked(ent) then return nil end
+    return NetworkGetNetworkIdFromEntity(ent)
+end
+
 local function decodeTack(raw)
     if not raw or raw == '' then return {} end
     local ok, t = pcall(json.decode, raw)
     if ok and type(t) == 'table' then return t end
     return {}
 end
+
+-- ===================== HOLSTER / LONGARM STORAGE =====================
+-- Same logic as RDR2 player_horse.c (func_60/func_271): the game only stores long guns on the
+-- saddle horse when the script allows it, via _SET_INSTANTLY_STORE_LONGARMS_ON_DISMOUNT.
+-- Natives from rsg-redm-brain natives/db/WEAPON.md:
+--   0x5A695BD328586B44 _GET_LONGARM_STORE_ON_DISMOUNT_STATE(ped, p1)
+--   0xB832F1A686B9B810 _SET_INSTANTLY_STORE_LONGARMS_ON_DISMOUNT(ped, store, p2)
+local function horseHasHolster(horse)
+    if not horse or not horse.snapshot then return false end
+    local hash = decodeTack(horse.snapshot.tack).holster
+    return hash ~= nil and hash ~= 0 and hash ~= '0'
+end
+
+local function shouldStoreLongarms(horse)
+    if not horse or not horse.entity or not DoesEntityExist(horse.entity) then return false end
+    if IsEntityDead(horse.entity) or IsPedInjured(horse.entity) then return false end
+    return horseHasHolster(horse)
+end
+
+CreateThread(function()
+    while true do
+        if Config.HolsterStoresLongarms ~= false then
+            local ped = PlayerPedId()
+            if ped and DoesEntityExist(ped) and not IsEntityDead(ped) then
+                local want = shouldStoreLongarms(activeHorse)
+                local state = Citizen.InvokeNative(0x5A695BD328586B44, ped, 0)
+                local current = state == true or state == 1
+                if current ~= want then
+                    Citizen.InvokeNative(0xB832F1A686B9B810, ped, want, 0)
+                end
+            end
+        end
+        Wait(500)
+    end
+end)
 
 local tackItemIndex = {}
 for categoryKey, items in pairs(Config.TackItems) do
@@ -114,7 +167,7 @@ end
 local function despawnActiveHorseEntity()
     if activeHorse and activeHorse.entity and DoesEntityExist(activeHorse.entity) then
         pcall(function()
-            exports.ox_target:removeLocalEntity(activeHorse.entity, HORSE_TARGETS)
+            exports['rsg-target']:removeLocalEntity(activeHorse.entity, HORSE_TARGETS)
         end)
         DeleteEntity(activeHorse.entity)
     end
@@ -127,6 +180,90 @@ end
 
 local whistleToken = 0
 local HORSE_NOSE_OFFSET = 1.3 -- approx distance from a horse's centre to its nose
+
+-- ===================== OPEN SPAWN POINT =====================
+-- Finds open ground near the player that a horse can stand on and ride straight in from, so a called
+-- horse isn't dropped inside a building, rock, fence, tree or water. Natives (rsg-redm-brain natives/db):
+-- GET_SAFE_COORD_FOR_PED 0xB61C8E878A4199CA (flags 12 as in decompiled scripts), START_SHAPE_TEST_CAPSULE
+-- 0x28579D1B8F8AAC80, START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE 0x377906D8A31E5586, GET_SHAPE_TEST_RESULT
+-- 0xEDE8AC7C5108FB1D, GET_INTERIOR_AT_COORDS 0xCDD36C9E5C469070, TEST_VERTICAL_PROBE_AGAINST_ALL_WATER
+-- 0x2B3451FA1E3142E2, GET_CLOSEST_VEHICLE_NODE 0x240A18690AE96513.
+local SHAPE_FLAGS = 1 | 16 -- map + objects (decompiled scripts use 1/2/18/272 with p9 = 4)
+
+local function groundZAt(x, y, zHint)
+    for _, probe in ipairs({ zHint + 5.0, zHint + 50.0, 1000.0 }) do
+        local found, gz = GetGroundZFor_3dCoord(x, y, probe, false)
+        if found and gz and gz ~= 0.0 then return gz end
+    end
+    return nil
+end
+
+local function shapeTestResult(handle)
+    for _ = 1, 30 do
+        local state, hit = GetShapeTestResult(handle)
+        if state == 2 then return hit == 1 or hit == true end -- 2 = complete
+        if state == 0 then return true end                    -- failed: treat as blocked
+        Wait(0)
+    end
+    return true
+end
+
+local function isWater(x, y, z)
+    local res, waterZ = Citizen.InvokeNative(0x2B3451FA1E3142E2, x, y, z + 2.0, 1, Citizen.PointerValueFloat())
+    return res and res ~= 0 and waterZ and waterZ > z + 0.3
+end
+
+-- true if a horse fits at (x, y, z) and can see/run straight to the player
+local function spotIsOpen(x, y, z, playerPed, playerCoords)
+    if math.abs(z - playerCoords.z) > 8.0 then return false end
+    if GetInteriorAtCoords(x, y, z + 1.0) ~= 0 then return false end
+    if isWater(x, y, z) then return false end
+    -- horse body: a capsule from just above the ground to head height
+    local body = StartShapeTestCapsule(x, y, z + 0.7, x, y, z + 2.0, 1.0, SHAPE_FLAGS, playerPed, 4)
+    if shapeTestResult(body) then return false end
+    -- clear line to the player at chest height, so it doesn't spawn behind a wall or cliff
+    local los = StartExpensiveSynchronousShapeTestLosProbe(x, y, z + 1.0, playerCoords.x, playerCoords.y, playerCoords.z + 0.5, SHAPE_FLAGS, playerPed, 4)
+    if shapeTestResult(los) then return false end
+    return true
+end
+
+-- Returns vector4(x, y, z, heading facing the player) about `dist` metres from the player, preferring
+-- behind them. Tries a ring of points, snapped to the navmesh; falls back to the nearest road, then
+-- to the player's own position so the horse is never left unreachable.
+function FindOpenHorseSpot(playerPed, dist)
+    playerPed = playerPed or PlayerPedId()
+    local pc = GetEntityCoords(playerPed)
+    local heading = GetEntityHeading(playerPed)
+    local function facing(x, y) return GetHeadingFromVector_2d(pc.x - x, pc.y - y) end
+
+    for _, d in ipairs({ dist, dist * 0.6, math.max(4.0, dist * 0.3) }) do
+        for i = 0, 11 do
+            -- 180 (behind), then 150/210, 120/240 ... alternating around to the front
+            local step = (i + 1) // 2
+            local ang = math.rad(-(heading + 180.0 + (i % 2 == 0 and step or -step) * 30.0))
+            local x, y = pc.x + d * math.sin(ang), pc.y + d * math.cos(ang)
+            local gz = groundZAt(x, y, pc.z)
+            if gz then
+                local ok, safe = GetSafeCoordForPed(x, y, gz, true, 12)
+                if ok and safe and #(safe.xy - vector2(x, y)) < 6.0 then x, y, gz = safe.x, safe.y, safe.z end
+                if spotIsOpen(x, y, gz, playerPed, pc) then
+                    return vector4(x, y, gz, facing(x, y))
+                end
+            end
+        end
+    end
+
+    -- nearest road / trail node within reach (roads are always open ground)
+    local okNode, node = GetClosestVehicleNode(pc.x, pc.y, pc.z, 1, 3.0, 0)
+    if okNode and node and #(node - pc) < math.max(60.0, dist * 2.0) and not isWater(node.x, node.y, node.z) then
+        return vector4(node.x, node.y, node.z, facing(node.x, node.y))
+    end
+
+    -- last resort: navmesh right next to the player
+    local ok, safe = GetSafeCoordForPed(pc.x, pc.y, pc.z, true, 12)
+    if ok and safe then return vector4(safe.x, safe.y, safe.z, facing(safe.x, safe.y)) end
+    return vector4(pc.x, pc.y, pc.z, heading + 180.0)
+end
 
 -- Walk/run the horse to a spot in front of the player, stop there and face the player
 local function sendHorseToPlayer(entity, playerPed)
@@ -188,12 +325,15 @@ local function whistleActiveHorse()
 
     -- too far away: move it close to the player first, then it walks the last few metres
     if distance > Config.WhistleTeleportDistance then
-        local heading = GetEntityHeading(playerPed)
-        local rad = math.rad(-heading)
-        local x = playerCoords.x + 5.0 * math.sin(rad)
-        local y = playerCoords.y + 5.0 * math.cos(rad)
-        SetEntityCoords(entity, x, y, playerCoords.z, false, false, false, true)
-        SetEntityHeading(entity, heading + 180.0)
+        -- open ground with a clear run to the player (not inside a building, rock or water)
+        CreateThread(function()
+            local spot = FindOpenHorseSpot(playerPed, Config.WhistleSpawnDistance or 12.0)
+            ClearPedTasksImmediately(entity)
+            SetEntityCoords(entity, spot.x, spot.y, spot.z, false, false, false, true)
+            SetEntityHeading(entity, spot.w)
+            sendHorseToPlayer(entity, playerPed)
+        end)
+        return
     end
     sendHorseToPlayer(entity, playerPed)
 end
@@ -204,11 +344,11 @@ end
 
 local function pollWhistle()
     if not whistlePressed() then return end
-    if IsPedDeadOrDying(cache.ped, true) then return end
+    if IsPedDeadOrDying(PlayerPedId(), true) then return end
 
     -- script-spawned horses don't trigger the game's own whistle, so play it ourselves
-    if Config.WhistleAnim ~= false and not IsPedInAnyVehicle(cache.ped, false) then
-        TaskWhistleAnim(cache.ped, joaat(Config.WhistleAnim or 'WHISTLEHORSESHORT'), joaat('UNSPECIFIED'))
+    if Config.WhistleAnim ~= false and not IsPedInAnyVehicle(PlayerPedId(), false) then
+        TaskWhistleAnim(PlayerPedId(), joaat(Config.WhistleAnim or 'WHISTLEHORSESHORT'), joaat('UNSPECIFIED'))
     end
 
     -- activeHorse is set but the game removed the entity (culled, cleaned up, etc.):
@@ -343,13 +483,13 @@ local function spawnPreviewPed(model, previewCoords, outfitNum, tack, coat)
 
     if not (previewCoords and previewCoords.x and previewCoords.y and previewCoords.z) then
         print('[rsg-stables] WARNING: spawnPreviewPed called with missing/malformed previewCoords — check stable.previewCoords in shared/config.lua')
-        lib.notify({ description = locale('preview_load_failed'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('preview_load_failed'), type = 'error' })
         return nil
     end
 
     local hash = loadModel(model)
     if not hash then
-        lib.notify({ description = locale('preview_load_failed'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('preview_load_failed'), type = 'error' })
         return nil
     end
 
@@ -357,7 +497,7 @@ local function spawnPreviewPed(model, previewCoords, outfitNum, tack, coat)
     SetModelAsNoLongerNeeded(hash)
 
     if not DoesEntityExist(entity) then
-        lib.notify({ description = locale('preview_spawn_failed'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('preview_spawn_failed'), type = 'error' })
         return nil
     end
 
@@ -397,7 +537,7 @@ CreateThread(function()
     end
 end)
 
--- ===================== HORSE CARE / STORE (ox_target prompts on the active horse) =====================
+-- ===================== HORSE CARE / STORE (rsg-target prompts on the active horse) =====================
 local lastFeedAt, lastBrushAt, lastWaterAt = 0, 0, 0
 local function bumpHorseNeed(key, amount, defaultValue)
     if not activeHorse then return end
@@ -405,26 +545,38 @@ local function bumpHorseNeed(key, amount, defaultValue)
     activeHorse[key] = math.max(0, math.min(100, current + amount))
 end
 
+-- Bonding is stored 0-100 (% of the horse's max bonding points) and applied the way Rockstar does
+-- in player_horse.c: SET_ATTRIBUTE_POINTS -> GET_ATTRIBUTE_RANK -> _SET_MOUNT_BONDING_LEVEL.
+-- (The old code passed 0-100 into SET_ATTRIBUTE_BASE_RANK, but bonding ranks only go to ~4.)
+-- Hashes: rsg-redm-brain natives/db/ATTRIBUTE.md + PED.md; attribute 7 = PA_Bonding.
 local function pushBondingToNative(horse)
     if not (horse and DoesEntityExist(horse) and activeHorse) then return end
-    Citizen.InvokeNative(0x5DA12E025D47D4E5, horse, 7, math.floor(activeHorse.bonding or 0))
+    local pct = math.max(0, math.min(100, activeHorse.bonding or 0)) / 100
+    local maxPoints = Citizen.InvokeNative(0x223BF310F854871C, horse, 7, Citizen.ResultAsInteger()) or 0 -- GET_MAX_ATTRIBUTE_POINTS
+    if maxPoints <= 0 then
+        local maxRank = Citizen.InvokeNative(0x704674A0535A471D, horse, 7, Citizen.ResultAsInteger()) or 0 -- GET_MAX_ATTRIBUTE_RANK
+        maxPoints = Citizen.InvokeNative(0x94A7F191DB49A44D, GetEntityModel(horse), 7, maxRank, Citizen.ResultAsInteger()) or 0 -- GET_DEFAULT_ATTRIBUTE_POINTS_NEEDED_FOR_RANK
+    end
+    Citizen.InvokeNative(0x09A59688C26D88DF, horse, 7, math.floor(pct * maxPoints)) -- SET_ATTRIBUTE_POINTS
+    local rank = Citizen.InvokeNative(0xA4C8E23E29040DE0, horse, 7, Citizen.ResultAsInteger()) or 0 -- GET_ATTRIBUTE_RANK
+    Citizen.InvokeNative(0xA69899995997A63B, horse, rank) -- _SET_MOUNT_BONDING_LEVEL
 end
 
 local function feedActiveHorse(preferredItem)
     if not (activeHorse and DoesEntityExist(activeHorse.entity)) then return end
     if IsEntityDead(activeHorse.entity) then
-        lib.notify({ description = locale('horse_is_dead'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('horse_is_dead'), type = 'error' })
         return
     end
     local now = GetGameTimer()
     if now - lastFeedAt < CARE_COOLDOWN then
-        lib.notify({ description = locale('not_hungry'), type = 'inform' })
+        RSGCore.Functions.Notify({ description = locale('not_hungry'), type = 'inform' })
         return
     end
 
-    local ok, result = lib.callback.await('rsg-stables:server:feedHorse', false, preferredItem)
+    local ok, result = RSGCore.Functions.AwaitCallback('rsg-stables:server:feedHorse', nil, preferredItem, activeHorseNetId())
     if not ok then
-        lib.notify({ description = result or locale('no_feed'), type = 'error' })
+        RSGCore.Functions.Notify({ description = result or locale('no_feed'), type = 'error' })
         return
     end
     lastFeedAt = now
@@ -457,7 +609,7 @@ local function feedActiveHorse(preferredItem)
             end
         end
 
-        lib.notify({ description = locale('horse_enjoyed', result.label or locale('feed_generic')), type = 'success' })
+        RSGCore.Functions.Notify({ description = locale('horse_enjoyed', result.label or locale('feed_generic')), type = 'success' })
     end)
 end
 
@@ -469,6 +621,23 @@ local function applyStimulantFortify(horse, cfg)
     Citizen.InvokeNative(0xC6258F41D86676E0, horse, 1, 100)                         -- _SET_ATTRIBUTE_CORE_VALUE (stamina core)
     Citizen.InvokeNative(0x4AF5A4C7B9157D14, horse, 1, cfg.fortifyAmount, true)     -- _ENABLE_ATTRIBUTE_CORE_OVERPOWER (gold core)
     Citizen.InvokeNative(0xF6A7C08DF2E28B28, horse, 1, cfg.fortifyAmount, true)     -- _ENABLE_ATTRIBUTE_OVERPOWER (gold bar)
+end
+
+-- ===================== HORSESHOES =====================
+local SHOES = Config.Horseshoes or {}
+local HORSESHOE_CATEGORY = 0xFACFC3C0 -- metaped category hash of the horseshoe slot (see TackCategoryHashes)
+local shoeCondition = nil -- % condition of the active horse's shoes (kept up to date by the wear loop)
+
+local function activeHorseShod()
+    if not (SHOES.enabled and activeHorse and activeHorse.snapshot) then return true end
+    local hash = decodeTack(activeHorse.snapshot.tack).horseshoe
+    return hash ~= nil and hash ~= 0 and hash ~= '0'
+end
+
+-- move-rate multiplier for the active horse (1.0 when shod or the feature is off)
+local function horseshoeMoveFactor()
+    if activeHorseShod() then return 1.0 end
+    return SHOES.unshodMoveRate or 1.0
 end
 
 local function stimulantActive()
@@ -500,14 +669,14 @@ local function startStimulantLoop(horse, durationSec)
             Citizen.InvokeNative(0x675680D089BFA21F, h, 100.0)                  -- keep bar topped up
             if not warned and stimulant.endsAt - GetGameTimer() <= 60000 then
                 warned = true
-                lib.notify({ description = locale('stimulant_wearing_off'), type = 'inform' })
+                RSGCore.Functions.Notify({ description = locale('stimulant_wearing_off'), type = 'inform' })
             end
             Wait(5000)
         end
         local expiredNaturally = stimulant.entity and GetGameTimer() >= stimulant.endsAt
         stimulant.entity, stimulant.endsAt = nil, 0
         if expiredNaturally then
-            lib.notify({ description = locale('stimulant_worn_off'), type = 'inform' })
+            RSGCore.Functions.Notify({ description = locale('stimulant_worn_off'), type = 'inform' })
         end
     end)
 
@@ -516,8 +685,8 @@ local function startStimulantLoop(horse, durationSec)
         CreateThread(function()
             while stimulantActive() do
                 local h = stimulant.entity
-                if GetMount(cache.ped) == h then
-                    SetPedMoveRateOverride(h, cfg.speedMultiplier + 0.0)
+                if GetMount(PlayerPedId()) == h then
+                    SetPedMoveRateOverride(h, math.min(1.15, cfg.speedMultiplier * horseshoeMoveFactor()) + 0.0)
                     Wait(0)
                 else
                     Wait(500)
@@ -531,50 +700,50 @@ RegisterNetEvent('rsg-stables:client:useStimulant', function()
     local cfg = Config.HorseStimulant
     if not (cfg and cfg.enabled) then return end
     if not (activeHorse and DoesEntityExist(activeHorse.entity)) then
-        lib.notify({ description = locale('no_active_horse'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('no_active_horse'), type = 'error' })
         return
     end
     local horse = activeHorse.entity
     if IsEntityDead(horse) then
-        lib.notify({ description = locale('horse_is_dead'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('horse_is_dead'), type = 'error' })
         return
     end
-    local mounted = GetMount(cache.ped) == horse
-    if not mounted and #(GetEntityCoords(cache.ped) - GetEntityCoords(horse)) > cfg.useDistance then
-        lib.notify({ description = locale('must_be_near_horse'), type = 'error' })
+    local mounted = GetMount(PlayerPedId()) == horse
+    if not mounted and #(GetEntityCoords(PlayerPedId()) - GetEntityCoords(horse)) > cfg.useDistance then
+        RSGCore.Functions.Notify({ description = locale('must_be_near_horse'), type = 'error' })
         return
     end
 
-    local ok, result = lib.callback.await('rsg-stables:server:useStimulant', false)
+    local ok, result = RSGCore.Functions.AwaitCallback('rsg-stables:server:useStimulant', nil, activeHorseNetId())
     if not ok then
-        lib.notify({ description = result or locale('stimulant_failed'), type = 'error' })
+        RSGCore.Functions.Notify({ description = result or locale('stimulant_failed'), type = 'error' })
         return
     end
 
-    TaskAnimalInteraction(cache.ped, horse, -1355254781, GetHashKey('p_cs_syringe01x'), 0)
+    TaskAnimalInteraction(PlayerPedId(), horse, -1355254781, GetHashKey('p_cs_syringe01x'), 0)
     Wait(3000)
 
     if not DoesEntityExist(horse) then return end
 
     startStimulantLoop(horse, result.duration)
-    lib.notify({ description = locale('stimulant_active', math.floor(result.duration / 60)), type = 'success' })
+    RSGCore.Functions.Notify({ description = locale('stimulant_active', math.floor(result.duration / 60)), type = 'success' })
 end)
 
 local function waterActiveHorse()
     if not (activeHorse and DoesEntityExist(activeHorse.entity)) then return end
     if IsEntityDead(activeHorse.entity) then
-        lib.notify({ description = locale('horse_is_dead'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('horse_is_dead'), type = 'error' })
         return
     end
     local now = GetGameTimer()
     if now - lastWaterAt < CARE_COOLDOWN then
-        lib.notify({ description = locale('not_thirsty'), type = 'inform' })
+        RSGCore.Functions.Notify({ description = locale('not_thirsty'), type = 'inform' })
         return
     end
 
-    local ok, result = lib.callback.await('rsg-stables:server:waterHorse', false)
+    local ok, result = RSGCore.Functions.AwaitCallback('rsg-stables:server:waterHorse', nil, activeHorseNetId())
     if not ok then
-        lib.notify({ description = result or locale('no_water'), type = 'error' })
+        RSGCore.Functions.Notify({ description = result or locale('no_water'), type = 'error' })
         return
     end
     lastWaterAt = now
@@ -598,25 +767,25 @@ local function waterActiveHorse()
             end
         end
 
-        lib.notify({ description = locale('horse_drank', result.label or locale('water_generic')), type = 'success' })
+        RSGCore.Functions.Notify({ description = locale('horse_drank', result.label or locale('water_generic')), type = 'success' })
     end)
 end
 
 local function brushActiveHorse()
     if not (activeHorse and DoesEntityExist(activeHorse.entity)) then return end
     if IsEntityDead(activeHorse.entity) then
-        lib.notify({ description = locale('horse_is_dead'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('horse_is_dead'), type = 'error' })
         return
     end
     local now = GetGameTimer()
     if now - lastBrushAt < CARE_COOLDOWN then
-        lib.notify({ description = locale('already_clean'), type = 'inform' })
+        RSGCore.Functions.Notify({ description = locale('already_clean'), type = 'inform' })
         return
     end
 
-    local ok, result = lib.callback.await('rsg-stables:server:brushHorse', false)
+    local ok, result = RSGCore.Functions.AwaitCallback('rsg-stables:server:brushHorse', nil, activeHorseNetId())
     if not ok then
-        lib.notify({ description = result or locale('already_clean'), type = 'inform' })
+        RSGCore.Functions.Notify({ description = result or locale('already_clean'), type = 'inform' })
         return
     end
     lastBrushAt = now
@@ -636,25 +805,114 @@ local function brushActiveHorse()
             pushBondingToNative(horse)
         end
 
-        lib.notify({ description = locale('brushed'), type = 'success' })
+        RSGCore.Functions.Notify({ description = locale('brushed'), type = 'success' })
     end)
 end
 
 -- Inventory-use checks shared by the feed items and the brush: horse out, dismounted, close by
-local function canCareFromInventory(dismountKey, tooFarKey)
+local function canCareFromInventory(dismountKey, tooFarKey, allowMounted)
     if not (activeHorse and DoesEntityExist(activeHorse.entity)) then
-        lib.notify({ description = locale('no_active_horse'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('no_active_horse'), type = 'error' })
         return false
     end
-    if GetMount(cache.ped) == activeHorse.entity then
-        lib.notify({ description = locale(dismountKey), type = 'error' })
+    if GetMount(PlayerPedId()) == activeHorse.entity then
+        if allowMounted then return true end
+        RSGCore.Functions.Notify({ description = locale(dismountKey), type = 'error' })
         return false
     end
-    if #(GetEntityCoords(cache.ped) - GetEntityCoords(activeHorse.entity)) > (Config.HorseBrushDistance or 3.0) then
-        lib.notify({ description = locale(tooFarKey), type = 'error' })
+    if #(GetEntityCoords(PlayerPedId()) - GetEntityCoords(activeHorse.entity)) > (Config.HorseBrushDistance or 3.0) then
+        RSGCore.Functions.Notify({ description = locale(tooFarKey), type = 'error' })
         return false
     end
     return true
+end
+
+-- Unshod penalty (per frame while riding) and horseshoe wear from riding time
+if SHOES.enabled then
+    -- slow-down + stamina drain; the stimulant loop applies its own (combined) move rate
+    CreateThread(function()
+        while true do
+            local horse = activeHorse and activeHorse.entity
+            if horse and GetMount(PlayerPedId()) == horse and not activeHorseShod() and not stimulantActive() then
+                SetPedMoveRateOverride(horse, (SHOES.unshodMoveRate or 1.0) + 0.0)
+                Wait(0)
+            else
+                Wait(500)
+            end
+        end
+    end)
+
+    CreateThread(function()
+        local reminded = nil -- horse entity the "no shoes" reminder was shown for
+        local wearHorse = nil -- horse entity the wear counter belongs to
+        local wearAcc, lastReport, lastCondition = 0.0, GetGameTimer(), 100
+        local drainAt = GetGameTimer()
+        local warnAt = SHOES.warnAt or {}
+
+        local function sendWear(horse)
+            local secs = wearAcc
+            wearAcc = 0.0
+            lastReport = GetGameTimer()
+            if secs <= 0 then return end
+            local netId = NetworkGetEntityIsNetworked(horse) and NetworkGetNetworkIdFromEntity(horse) or nil
+            local ok, res = RSGCore.Functions.AwaitCallback('rsg-stables:server:wearHorseshoe', nil, netId, secs)
+            if not (ok and type(res) == 'table' and activeHorse and activeHorse.entity == horse) then return end
+            if res.worn then
+                activeHorse.snapshot.tack = json.encode(res.tack)
+                Citizen.InvokeNative(0xD710A5007C2AC539, horse, HORSESHOE_CATEGORY, 0) -- _REMOVE_TAG_FROM_META_PED
+                Citizen.InvokeNative(0xCC8CA3E88256E58F, horse, false, true, true, true, false) -- _UPDATE_PED_VARIATION
+                TriggerEvent('rsg-stables:client:tackChanged', res.tack) -- client/training.lua (tack stat bonuses)
+                reminded = horse
+                RSGCore.Functions.Notify({ title = locale('horseshoe_title'), description = locale('horseshoe_worn_out'), type = 'error', duration = 8000 })
+            else
+                for _, pct in ipairs(warnAt) do
+                    if lastCondition > pct and res.condition <= pct then
+                        RSGCore.Functions.Notify({ title = locale('horseshoe_title'), description = locale('horseshoe_wearing', res.condition), type = 'warning', duration = 7000 })
+                        break
+                    end
+                end
+            end
+            lastCondition = res.condition or lastCondition
+            shoeCondition = lastCondition
+        end
+
+        while true do
+            Wait(1000)
+            local horse = activeHorse and activeHorse.entity
+            local riding = horse and DoesEntityExist(horse) and GetMount(PlayerPedId()) == horse
+            if horse ~= wearHorse then
+                -- different horse out: drop the old counter and fetch this one's condition
+                wearHorse, wearAcc, lastReport = horse, 0.0, GetGameTimer()
+                lastCondition = 100
+                if horse then
+                    local info = RSGCore.Functions.AwaitCallback('rsg-stables:server:getHorseshoeCondition', nil)
+                    if info and info.shod then lastCondition = info.condition end
+                end
+                shoeCondition = lastCondition
+            end
+            if not riding then
+                if horse and wearAcc > 0 and DoesEntityExist(horse) then sendWear(horse) end -- save on dismount
+            elseif not activeHorseShod() then
+                wearAcc = 0.0
+                if SHOES.remindOnMount and reminded ~= horse then
+                    reminded = horse
+                    RSGCore.Functions.Notify({ title = locale('horseshoe_title'), description = locale('horseshoe_none'), type = 'warning', duration = 7000 })
+                end
+                if (SHOES.unshodStaminaDrain or 0) > 0 and GetEntitySpeed(horse) >= (SHOES.minSpeed or 5.0) then
+                    local secs = (GetGameTimer() - drainAt) / 1000
+                    Citizen.InvokeNative(0xC3D4B754C0E86B9E, horse, -(SHOES.unshodStaminaDrain * secs) + 0.0) -- _CHANGE_PED_STAMINA
+                end
+            else
+                local speed = GetEntitySpeed(horse)
+                if speed >= (SHOES.minMoveSpeed or 1.0) then
+                    local mult = speed >= (SHOES.minSpeed or 5.0) and (SHOES.gallopWearMultiplier or 1.0) or 1.0
+                    wearAcc = wearAcc + (GetGameTimer() - drainAt) / 1000 * mult
+                end
+                if GetGameTimer() - lastReport >= (SHOES.reportInterval or 60) * 1000 then sendWear(horse) end
+            end
+            drainAt = GetGameTimer()
+        end
+    end)
 end
 
 -- Using a feed item (horse_apple, horse_carrot, ...) from the inventory
@@ -664,7 +922,7 @@ end)
 
 -- Using the horse_brush item from the inventory
 RegisterNetEvent('rsg-stables:client:useBrush', function()
-    if canCareFromInventory('brush_dismount', 'brush_too_far') then brushActiveHorse() end
+    if canCareFromInventory('brush_dismount', 'brush_too_far', Config.HorseBrushMounted) then brushActiveHorse() end
 end)
 
 -- ===================== HORSE LANTERN =====================
@@ -672,62 +930,225 @@ RegisterNetEvent('rsg-stables:client:useLantern', function()
     local cfg = Config.HorseLantern
     if not (cfg and cfg.enabled) then return end
     if not (activeHorse and activeHorse.entity and DoesEntityExist(activeHorse.entity)) then
-        lib.notify({ description = locale('no_active_horse'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('no_active_horse'), type = 'error' })
         return
     end
     local horse = activeHorse.entity
     if IsEntityDead(horse) then
-        lib.notify({ description = locale('horse_is_dead'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('horse_is_dead'), type = 'error' })
         return
     end
-    local ped = cache.ped
+    local ped = PlayerPedId()
     local riding = GetMount(ped) == horse
     if not riding and #(GetEntityCoords(ped) - GetEntityCoords(horse)) > (cfg.distance or 3.0) then
-        lib.notify({ description = locale('lantern_too_far'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('lantern_too_far'), type = 'error' })
         return
     end
 
-    local ok, on = lib.callback.await('rsg-stables:server:toggleLantern', false)
+    local ok, on = RSGCore.Functions.AwaitCallback('rsg-stables:server:toggleLantern', nil)
     if not ok then
-        if on then lib.notify({ description = on, type = 'error' }) end
+        if on then RSGCore.Functions.Notify({ description = on, type = 'error' }) end
         return
     end
     if not DoesEntityExist(horse) then return end
 
     if on then
         Citizen.InvokeNative(0xD3A7B003ED343FD9, horse, cfg.hash, true, true, true) -- _APPLY_SHOP_ITEM_TO_PED
-        lib.notify({ description = locale('lantern_fitted'), type = 'success' })
+        RSGCore.Functions.Notify({ description = locale('lantern_fitted'), type = 'success' })
     else
         Citizen.InvokeNative(0xD710A5007C2AC539, horse, cfg.category, 0) -- _REMOVE_TAG_FROM_META_PED
         Citizen.InvokeNative(0xCC8CA3E88256E58F, horse, false, true, true, true, false) -- _UPDATE_PED_VARIATION
-        lib.notify({ description = locale('lantern_removed'), type = 'inform' })
+        RSGCore.Functions.Notify({ description = locale('lantern_removed'), type = 'inform' })
     end
 end)
 
-local function showActiveHorseStats()
-    if not (activeHorse and DoesEntityExist(activeHorse.entity)) then
-        lib.notify({ description = locale('no_active_horse'), type = 'error' })
-        return
+-- ===================== HORSE CARD (live horse information panel) =====================
+local horseCardOpen = false
+
+local function breedOf(entity)
+    local m = GetEntityModel(entity) & 0xFFFFFFFF
+    for _, b in ipairs(Config.Breeds) do
+        if (tonumber(b.model) or 0) & 0xFFFFFFFF == m then return b end
     end
+end
 
+local function pctHint(value, lowKey)
+    if value <= 15 then return { level = 'bad', text = locale(lowKey .. '_bad') } end
+    if value <= 35 then return { level = 'warn', text = locale(lowKey .. '_warn') } end
+end
+
+local function buildHorseCard()
+    if not (activeHorse and DoesEntityExist(activeHorse.entity)) then return nil end
     local horse = activeHorse.entity
-    local healthPct = healthPctOf(horse)
-    local stamina = staminaPctOf(horse, 0)
+    local snap = activeHorse.snapshot or {}
+    local breed = breedOf(horse)
+    local statMax = Config.BreedStatMax or 10
+    local okExtra, extra = pcall(function() return exports[GetCurrentResourceName()]:GetHorseBonusInfo() end)
+    extra = okExtra and extra or {}
 
+    -- identity
+    local ageDays = math.floor(activeHorse.ageDays or 0)
+    local stageKey, lifeLeft = 'stage_adult', nil
+    if Config.HorseAging and Config.HorseAging.enabled then
+        if ageDays < Config.HorseAging.youngUntilDays then stageKey = 'stage_young'
+        elseif ageDays >= Config.HorseAging.oldFromDays then stageKey = 'stage_old' end
+        local left = Config.HorseAging.lifespanDays - ageDays
+        if left <= (Config.HorseAging.warnDays or 0) then lifeLeft = math.max(0, left) end
+    end
+    local bondRank = Citizen.InvokeNative(0xA4C8E23E29040DE0, horse, 7, Citizen.ResultAsInteger()) or 0 -- GET_ATTRIBUTE_RANK (PA_Bonding)
+    local bondMax = Citizen.InvokeNative(0x704674A0535A471D, horse, 7, Citizen.ResultAsInteger()) or 4 -- GET_MAX_ATTRIBUTE_RANK
+    if bondMax <= 0 then bondMax = 4 end
+
+    -- condition
+    local health = healthPctOf(horse)
+    local stamina = staminaPctOf(horse, 0)
     local hunger = math.floor(activeHorse.hunger or 100)
     local thirst = math.floor(activeHorse.thirst or 100)
-    local bonding = math.floor(activeHorse.bonding or 0)
-    local dirtiness = math.floor(math.max(0, math.min(100, tonumber(Citizen.InvokeNative(0xA4C8E23E29040DE0, horse, 16)) or 0)))
-    local cleanliness = 100 - dirtiness
+    local dirt = math.floor(math.max(0, math.min(100, tonumber(Citizen.InvokeNative(0xA4C8E23E29040DE0, horse, 16)) or 0)))
+    local clean = 100 - dirt
+    local condition = {
+        { key = 'health',  label = locale('stat_health'),      value = health,  hint = pctHint(health, 'hint_health') },
+        { key = 'stamina', label = locale('stat_stamina'),     value = stamina, hint = pctHint(stamina, 'hint_stamina') },
+        { key = 'hunger',  label = locale('stat_hunger'),      value = hunger,  hint = pctHint(hunger, 'hint_hunger') },
+        { key = 'thirst',  label = locale('stat_thirst'),      value = thirst,  hint = pctHint(thirst, 'hint_thirst') },
+        { key = 'clean',   label = locale('stat_cleanliness'), value = clean,   hint = pctHint(clean, 'hint_clean') },
+    }
 
-    NuiStatsDialog(locale('horse_stats'), {
-        { label = locale('stat_health'),      value = healthPct },
-        { label = locale('stat_stamina'),     value = stamina },
-        { label = locale('stat_hunger'),      value = hunger },
-        { label = locale('stat_thirst'),      value = thirst },
-        { label = locale('stat_bonding'),     value = bonding },
-        { label = locale('stat_cleanliness'), value = cleanliness },
-    })
+    -- performance: breed base (out of BreedStatMax) + tack + training bonus ranks
+    local perf = {}
+    local baseOf = { health = breed and breed.health, stamina = breed and breed.stamina, speed = breed and breed.speed, accel = breed and breed.acceleration }
+    for _, key in ipairs({ 'health', 'stamina', 'speed', 'accel', 'courage' }) do
+        local tack = extra.tack and extra.tack[key] or 0
+        local trained = extra.training and extra.training.stats and extra.training.stats[key] and extra.training.stats[key].level or 0
+        local base = tonumber(baseOf[key])
+        if base or tack > 0 or trained > 0 then
+            perf[#perf + 1] = {
+                label = locale('card_perf_' .. key), base = base, max = statMax,
+                tack = tack, trained = trained * ((Config.Training and Config.Training.bonusPerLevel) or 1),
+            }
+        end
+    end
+
+    -- training progress
+    local training = nil
+    if extra.training and extra.training.stats then
+        training = {}
+        for _, key in ipairs((Config.Training and Config.Training.statOrder) or {}) do
+            local s = extra.training.stats[key]
+            if s then
+                training[#training + 1] = { label = locale('training_' .. key), level = s.level, max = extra.training.maxLevel, xp = s.xp, prevXp = s.prevXp, nextXp = s.nextXp }
+            end
+        end
+    end
+
+    -- status badges
+    local badges = {}
+    if snap.insured == true or snap.insured == 1 then badges[#badges + 1] = { text = locale('card_insured'), level = 'good' } else badges[#badges + 1] = { text = locale('card_uninsured'), level = 'warn' } end
+    if stimulant.entity == horse and stimulant.endsAt > GetGameTimer() then
+        badges[#badges + 1] = { text = locale('card_stimulant', math.ceil((stimulant.endsAt - GetGameTimer()) / 60000)), level = 'good' }
+    end
+    if SHOES.enabled then
+        if not activeHorseShod() then
+            badges[#badges + 1] = { text = locale('card_no_shoes'), level = 'bad' }
+        elseif shoeCondition then
+            badges[#badges + 1] = { text = locale('card_shoes', shoeCondition), level = shoeCondition > 25 and 'good' or (shoeCondition > 10 and 'warn' or 'bad') }
+        end
+    end
+    if lifeLeft then badges[#badges + 1] = { text = locale('card_life_left', lifeLeft), level = 'bad' } end
+
+    local now = GetGameTimer()
+    return {
+        name = snap.name or locale('your_horse'),
+        breed = breed and breed.label or '',
+        class = breed and (breed.class or '') or '',
+        gender = snap.gender and locale(snap.gender == 'male' and 'gender_stallion' or 'gender_mare') or nil,
+        stage = locale(stageKey), ageDays = ageDays,
+        bond = { rank = bondRank, max = bondMax, pct = math.floor(activeHorse.bonding or 0) },
+        condition = condition, perf = perf, training = training, badges = badges,
+        actions = {
+            feed  = now - lastFeedAt >= CARE_COOLDOWN,
+            water = Config.HorseNeeds.enabled and now - lastWaterAt >= CARE_COOLDOWN,
+            brush = now - lastBrushAt >= CARE_COOLDOWN,
+            train = Config.Training and Config.Training.enabled and Config.Training.session.enabled or false,
+        },
+        mounted = GetMount(PlayerPedId()) == horse,
+    }
+end
+
+local CARD_STRINGS = { 'card_title', 'card_condition', 'card_performance', 'card_training', 'card_bond', 'card_days',
+    'card_base', 'card_tack', 'card_trained', 'card_feed', 'card_water', 'card_brush', 'card_train', 'card_close',
+    'card_dismount_hint', 'training_level', 'training_maxed' }
+
+local function closeHorseCard()
+    if not horseCardOpen then return end
+    horseCardOpen = false
+    SetNuiFocus(false, false)
+    SendNUIMessage({ action = 'horseCardClose' })
+end
+
+local function showActiveHorseStats()
+    local data = buildHorseCard()
+    if not data then
+        RSGCore.Functions.Notify({ description = locale('no_active_horse'), type = 'error' })
+        return
+    end
+    local strings = {}
+    for _, k in ipairs(CARD_STRINGS) do strings[k] = locale(k) end
+    horseCardOpen = true
+    SetNuiFocus(true, true)
+    SendNUIMessage({ action = 'horseCardOpen', data = data, strings = strings })
+    CreateThread(function()
+        while horseCardOpen do
+            Wait(1000)
+            local d = horseCardOpen and buildHorseCard()
+            if not d then closeHorseCard() break end
+            SendNUIMessage({ action = 'horseCardUpdate', data = d })
+        end
+    end)
+end
+
+RegisterNUICallback('horseCardClose', function(_, cb)
+    closeHorseCard()
+    cb('ok')
+end)
+
+RegisterNUICallback('horseCardAction', function(data, cb)
+    cb('ok')
+    local action = data and data.action
+    if action == 'train' then
+        closeHorseCard()
+        TriggerEvent('rsg-stables:client:openTraining')
+        return
+    end
+    if not (activeHorse and DoesEntityExist(activeHorse.entity)) then return end
+    local mounted = GetMount(PlayerPedId()) == activeHorse.entity
+    if mounted and not (action == 'brush' and Config.HorseBrushMounted) then
+        RSGCore.Functions.Notify({ description = locale('card_dismount_hint'), type = 'error' })
+        return
+    end
+    if not mounted and #(GetEntityCoords(PlayerPedId()) - GetEntityCoords(activeHorse.entity)) > (Config.HorseBrushDistance or 3.0) then
+        RSGCore.Functions.Notify({ description = locale('must_be_near_horse'), type = 'error' })
+        return
+    end
+    closeHorseCard() -- care animations need the player's control back
+    if action == 'feed' then feedActiveHorse()
+    elseif action == 'water' then waterActiveHorse()
+    elseif action == 'brush' then brushActiveHorse() end
+end)
+
+if Config.HorseCard and Config.HorseCard.command then
+    RegisterCommand(Config.HorseCard.command, function()
+        if not (activeHorse and DoesEntityExist(activeHorse.entity)) then
+            RSGCore.Functions.Notify({ description = locale('no_active_horse'), type = 'error' })
+            return
+        end
+        local maxDist = Config.HorseCard.maxDistance or 15.0
+        if GetMount(PlayerPedId()) ~= activeHorse.entity and #(GetEntityCoords(PlayerPedId()) - GetEntityCoords(activeHorse.entity)) > maxDist then
+            RSGCore.Functions.Notify({ description = locale('must_be_near_horse'), type = 'error' })
+            return
+        end
+        showActiveHorseStats()
+    end, false)
 end
 
 local function findNearestStoreableStable(coords)
@@ -746,7 +1167,7 @@ end
 
 local function storeActiveHorse()
     if not activeHorse then
-        lib.notify({ description = locale('no_active_horse'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('no_active_horse'), type = 'error' })
         return
     end
     if not DoesEntityExist(activeHorse.entity) then
@@ -758,16 +1179,16 @@ local function storeActiveHorse()
     local nearestStable = findNearestStoreableStable(coords)
 
     if not nearestStable then
-        lib.notify({ description = locale('not_close_to_stable'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('not_close_to_stable'), type = 'error' })
         return
     end
 
-    local ok, err = lib.callback.await('rsg-stables:server:storeHorse', false, activeHorse.dbId, healthPctOf(activeHorse.entity), staminaPctOf(activeHorse.entity, 100))
+    local ok, err = RSGCore.Functions.AwaitCallback('rsg-stables:server:storeHorse', nil, activeHorse.dbId, healthPctOf(activeHorse.entity), staminaPctOf(activeHorse.entity, 100))
     if ok then
-        lib.notify({ description = locale('store_success'), type = 'success' })
+        RSGCore.Functions.Notify({ description = locale('store_success'), type = 'success' })
         despawnActiveHorseEntity()
     else
-        lib.notify({ description = err or locale('store_fail'), type = 'error' })
+        RSGCore.Functions.Notify({ description = err or locale('store_fail'), type = 'error' })
     end
 end
 
@@ -778,7 +1199,7 @@ local function fleeActiveHorse()
     if isHorseFleeing then return end
     if not (activeHorse and DoesEntityExist(activeHorse.entity)) then return end
     if IsEntityDead(activeHorse.entity) then
-        lib.notify({ description = locale('horse_is_dead'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('horse_is_dead'), type = 'error' })
         return
     end
 
@@ -789,7 +1210,7 @@ local function fleeActiveHorse()
     local snapshot = horse.snapshot
 
     pcall(function()
-        exports.ox_target:removeLocalEntity(horsePed, HORSE_TARGETS)
+        exports['rsg-target']:removeLocalEntity(horsePed, HORSE_TARGETS)
     end)
     if activeHorse and activeHorse.entity == horsePed then
         activeHorse = nil
@@ -800,8 +1221,8 @@ local function fleeActiveHorse()
     end
     horseBlip = nil
 
-    lib.notify({ description = locale('horse_flees'), type = 'inform' })
-    TaskAnimalFlee(horsePed, cache.ped, -1)
+    RSGCore.Functions.Notify({ description = locale('horse_flees'), type = 'inform' })
+    TaskAnimalFlee(horsePed, PlayerPedId(), -1)
 
     CreateThread(function()
         Wait(Config.HorseFlee.fleeDelay or 10000)
@@ -810,7 +1231,7 @@ local function fleeActiveHorse()
             local healthPct = healthPctOf(horsePed)
 
             local stored = Config.HorseFlee.storeOnFlee
-                and lib.callback.await('rsg-stables:server:fleeStoreHorse', false, horse.dbId, healthPct, staminaPctOf(horsePed, 100))
+                and RSGCore.Functions.AwaitCallback('rsg-stables:server:fleeStoreHorse', nil, horse.dbId, healthPct, staminaPctOf(horsePed, 100))
             if stored then
                 pendingHorse = nil
             elseif snapshot then
@@ -840,7 +1261,7 @@ CreateThread(function()
 
             pollWhistle()
 
-            -- hide the native horse Brush / Feed prompts (use the ox_target options instead)
+            -- hide the native horse Brush / Feed prompts (use the rsg-target options instead)
             if Config.HideNativeBrushFeed and activeHorse then
                 DisableControlAction(0, `INPUT_INTERACT_HORSE_BRUSH`, true)
                 DisableControlAction(0, `INPUT_INTERACT_HORSE_FEED`, true)
@@ -849,7 +1270,7 @@ CreateThread(function()
             -- native Horse Cargo prompt (B) opens the horse's rsg-inventory stash instead
             if Config.HorseInventory.enabled and Config.HorseInventory.nativeCargoPrompt and activeHorse and DoesEntityExist(activeHorse.entity)
                 and not IsNuiFocused() then
-                local ped = cache.ped
+                local ped = PlayerPedId()
                 if not IsPedOnMount(ped) and #(GetEntityCoords(ped) - GetEntityCoords(activeHorse.entity)) < 3.0
                     and IsControlJustReleased(0, 0x5966D52A) then -- INPUT_OPEN_SATCHEL_HORSE_MENU
                     TriggerServerEvent('rsg-stables:server:openHorseInventory', activeHorse.dbId, NetworkGetNetworkIdFromEntity(activeHorse.entity))
@@ -884,14 +1305,14 @@ local function spawnHorse(horse, coords)
     local player = PlayerId()
     local hash = loadModel(horse.model)
     if not hash then
-        lib.notify({ description = locale('model_load_failed'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('model_load_failed'), type = 'error' })
         return
     end
 
     local horsePed = CreatePed(hash, coords.x, coords.y, coords.z, coords.w, true, false, 0, 0)
     SetModelAsNoLongerNeeded(hash)
     if not DoesEntityExist(horsePed) then
-        lib.notify({ description = locale('model_load_failed'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('model_load_failed'), type = 'error' })
         return
     end
     initAndApplyOutfit(horsePed, math.floor(tonumber(horse.outfit) or 0))
@@ -900,7 +1321,12 @@ local function spawnHorse(horse, coords)
     SetEntityAsMissionEntity(horsePed, true, true)
     SetBlockingOfNonTemporaryEvents(horsePed, true)
     SetPedCanBeTargetted(horsePed, false)
-    Citizen.InvokeNative(0xD2CB0FB0FDCB473D, player, horsePed) -- SetPedAsSaddleHorseForPlayer
+    -- Only a horse with a holster fitted becomes the player's saddle horse. The saddle-horse link is what
+    -- makes the game move long guns onto the horse when mounting, so a horse without a holster skips it
+    -- and the rifle stays on the player's back (Config.HolsterStoresLongarms).
+    if Config.HolsterStoresLongarms == false or horseHasHolster({ snapshot = horse }) then
+        Citizen.InvokeNative(0xD2CB0FB0FDCB473D, player, horsePed) -- SetPedAsSaddleHorseForPlayer
+    end
     Citizen.InvokeNative(0xB8B6430EAD2D2437, horsePed, `PLAYER_HORSE`) -- SetPedPersonality
 
     local horseFlags = {
@@ -936,9 +1362,13 @@ local function spawnHorse(horse, coords)
     horseBlip = Citizen.InvokeNative(0x23F74C2FDA6E7C61, -1230993421, horsePed) -- BlipAddForEntity
     Citizen.InvokeNative(0x9CB1A1623062F402, horseBlip, horse.name) -- SetBlipName
     Citizen.InvokeNative(0xFE26E4609B1C3772, horsePed, "HorseCompanion", true) -- DecorSetBool
-    Citizen.InvokeNative(0xA691C10054275290, cache.ped, horsePed, 0) -- unknown
-    Citizen.InvokeNative(0x931B241409216C1F, cache.ped, horsePed, false) -- SetPedOwnsAnimal
-    Citizen.InvokeNative(0xED1C764997A86D5A, cache.ped, horsePed) -- unknown
+    Citizen.InvokeNative(0xA691C10054275290, PlayerPedId(), horsePed, 0) -- unknown
+    -- Ownership (SetPedOwnsAnimal) also links the horse to the player's weapon wheel, which makes the game move
+    -- long guns onto it when mounting. A horse without a holster skips it so weapons stay on the player.
+    if Config.HolsterStoresLongarms == false or horseHasHolster({ snapshot = horse }) then
+        Citizen.InvokeNative(0x931B241409216C1F, PlayerPedId(), horsePed, false) -- SetPedOwnsAnimal
+        Citizen.InvokeNative(0xED1C764997A86D5A, PlayerPedId(), horsePed) -- unknown (mount link)
+    end
     Citizen.InvokeNative(0xDF93973251FB2CA5, player, true) -- SetPlayerMountStateActive
     if not Config.AllowTwoPlayersRide then
         Citizen.InvokeNative(0xe6d4e435b56d5bd0, player, horsePed) -- SetPlayerOwnsMount
@@ -960,7 +1390,7 @@ local function spawnHorse(horse, coords)
     lastFeedAt, lastBrushAt, lastWaterAt = 0, 0, 0
 
     local targetOk, targetErr = pcall(function()
-        exports.ox_target:addLocalEntity(horsePed, {
+        exports['rsg-target']:addLocalEntity(horsePed, {
             {
                 name = 'rsg_stables_feed',
                 icon = 'fas fa-wheat-awn',
@@ -1009,6 +1439,22 @@ local function spawnHorse(horse, coords)
                 onSelect = fleeActiveHorse,
             },
             {
+                name = 'rsg_stables_calm',
+                icon = 'fas fa-hand-holding-heart',
+                label = locale('target_calm'),
+                distance = 2.5,
+                canInteract = function() return IsActiveHorseSkittish and IsActiveHorseSkittish() and GetMount(PlayerPedId()) == 0 end,
+                onSelect = function() CalmActiveHorse() end,
+            },
+            {
+                name = 'rsg_stables_actions',
+                icon = 'fas fa-horse-head',
+                label = locale('target_actions'),
+                distance = 2.5,
+                canInteract = function() return Config.HorseActions and Config.HorseActions.enabled and GetMount(PlayerPedId()) == 0 end,
+                onSelect = function() OpenHorseActionsMenu() end,
+            },
+            {
                 name = 'rsg_stables_inventory',
                 icon = 'fas fa-box-open',
                 label = locale('target_inventory'),
@@ -1026,7 +1472,7 @@ local function spawnHorse(horse, coords)
         })
     end)
     if not targetOk then
-        print(('[rsg-stables] WARNING: failed to register ox_target options on the active horse: %s'):format(tostring(targetErr)))
+        print(('[rsg-stables] WARNING: failed to register rsg-target options on the active horse: %s'):format(tostring(targetErr)))
     end
 
     activeHorse = {
@@ -1039,18 +1485,15 @@ local function spawnHorse(horse, coords)
         ageDays = tonumber(horse.age_days) or 0,
     }
     pushBondingToNative(horsePed)
+    -- marks player-owned horses so the horse fence refuses them (server reads this state bag)
+    if NetworkGetEntityIsNetworked(horsePed) then
+        Entity(horsePed).state:set('rsgStablesOwned', true, true)
+    end
+    TriggerEvent('rsg-stables:client:horseSpawned', horsePed, horse) -- client/training.lua
     pendingHorse = nil
 end
 
 local isRecallingHorse = false
-
-local function groundZAt(x, y, zHint)
-    for _, probe in ipairs({ zHint + 5.0, zHint + 50.0, 1000.0 }) do
-        local found, gz = GetGroundZFor_3dCoord(x, y, probe, false)
-        if found and gz and gz ~= 0.0 then return gz end
-    end
-    return zHint
-end
 
 recallPendingHorse = function()
     local snapshot = pendingHorse
@@ -1058,9 +1501,8 @@ recallPendingHorse = function()
     isRecallingHorse = true
     pendingHorse = nil
 
-    local playerPed = cache.ped
+    local playerPed = PlayerPedId()
     local playerCoords = GetEntityCoords(playerPed)
-    local heading = GetEntityHeading(playerPed)
     local cfg = Config.ActiveHorse or {}
 
     local spawnCoords
@@ -1070,12 +1512,9 @@ recallPendingHorse = function()
         -- Horse is still where it was left: spawn it there and let it travel to the player
         spawnCoords = vector4(sx, sy, sz, tonumber(snapshot.pos_h) or 0.0)
     else
-        -- Saved position is too close, too far or unknown: bring it in from behind the player
+        -- Saved position is too close, too far or unknown: bring it in from open ground (behind the player if possible)
         local dist = math.max(cfg.respawnDistance or 30.0, cfg.minSpawnDistance or 25.0)
-        local rad = math.rad(-heading)
-        local x = playerCoords.x - dist * math.sin(rad)
-        local y = playerCoords.y - dist * math.cos(rad)
-        spawnCoords = vector4(x, y, groundZAt(x, y, playerCoords.z), heading)
+        spawnCoords = FindOpenHorseSpot(playerPed, dist)
     end
 
     spawnHorse(snapshot, spawnCoords)
@@ -1083,10 +1522,10 @@ recallPendingHorse = function()
     if activeHorse and DoesEntityExist(activeHorse.entity) then
         local entity = activeHorse.entity
         sendHorseToPlayer(entity, playerPed)
-        lib.notify({ description = locale('horse_coming', snapshot.name or locale('your_horse')), type = 'success' })
+        RSGCore.Functions.Notify({ description = locale('horse_coming', snapshot.name or locale('your_horse')), type = 'success' })
     else
         pendingHorse = snapshot -- spawn failed, allow another whistle
-        lib.notify({ description = locale('horse_cannot_reach'), type = 'error' })
+        RSGCore.Functions.Notify({ description = locale('horse_cannot_reach'), type = 'error' })
     end
 
     isRecallingHorse = false
@@ -1150,7 +1589,7 @@ local function setupStables()
 
             stablePeds[stable.name] = ped
 
-            exports.ox_target:addLocalEntity(ped, {
+            exports['rsg-target']:addLocalEntity(ped, {
                 {
                     name = 'rsg_stables_' .. stable.name,
                     icon = 'fas fa-horse',
@@ -1168,6 +1607,17 @@ local function setupStables()
                     end,
                     onSelect = function()
                         ClaimWildHorse(stable)
+                    end,
+                },
+                {
+                    name = 'rsg_stables_races_' .. stable.name,
+                    icon = 'fas fa-flag-checkered',
+                    label = locale('race_target'),
+                    canInteract = function()
+                        return HasStableRaces and HasStableRaces(stable.name)
+                    end,
+                    onSelect = function()
+                        OpenRaceMenu(stable)
                     end,
                 },
             })
@@ -1210,7 +1660,7 @@ local function CloseNUI()
 end
 
 local function NuiNotify(description, ntype)
-    lib.notify({ description = description, type = ntype or 'inform' })
+    RSGCore.Functions.Notify({ description = description, type = ntype or 'inform' })
 end
 
 local function NuiRender(screen)
@@ -1265,6 +1715,39 @@ local function NuiAlert(header, content, onClose)
     SendNUIMessage({ action = 'alertDialog', header = header, content = content })
 end
 
+-- Yes/no NUI dialog (replaces lib.alertDialog). Blocks the calling thread and returns true/false
+-- (false on cancel, Escape or timeout).
+local pendingConfirm = nil
+function NuiConfirm(header, content, labels, timeout)
+    if pendingConfirm then pendingConfirm:resolve(false) end
+    local p = promise.new()
+    pendingConfirm = p
+    pendingAlertClose = nil
+    OpenNUI()
+    SendNUIMessage({
+        action = 'alertDialog', header = header, content = content, confirm = true,
+        confirmLabel = labels and labels.confirm, cancelLabel = labels and labels.cancel,
+    })
+    if timeout then
+        SetTimeout(timeout, function()
+            if pendingConfirm ~= p then return end
+            pendingConfirm = nil
+            SendNUIMessage({ action = 'hide' })
+            CloseNUI()
+            p:resolve(false)
+        end)
+    end
+    return Citizen.Await(p)
+end
+
+-- shared with client/races.lua
+StablesUI = {
+    render = function(screen) NuiRender(screen) end,
+    close = function() CloseNUI() end,
+    confirm = function(...) return NuiConfirm(...) end,
+    alert = function(...) NuiAlert(...) end,
+}
+
 -- ===================== WILD HORSE CLAIM =====================
 -- global so the stable-ped target (defined above) can reach it at runtime
 function ClaimWildHorse(stable)
@@ -1273,15 +1756,15 @@ function ClaimWildHorse(stable)
     NuiInput(locale('claim_wild_horse_name'), locale('unnamed_horse'), function(name)
         CloseNUI()
         local netId = NetworkGetNetworkIdFromEntity(horse)
-        local ok, result = lib.callback.await('rsg-stables:server:claimWildHorse', false, stable.name, netId, name)
+        local ok, result = RSGCore.Functions.AwaitCallback('rsg-stables:server:claimWildHorse', nil, stable.name, netId, name)
         if ok then
             ForgetBrokenWildHorse()
-            if IsPedOnMount(cache.ped) and GetMount(cache.ped) == horse then
-                TaskDismountAnimal(cache.ped, 1, 0, 0, 0, 0)
+            if IsPedOnMount(PlayerPedId()) and GetMount(PlayerPedId()) == horse then
+                TaskDismountAnimal(PlayerPedId(), 1, 0, 0, 0, 0)
             end
-            lib.notify({ description = locale('wild_claimed', result), type = 'success' })
+            RSGCore.Functions.Notify({ description = locale('wild_claimed', result), type = 'success' })
         else
-            lib.notify({ description = result or locale('generic_error'), type = 'error' })
+            RSGCore.Functions.Notify({ description = result or locale('generic_error'), type = 'error' })
         end
     end, function()
         CloseNUI()
@@ -1381,7 +1864,10 @@ end)
 RegisterNUICallback('alertClose', function(data, cb)
     local fn = pendingAlertClose
     pendingAlertClose = nil
+    local confirm = pendingConfirm
+    pendingConfirm = nil
     CloseNUI()
+    if confirm then confirm:resolve(data and data.confirmed == true) end
     if fn then fn() end
     cb('ok')
 end)
@@ -1417,8 +1903,8 @@ function OpenStableMenu(stable)
         return
     end
 
-    local horses = lib.callback.await('rsg-stables:server:getStableHorses', false, stable.name)
-    local breedingJobs = lib.callback.await('rsg-stables:server:getBreedingJobs', false, stable.name)
+    local horses = RSGCore.Functions.AwaitCallback('rsg-stables:server:getStableHorses', nil, stable.name)
+    local breedingJobs = RSGCore.Functions.AwaitCallback('rsg-stables:server:getBreedingJobs', nil, stable.name)
 
     local options = {
         {
@@ -1457,7 +1943,7 @@ function OpenStableMenu(stable)
             icon = 'foal',
             disabled = not ready,
             onSelect = function()
-                local ok, err = lib.callback.await('rsg-stables:server:collectFoal', false, job.id)
+                local ok, err = RSGCore.Functions.AwaitCallback('rsg-stables:server:collectFoal', nil, job.id)
                 if ok then
                     NuiNotify(locale('foal_collected'), 'success')
                 else
@@ -1758,7 +2244,7 @@ local function showBreedPreviewContext(stable, breed)
                     end
     
                     local function buy(gender)
-                        local ok, result = lib.callback.await('rsg-stables:server:buyHorse', false, stable.name, breed.model, value, 0, gender)
+                        local ok, result = RSGCore.Functions.AwaitCallback('rsg-stables:server:buyHorse', nil, stable.name, breed.model, value, 0, gender)
                         if ok then
                             NuiNotify(locale('purchase_success', value), 'success')
                         else
@@ -1831,7 +2317,7 @@ function OpenBreedingMenu(stable, horses)
                             description = (b.gender and (locale(b.gender == 'male' and 'gender_stallion' or 'gender_mare') .. ' • ') or '') .. locale('select_second_parent'),
                             icon = 'horse',
                             onSelect = function()
-                                local ok, err = lib.callback.await('rsg-stables:server:startBreeding', false, stable.name, a.id, b.id)
+                                local ok, err = RSGCore.Functions.AwaitCallback('rsg-stables:server:startBreeding', nil, stable.name, a.id, b.id)
                                 if ok then
                                     NuiNotify(locale('breeding_started'), 'success')
                                 else
@@ -1987,7 +2473,7 @@ local function showTackReview(stable, horse, baseTack, selections)
         icon = 'dollar',
         disabled = total == 0 and next(selections) == nil,
         onSelect = function()
-            local ok, result = lib.callback.await('rsg-stables:server:applyHorseTack', false, horse.id, selections)
+            local ok, result = RSGCore.Functions.AwaitCallback('rsg-stables:server:applyHorseTack', nil, horse.id, selections)
             if ok then
                 NuiNotify(locale('tack_updated', result and result.charged or 0), 'success')
                 despawnPreviewHorse()
@@ -2155,7 +2641,7 @@ function OpenCoatMenu(stable, horse)
             end
         end,
         apply = function()
-            local ok, result = lib.callback.await('rsg-stables:server:applyHorseCoat', false, horse.id, current)
+            local ok, result = RSGCore.Functions.AwaitCallback('rsg-stables:server:applyHorseCoat', nil, horse.id, current)
             if ok then
                 horse.coat = json.encode(result.coat)
                 NuiNotify(locale('coat_updated', result.charged or 0), 'success')
@@ -2165,7 +2651,7 @@ function OpenCoatMenu(stable, horse)
             end
         end,
         reset = function()
-            local ok, result = lib.callback.await('rsg-stables:server:applyHorseCoat', false, horse.id, 'reset')
+            local ok, result = RSGCore.Functions.AwaitCallback('rsg-stables:server:applyHorseCoat', nil, horse.id, 'reset')
             if ok then
                 horse.coat = nil
                 NuiNotify(locale('coat_reset'), 'success')
@@ -2198,7 +2684,7 @@ function OpenHorseMenu(stable, horse)
             description = locale('retrieve_desc'),
             icon = 'retrieve',
             onSelect = function()
-                local ok, result = lib.callback.await('rsg-stables:server:retrieveHorse', false, horse.id)
+                local ok, result = RSGCore.Functions.AwaitCallback('rsg-stables:server:retrieveHorse', nil, horse.id)
                 if not ok then
                     NuiNotify(result or locale('retrieve_failed'), 'error')
                     return
@@ -2237,6 +2723,35 @@ function OpenHorseMenu(stable, horse)
             })
         end
 
+        if Config.HorseSell and Config.HorseSell.enabled and horse.alive and horse.active ~= true and horse.active ~= 1 then
+            table.insert(options, {
+                title = locale('sell_horse'),
+                description = locale('sell_horse_desc'),
+                icon = 'dollar',
+                onSelect = function()
+                    local price, info = RSGCore.Functions.AwaitCallback('rsg-stables:server:getSellPrice', nil, horse.id)
+                    if not price then OpenStableMenu(stable) return end
+                    local content = locale('sell_horse_confirm', horse.name, price)
+                    local A = Config.HorseSell.appraisal
+                    if A and A.enabled and type(info) == 'table' then
+                        -- stablehand's appraisal: base value, condition, bonding, age and extras
+                        content = locale('sell_appraisal', info.base or 0, info.condition or 100, info.bonding or 0,
+                            locale('stage_' .. (info.stage or 'adult')), math.floor((info.stageMult or 1) * 100),
+                            (info.training or 0) + (info.shod or 0)) .. '\n\n' .. content
+                    end
+                    if NuiConfirm(locale('sell_horse'), content) then
+                        local ok, res = RSGCore.Functions.AwaitCallback('rsg-stables:server:sellHorse', nil, horse.id)
+                        if ok then
+                            RSGCore.Functions.Notify({ description = locale('sell_horse_success', horse.name, res), type = 'success' })
+                        else
+                            RSGCore.Functions.Notify({ description = res or locale('generic_error'), type = 'error' })
+                        end
+                    end
+                    OpenStableMenu(stable)
+                end,
+            })
+        end
+
         table.insert(options, {
             title = locale('rename'),
             description = locale('rename_desc', Config.RenameCost),
@@ -2247,7 +2762,7 @@ function OpenHorseMenu(stable, horse)
                         OpenHorseMenu(stable, horse)
                         return
                     end
-                    local ok, result = lib.callback.await('rsg-stables:server:renameHorse', false, horse.id, value)
+                    local ok, result = RSGCore.Functions.AwaitCallback('rsg-stables:server:renameHorse', nil, horse.id, value)
                     if ok then
                         NuiNotify(locale('renamed_success', result), 'success')
                     else
@@ -2264,7 +2779,7 @@ function OpenHorseMenu(stable, horse)
                 description = locale('insure_desc', Config.InsuranceCost),
                 icon = 'shield',
                 onSelect = function()
-                    local ok, err = lib.callback.await('rsg-stables:server:insureHorse', false, horse.id)
+                    local ok, err = RSGCore.Functions.AwaitCallback('rsg-stables:server:insureHorse', nil, horse.id)
                     if ok then
                         NuiNotify(locale('insured_success'), 'success')
                     else
@@ -2288,7 +2803,7 @@ function OpenHorseMenu(stable, horse)
                             description = locale('transfer_here'),
                             icon = 'route',
                             onSelect = function()
-                                local ok, err = lib.callback.await('rsg-stables:server:transferHorse', false, horse.id, s.name)
+                                local ok, err = RSGCore.Functions.AwaitCallback('rsg-stables:server:transferHorse', nil, horse.id, s.name)
                                 if ok then
                                     NuiNotify(locale('transferred_success', horse.name, s.label), 'success')
                                 else
@@ -2314,7 +2829,7 @@ function OpenHorseMenu(stable, horse)
                 description = (Config.HorseGive.fee or 0) > 0 and locale('give_horse_desc_fee', Config.HorseGive.fee) or locale('give_horse_desc'),
                 icon = 'heart',
                 onSelect = function()
-                    local players = lib.callback.await('rsg-stables:server:getNearbyPlayers', false) or {}
+                    local players = RSGCore.Functions.AwaitCallback('rsg-stables:server:getNearbyPlayers', nil) or {}
                     if #players == 0 then
                         NuiNotify(locale('give_no_players'), 'error')
                         return
@@ -2337,7 +2852,7 @@ function OpenHorseMenu(stable, horse)
                                         end
                                     end
                                     NuiNotify(locale('give_waiting'), 'inform')
-                                    local ok, err = lib.callback.await('rsg-stables:server:giveHorse', false, horse.id, p.id, price)
+                                    local ok, err = RSGCore.Functions.AwaitCallback('rsg-stables:server:giveHorse', ((Config.HorseGive and Config.HorseGive.timeout) or 30000) + 15000, horse.id, p.id, price)
                                     if ok then
                                         if price > 0 then
                                             NuiNotify(locale('give_sold', horse.name, p.name, price), 'success')
@@ -2370,7 +2885,7 @@ function OpenHorseMenu(stable, horse)
                 description = locale('revive_desc', Config.ReviveCost),
                 icon = 'medkit',
                 onSelect = function()
-                    local ok, err = lib.callback.await('rsg-stables:server:reviveHorse', false, horse.id)
+                    local ok, err = RSGCore.Functions.AwaitCallback('rsg-stables:server:reviveHorse', nil, horse.id)
                     if ok then
                         NuiNotify(locale('revived_success'), 'success')
                     else
@@ -2399,7 +2914,7 @@ function OpenHorseMenu(stable, horse)
             description = locale('release_horse_desc'),
             icon = 'xmark',
             onSelect = function()
-                local ok, err = lib.callback.await('rsg-stables:server:releaseHorse', false, horse.id)
+                local ok, err = RSGCore.Functions.AwaitCallback('rsg-stables:server:releaseHorse', nil, horse.id)
                 if ok then
                     NuiNotify(locale('horse_released', horse.name), 'success')
                 else
@@ -2444,11 +2959,11 @@ CreateThread(function()
                 SetEntityHealth(horse, math.max(0, math.floor((newHealthPct / 100) * maxHp)))
 
                 if hunger < critical and thirst < critical then
-                    lib.notify({ description = locale('starving_dehydrated'), type = 'error' })
+                    RSGCore.Functions.Notify({ description = locale('starving_dehydrated'), type = 'error' })
                 elseif hunger < critical then
-                    lib.notify({ description = locale('starving'), type = 'error' })
+                    RSGCore.Functions.Notify({ description = locale('starving'), type = 'error' })
                 else
-                    lib.notify({ description = locale('dehydrated'), type = 'error' })
+                    RSGCore.Functions.Notify({ description = locale('dehydrated'), type = 'error' })
                 end
             elseif hunger >= wellFed and thirst >= wellFed and healthPct < 100 then
                 local newHealthPct = math.min(100, healthPct + (Config.HorseNeeds.healthRegenPerTick or 0))
@@ -2460,6 +2975,24 @@ end)
 
 -- ===================== NATURAL DRINKING (rivers / lakes / troughs) =====================
 local naturalDrinking, lastNaturalDrinkAt = false, 0
+
+-- true when the player is off the horse and it's standing at a hitching post
+local hitchHashes
+local function isHorseHitched(horse)
+    local cfg = Config.HorseHitch
+    if not (cfg and cfg.blockNaturalNeeds) then return false end
+    if IsPedOnMount(PlayerPedId()) and GetMount(PlayerPedId()) == horse then return false end
+    if not hitchHashes then
+        hitchHashes = {}
+        for _, m in ipairs(cfg.postModels or {}) do hitchHashes[#hitchHashes + 1] = joaat(m) end
+    end
+    local hc = GetEntityCoords(horse)
+    for _, hash in ipairs(hitchHashes) do
+        local obj = GetClosestObjectOfType(hc.x, hc.y, hc.z, cfg.detectRadius or 3.0, hash, false, false, false)
+        if obj and obj ~= 0 then return true end
+    end
+    return false
+end
 
 local function isHorseNearNaturalWater(horse, cfg)
     local coords = GetEntityCoords(horse)
@@ -2527,8 +3060,8 @@ CreateThread(function()
             and GetGameTimer() - lastNaturalDrinkAt >= (cfg.cooldown or 120000) then
 
             local horse = activeHorse.entity
-            local mounted = IsPedOnMount(cache.ped) and GetMount(cache.ped) == horse
-            local canDrink = (cfg.allowMounted or not mounted) and GetEntitySpeed(horse) < 0.3
+            local mounted = IsPedOnMount(PlayerPedId()) and GetMount(PlayerPedId()) == horse
+            local canDrink = (cfg.allowMounted or not mounted) and GetEntitySpeed(horse) < 0.3 and not isHorseHitched(horse)
             local waterKind, trough = nil, nil
             if canDrink then waterKind, trough = isHorseNearNaturalWater(horse, cfg) end
 
@@ -2539,7 +3072,7 @@ CreateThread(function()
                     naturalDrinking = true
                     lastNaturalDrinkAt = GetGameTimer()
 
-                    local ok, result = lib.callback.await('rsg-stables:server:naturalDrink', false)
+                    local ok, result = RSGCore.Functions.AwaitCallback('rsg-stables:server:naturalDrink', nil, activeHorseNetId())
                     if ok and DoesEntityExist(horse) then
                         if trough and DoesEntityExist(trough) then
                             TaskTurnPedToFaceEntity(horse, trough, 1500)
@@ -2549,7 +3082,7 @@ CreateThread(function()
                         if activeHorse and activeHorse.entity == horse and result and result.thirst then
                             activeHorse.thirst = result.thirst
                         end
-                        lib.notify({ description = locale(waterKind == 'trough' and 'horse_drank_trough' or 'horse_drank_river'), type = 'success' })
+                        RSGCore.Functions.Notify({ description = locale(waterKind == 'trough' and 'horse_drank_trough' or 'horse_drank_river'), type = 'success' })
                     end
                     naturalDrinking = false
                 end
@@ -2566,7 +3099,7 @@ end)
 local naturalGrazing, lastNaturalGrazeAt = false, 0
 
 local function findHayNearPlayer(cfg)
-    local pc = GetEntityCoords(cache.ped)
+    local pc = GetEntityCoords(PlayerPedId())
     local best, bestDist = nil, nil
     for _, model in ipairs(cfg.hayModels or {}) do
         local obj = GetClosestObjectOfType(pc.x, pc.y, pc.z, cfg.searchRadius or 15.0, joaat(model), false, false, false)
@@ -2585,13 +3118,13 @@ CreateThread(function()
 
         if cfg and cfg.enabled and not naturalGrazing and not naturalDrinking and activeHorse
             and DoesEntityExist(activeHorse.entity) and not IsEntityDead(activeHorse.entity)
-            and not IsPedOnMount(cache.ped) and not IsPedInAnyVehicle(cache.ped, false)
+            and not IsPedOnMount(PlayerPedId()) and not IsPedInAnyVehicle(PlayerPedId(), false)
             and (activeHorse.hunger or 100) <= (cfg.hungerThreshold or 40)
             and GetGameTimer() - lastNaturalGrazeAt >= (cfg.cooldown or 120000) then
 
             local horse = activeHorse.entity
-            local nearPlayer = #(GetEntityCoords(horse) - GetEntityCoords(cache.ped)) <= (cfg.searchRadius or 15.0) * 2
-            local hay = nearPlayer and not IsPedRagdoll(horse) and findHayNearPlayer(cfg)
+            local nearPlayer = #(GetEntityCoords(horse) - GetEntityCoords(PlayerPedId())) <= (cfg.searchRadius or 15.0) * 2
+            local hay = nearPlayer and not IsPedRagdoll(horse) and not isHorseHitched(horse) and findHayNearPlayer(cfg)
             if hay then
                 naturalGrazing = true
                 lastNaturalGrazeAt = GetGameTimer()
@@ -2602,16 +3135,16 @@ CreateThread(function()
                 TaskGoToCoordAnyMeans(horse, hc.x, hc.y, hc.z, 1.0, 0, false, 786603, 0xbf800000)
                 local deadline = GetGameTimer() + (cfg.walkTimeout or 15000)
                 local reached = false
-                while GetGameTimer() < deadline and DoesEntityExist(horse) and DoesEntityExist(hay) and not IsPedOnMount(cache.ped) do
+                while GetGameTimer() < deadline and DoesEntityExist(horse) and DoesEntityExist(hay) and not IsPedOnMount(PlayerPedId()) do
                     if #(GetEntityCoords(horse) - hc) <= (cfg.eatDistance or 1.8) + 0.5 then reached = true break end
                     Wait(250)
                 end
 
-                if reached and DoesEntityExist(horse) and not IsPedOnMount(cache.ped) then
+                if reached and DoesEntityExist(horse) and not IsPedOnMount(PlayerPedId()) then
                     ClearPedTasks(horse)
                     TaskTurnPedToFaceEntity(horse, hay, 1500)
                     Wait(1500)
-                    local ok, result = lib.callback.await('rsg-stables:server:naturalGraze', false)
+                    local ok, result = RSGCore.Functions.AwaitCallback('rsg-stables:server:naturalGraze', nil, activeHorseNetId())
                     if ok and DoesEntityExist(horse) then
                         local anim = cfg.eatAnim or {}
                         if anim.dict and loadAnimDict(anim.dict) then
@@ -2629,7 +3162,7 @@ CreateThread(function()
                         if activeHorse and activeHorse.entity == horse and result and result.hunger then
                             activeHorse.hunger = result.hunger
                         end
-                        lib.notify({ description = locale('horse_ate_hay'), type = 'success' })
+                        RSGCore.Functions.Notify({ description = locale('horse_ate_hay'), type = 'success' })
                     end
                 elseif DoesEntityExist(horse) then
                     ClearPedTasks(horse)
@@ -2668,23 +3201,17 @@ CreateThread(function()
 end)
 
 -- ===================== RECEIVING A HORSE FROM ANOTHER PLAYER =====================
-lib.callback.register('rsg-stables:client:confirmHorseGift', function(giverName, horseName, breedLabel, price)
+RSGCore.Functions.CreateClientCallback('rsg-stables:client:confirmHorseGift', function(cb, giverName, horseName, breedLabel, price)
     local timeout = (Config.HorseGive and Config.HorseGive.timeout) or 30000
-    local answered = nil
-    SetTimeout(timeout, function()
-        if answered == nil then lib.closeAlertDialog() end
-    end)
-    local res = lib.alertDialog({
-        header = locale('give_offer_header'),
-        content = (price or 0) > 0
+    local accepted = NuiConfirm(
+        locale('give_offer_header'),
+        (tonumber(price) or 0) > 0
             and locale('give_offer_content_price', giverName or '?', horseName or '?', breedLabel or '', price)
             or locale('give_offer_content', giverName or '?', horseName or '?', breedLabel or ''),
-        centered = true,
-        cancel = true,
-        labels = { confirm = locale('give_accept'), cancel = locale('give_decline') },
-    })
-    answered = res
-    return res == 'confirm'
+        { confirm = locale('give_accept'), cancel = locale('give_decline') },
+        timeout
+    )
+    cb(accepted == true)
 end)
 
 -- ===================== NATURAL DEATH (old age) =====================
@@ -2696,20 +3223,97 @@ RegisterNetEvent('rsg-stables:client:horseDiedOfAge', function(horseId, horseNam
     if pendingHorse and pendingHorse.id == horseId then
         pendingHorse = nil
     end
-    lib.notify({ description = locale('horse_died_of_age', horseName or locale('your_horse')), type = 'error', duration = 10000 })
+    RSGCore.Functions.Notify({ description = locale('horse_died_of_age', horseName or locale('your_horse')), type = 'error', duration = 10000 })
 end)
 
 -- ===================== DEATH DETECTION =====================
+
+-- Field revive (Config.HorseReviver): when the horse goes down it isn't reported dead straight
+-- away; the owner gets `window` seconds to use a horse reviver on it.
+local horseDown = nil -- { entity, deadline }
+
+local function horseNetId(entity)
+    return NetworkGetEntityIsNetworked(entity) and NetworkGetNetworkIdFromEntity(entity) or nil
+end
+
+RegisterNetEvent('rsg-stables:client:useReviver', function()
+    local cfg = Config.HorseReviver
+    if not (cfg and cfg.enabled) then return end
+    if not (horseDown and activeHorse and DoesEntityExist(horseDown.entity)) then
+        RSGCore.Functions.Notify({ description = locale('reviver_not_down'), type = 'error' })
+        return
+    end
+    local horse = horseDown.entity
+    if #(GetEntityCoords(PlayerPedId()) - GetEntityCoords(horse)) > cfg.useDistance then
+        RSGCore.Functions.Notify({ description = locale('must_be_near_horse'), type = 'error' })
+        return
+    end
+    local ok, row = RSGCore.Functions.AwaitCallback('rsg-stables:server:reviveDownedHorse', nil, horseNetId(horse))
+    if not ok then
+        RSGCore.Functions.Notify({ description = row or locale('item_use_failed'), type = 'error' })
+        return
+    end
+    horseDown = nil
+    TaskAnimalInteraction(PlayerPedId(), horse, -1355254781, GetHashKey('p_cs_syringe01x'), 0) -- same interaction as the stimulant
+    Wait(3000)
+    local c = GetEntityCoords(horse)
+    local h = GetEntityHeading(horse)
+    spawnHorse(row, vector4(c.x, c.y, c.z, h)) -- spawnHorse despawns the old entity first
+    RSGCore.Functions.Notify({ description = locale('reviver_success'), type = 'success' })
+end)
+
+RegisterNetEvent('rsg-stables:client:useMedicine', function()
+    local cfg = Config.HorseMedicine
+    if not (cfg and cfg.enabled) then return end
+    if not (activeHorse and DoesEntityExist(activeHorse.entity)) then
+        RSGCore.Functions.Notify({ description = locale('no_active_horse'), type = 'error' })
+        return
+    end
+    local horse = activeHorse.entity
+    if IsEntityDead(horse) then
+        RSGCore.Functions.Notify({ description = locale('medicine_horse_down'), type = 'error' })
+        return
+    end
+    if GetMount(PlayerPedId()) ~= horse and #(GetEntityCoords(PlayerPedId()) - GetEntityCoords(horse)) > cfg.useDistance then
+        RSGCore.Functions.Notify({ description = locale('must_be_near_horse'), type = 'error' })
+        return
+    end
+    local ok, result = RSGCore.Functions.AwaitCallback('rsg-stables:server:useMedicine', nil, activeHorseNetId())
+    if not ok then
+        RSGCore.Functions.Notify({ description = result or locale('item_use_failed'), type = 'error' })
+        return
+    end
+    TaskAnimalInteraction(PlayerPedId(), horse, -1355254781, GetHashKey('p_cs_syringe01x'), 0)
+    Wait(3000)
+    if not DoesEntityExist(horse) or IsEntityDead(horse) then return end
+    local max = GetEntityMaxHealth(horse)
+    SetEntityHealth(horse, math.min(max, GetEntityHealth(horse) + math.floor(max * result.healPercent / 100)))
+    if result.fillCore then
+        Citizen.InvokeNative(0xC6258F41D86676E0, horse, 0, 100) -- _SET_ATTRIBUTE_CORE_VALUE (health core)
+    end
+    RSGCore.Functions.Notify({ description = locale('medicine_used'), type = 'success' })
+end)
 
 CreateThread(function()
     while true do
         Wait(1000)
         if activeHorse and DoesEntityExist(activeHorse.entity) then
-            if IsEntityDead(activeHorse.entity) then
+            local reviveCfg = Config.HorseReviver
+            if IsEntityDead(activeHorse.entity) and reviveCfg and reviveCfg.enabled
+                and (not horseDown or horseDown.entity ~= activeHorse.entity) then
+                local ok, left = RSGCore.Functions.AwaitCallback('rsg-stables:server:horseDown', nil, horseNetId(activeHorse.entity))
+                if ok and activeHorse then
+                    horseDown = { entity = activeHorse.entity, deadline = GetGameTimer() + left * 1000 }
+                    RSGCore.Functions.Notify({ title = locale('reviver_down_title'), description = locale('reviver_down', left), type = 'warning', duration = 10000 })
+                end
+            end
+            local waiting = horseDown and horseDown.entity == activeHorse.entity and GetGameTimer() < horseDown.deadline
+            if IsEntityDead(activeHorse.entity) and not waiting then
+                horseDown = nil
                 local dbId = activeHorse.dbId
                 local netId = NetworkGetEntityIsNetworked(activeHorse.entity) and NetworkGetNetworkIdFromEntity(activeHorse.entity) or nil
                 -- report before despawning so the server can confirm the entity is really dead
-                lib.callback.await('rsg-stables:server:horseDied', false, dbId, netId)
+                RSGCore.Functions.AwaitCallback('rsg-stables:server:horseDied', nil, dbId, netId)
                 despawnActiveHorseEntity()
             end
         end
@@ -2727,11 +3331,11 @@ local function reconcileHorsesOnceLoaded()
     if hasReconciledHorses then return end
     hasReconciledHorses = true
 
-    local horse = lib.callback.await('rsg-stables:server:restoreActiveHorse', false)
+    local horse = RSGCore.Functions.AwaitCallback('rsg-stables:server:restoreActiveHorse', nil)
     if horse and not activeHorse then
         pendingHorse = horse
         if not Config.ActiveHorse or Config.ActiveHorse.notifyOnLogin ~= false then
-            lib.notify({ description = locale('horse_still_out_login', horse.name or locale('your_horse')), type = 'inform', duration = 7000 })
+            RSGCore.Functions.Notify({ description = locale('horse_still_out_login', horse.name or locale('your_horse')), type = 'inform', duration = 7000 })
         end
     end
 end
@@ -2774,7 +3378,18 @@ AddEventHandler('onResourceStop', function(resource)
         if DoesBlipExist(blip) then RemoveBlip(blip) end
     end
     CloseNUI()
+    if horseCardOpen then SetNuiFocus(false, false) end
     saveActiveHorsePosition(true)
     despawnActiveHorseEntity()
     despawnPreviewHorse()
+end)
+
+-- asked by the server to confirm another player's horse is dead (the server can't read ped health on RedM)
+-- returns nil when this client doesn't have the horse, so it doesn't count as a vote
+RSGCore.Functions.CreateClientCallback('rsg-stables:client:isHorseDead', function(cb, netId)
+    netId = tonumber(netId)
+    if not netId or not NetworkDoesNetworkIdExist(netId) then return cb(nil) end
+    local ent = NetworkGetEntityFromNetworkId(netId)
+    if not ent or ent == 0 or not DoesEntityExist(ent) then return cb(nil) end
+    cb(IsEntityDead(ent) or GetEntityHealth(ent) <= 0)
 end)

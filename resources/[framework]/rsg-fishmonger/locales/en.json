@@ -84,5 +84,16 @@
     "wh_started": "`%s` v%s is running.",
     "wh_test_title": "Webhook Test",
     "wh_test_desc": "Test message for the **%s** channel.",
-    "cmd_webhooktest_help": "Send a test message to every configured fishmonger webhook"
+    "cmd_webhooktest_help": "Send a test message to every configured fishmonger webhook",
+    "cl_target_shop": "Browse Fishing Supplies",
+    "sv_closed": "The fishmonger is closed. Open from %s:00 to %s:00",
+    "sv_stock_left": "The fishmonger will only buy %s more fish today",
+    "sv_stock_full": "The fishmonger has bought all the fish he needs today",
+    "shop_label": "%s Supplies",
+    "ui_sell_all": "Sell All Owned",
+    "ui_demand": "Today's demand",
+    "ui_bonus": "Your bonus",
+    "ui_stock_left": "Buying today",
+    "ui_unlimited": "Unlimited",
+    "ui_over_stock": "More fish than the fishmonger will buy today"
 }

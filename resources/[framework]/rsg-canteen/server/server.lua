@@ -1,16 +1,16 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
-lib.locale()
 
 -- server-side action state: [src] = { type, slot?, coords?, started }
 local pending = {}
 local MAX_PUMP_DIST = Config.TargetDistance + 1.5
 local TIME_GRACE = 500 -- ms allowed under the progress duration
+local PENDING_TIMEOUT = 15000 -- ms after the duration before a pending action is dropped
 
 ---------------------------------
 -- helpers
 ---------------------------------
 local function notify(src, msg, typ)
-    TriggerClientEvent('ox_lib:notify', src, { title = locale('notify_title'), description = msg, type = typ or 'inform' })
+    TriggerClientEvent('RSGCore:Client:Notify', src, { title = locale('notify_title'), description = msg, type = typ or 'inform' })
 end
 
 local function getUses(item)
@@ -18,12 +18,11 @@ local function getUses(item)
 end
 
 local function setUses(Player, slot, uses)
-    local items = Player.PlayerData.items
-    local item = items[slot]
+    local item = Player.PlayerData.items[slot]
     if not item or item.name ~= Config.CanteenItem then return false end
-    item.info = item.info or {}
-    item.info.uses = uses
-    Player.Functions.SetPlayerData('items', items)
+    local info = item.info or {}
+    info.uses = uses
+    exports['rsg-inventory']:SetItemInfo(Player.PlayerData.source, slot, info)
     return true
 end
 
@@ -44,6 +43,18 @@ local function playerCoords(src)
     return GetEntityCoords(GetPlayerPed(src))
 end
 
+-- a pending action whose finish event never arrived (crash, resource restart) must not lock the player out
+local function isPending(src)
+    local action = pending[src]
+    if not action then return false end
+    local duration = action.type == 'drink' and Config.DrinkTime or Config.FillTime
+    if GetGameTimer() - action.started > duration + PENDING_TIMEOUT then
+        pending[src] = nil
+        return false
+    end
+    return true
+end
+
 local function takePending(src, actionType, duration)
     local action = pending[src]
     pending[src] = nil
@@ -57,7 +68,7 @@ end
 ---------------------------------
 RSGCore.Functions.CreateUseableItem(Config.CanteenItem, function(source, item)
     local src = source
-    if pending[src] then
+    if isPending(src) then
         return notify(src, locale('busy'), 'error')
     end
     if getUses(item) <= 0 then
@@ -94,27 +105,27 @@ end)
 ---------------------------------
 -- fill
 ---------------------------------
-lib.callback.register('rsg-canteen:server:startFill', function(source, pumpCoords, fromWater)
+RSGCore.Functions.CreateCallback('rsg-canteen:server:startFill', function(source, cb, pumpCoords, fromWater)
     local src = source
     local Player = RSGCore.Functions.GetPlayer(src)
-    if not Player or pending[src] or type(pumpCoords) ~= 'vector3' then return false end
-    if fromWater and not Config.WaterFill.Enabled then return false end
+    if not Player or isPending(src) or type(pumpCoords) ~= 'vector3' then return cb(false) end
+    if fromWater and not Config.WaterFill.Enabled then return cb(false) end
 
     if #(playerCoords(src) - pumpCoords) > MAX_PUMP_DIST then
         notify(src, locale('too_far'), 'error')
-        return false
+        return cb(false)
     end
-    if not Player.Functions.GetItemByName(Config.CanteenItem) then
+    if not exports['rsg-inventory']:HasItem(src, Config.CanteenItem, 1) then
         notify(src, locale('no_canteen'), 'error')
-        return false
+        return cb(false)
     end
     if not getFillableCanteen(Player) then
         notify(src, locale('canteens_full'), 'error')
-        return false
+        return cb(false)
     end
 
     pending[src] = { type = 'fill', coords = pumpCoords, started = GetGameTimer() }
-    return true
+    cb(true)
 end)
 
 RegisterNetEvent('rsg-canteen:server:finishFill', function(completed)

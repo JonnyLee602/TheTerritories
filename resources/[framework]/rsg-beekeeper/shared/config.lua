@@ -1,5 +1,9 @@
 Config = {}
 
+-- Creates the rsg_beehives table automatically on start. Set false to import
+-- install.sql manually instead.
+Config.AutoDatabase = true
+
 -- Discord webhook logging. Each event has its own on/off switch and optional
 -- URL override; anything left blank falls back to Config.Webhooks.url. Leave
 -- Config.Webhooks.enabled = false (or every URL blank) to disable logging
@@ -60,7 +64,7 @@ Config.ProximityBuffer = 3.0
 
 -- Pool of beehive prop models. Each one has its own purchasable/useable item.
 -- Using an item tied to a specific entry places that entry's prop model, and
--- each prop's ox_target interaction is registered from this list too.
+-- each prop's rsg-target interaction is registered from this list too.
 --
 -- NOTE: prop must be a plain string (the model name), not a backtick hash
 -- literal -- it gets hashed client-side with joaat() and also round-trips
@@ -74,27 +78,21 @@ Config.BeeHiveProps = {
     { prop = 'bee_house_gk_6', item = 'beehive_gk_6', label = 'Bee House (Style 6)', price = 250 },
 }
 
--- Simple placement: the hive ghost sits on the ground in front of the player
--- and follows them. Walk/turn to position it. Controls:
--- [LMB] place, [Left / Right] rotate, [Up / Down] height, [RMB / Backspace] cancel.
+-- Placement uses rsg-gizmo (the framework's standard placement tool).
 Config.Placement = {
-    placeDistance  = 1.5,   -- metres in front of the player the hive is placed
-    maxDistance    = 6.0,   -- server-side sanity check on placement distance
+    maxDistance    = 6.0,   -- max player <-> hive distance (client gizmo + server check)
     minHiveSpacing = 2.0,   -- min distance between two hives
-    heightMax      = 0.5,   -- max height offset up/down from the ground
-    heightSpeed    = 0.3,   -- metres per second while holding Up/Down
-    rotateSpeed    = 90.0,  -- degrees per second while holding Left/Right
-    ringRadius     = 0.6,   -- radius of the valid/invalid ring drawn under the ghost
 }
 
 Config.Beehive = {
     queenBeeItem      = 'queen_bee',  -- item name consumed to activate a placed hive
     prop              = 'bee_house_gk_1', -- fallback prop model (used if a hive has no stored/valid prop)
     maxHivesPerPlayer = 5,             -- max hives a single citizen can have placed at once (0 = unlimited)
+    blockPickupWithHoney = true,       -- refuse pickup while the hive has honey ready, so it isn't thrown away
     renderDistance = 100.0,     -- hives only spawn as world objects when the player is within this many metres
 
     target = {
-        icon     = 'fas fa-bug',     -- ox_target option icon (FontAwesome)
+        icon     = 'fas fa-bug',     -- rsg-target option icon (FontAwesome)
         distance = 2.5,              -- max interaction distance
     },
 
@@ -150,5 +148,7 @@ Config.Beehive = {
         damageAmount        = 5,      -- ped health lost per damage tick while too close to an angry hive
         damageIntervalMs    = 3000,   -- how often (ms) damage is applied while in range of an angry hive
         minHealthFraction   = 0.3,    -- stings never drop the ped below this fraction of max health
+        animScenario        = 'WORLD_HUMAN_CROUCH_INSPECT', -- scenario played while smoking a hive ('' to disable)
+        animDurationMs      = 4000,   -- how long the smoking scenario plays
     },
 }

@@ -5,10 +5,10 @@ lua54 'yes'
 
 author 'Rexshack'
 description 'rsg-canteen'
-version '3.0.4'
+version '3.0.5'
 
 shared_scripts {
-    '@ox_lib/init.lua',
+    '@rsg-core/shared/locale.lua',
     'shared/config.lua',
 }
 
@@ -28,8 +28,5 @@ files {
 dependencies {
     'rsg-core',
     'rsg-inventory',
-    'ox_lib',
-    'ox_target',
+    'rsg-target',
 }
-
-ox_lib 'locale'
