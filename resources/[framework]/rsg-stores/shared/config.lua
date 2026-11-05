@@ -120,9 +120,9 @@ Config.Wholesale = {
     Enabled = true,
     PayFrom = 'either',    -- 'till' | 'cash' | 'either' (till first, then cash)
     Markup  = 1.5,         -- default shelf price for a new listing = cost x Markup
-    Items = {              -- item = cost each
-        bread = 0.10,
-        water = 0.10,
+    Items = {              -- item = cost each (doctrine pricing.md: below the $0.05 coffee/water/bread band so owners can mark up)
+        bread = 0.03,
+        water = 0.03,
     },
 }
 

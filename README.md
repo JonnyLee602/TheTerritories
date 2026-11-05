@@ -89,7 +89,9 @@ In txAdmin: **Setup → Remote URL Template**, and use
 The recipe reads this repo's `main` branch at deploy time, so push before deploying.
 
 `recipe/territories_stores.sql` comes from the 2026-11-05 rsg-stores export. Its header lists what was cleaned
-(dropped test shops, remapped item names). To refresh it from a newer export, ask Claude to rebuild it.
+(dropped test shops, remapped item names) and the general store repricing to `doctrine/pricing.md`.
+Re-running it resets every NPC shop to this list, so it is how the new prices reach a server that is
+already running. To refresh it from a newer export, ask Claude to rebuild it.
 `recipe/rsg/` is RSG's recipe SQL + logo, kept in step by `tools/rsg-update.sh` like any RSG resource.
 
 To check the database steps against a local MariaDB without deploying (asks for your password):

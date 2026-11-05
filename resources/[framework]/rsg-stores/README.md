@@ -395,7 +395,8 @@ rsg-stores/
 ## Changelog
 ### 3.1.1 (The Territories)
 - NPC shop sell-backs are always capped at the cheapest buy price x `Config.SellCapFactor`, with or without grumpy-reputation (the cap used to apply only while grumpy-reputation ran). The sell list shows the capped price.
-- The start-up `price exploit: ...` warning per item is replaced by one summary line (`N NPC shop sell-back price(s) capped ...`); `Config.SellCapLog = true` lists them.
+- The start-up `price exploit: ...` warning per item is replaced by one summary line (`N NPC shop sell-back price(s) capped ...`); `Config.SellCapLog = true` lists them. It counts only items sold cheaper at another shop or wholesale.
+- Wholesale bread / water cost $0.03 (was $0.10), below the $0.05 shelf price in `doctrine/pricing.md`.
 
 ### 3.1.0
 - Target option renamed from "Trade with …" to "Open Store" (NPC shops and player stores).

@@ -710,7 +710,7 @@ local function LoadCacheFromDB()
     print(('[rsg-stores] ' .. locale('sv_loaded')):format(#CachedNPCs, #CachedBlips))
 end
 
--- Count NPC shop sell-backs that would beat the cheapest place to buy the item (NPC shop or
+-- Count NPC shop sell-backs capped because the item is sold cheaper somewhere else (NPC shop or
 -- wholesale). sellItem caps those payouts (Config.SellCapFactor), so this is one info line,
 -- not a warning per item. Set Config.SellCapLog = true to list each capped item.
 local function checkArbitrage()
@@ -731,7 +731,7 @@ local function checkArbitrage()
         if npc.kind == 'npc' and npc.shop and npc.shop.type ~= 'buy' then
             for _, it in ipairs(npc.shop.items) do
                 local c, pays = cheapest[it.name], round2(it.price * SELL_PCT)
-                if c and pays > c.cost * factor then
+                if c and c.cost < it.price and pays > c.cost * factor then -- cheaper elsewhere (every sell-back is held to the factor anyway)
                     capped = capped + 1
                     if Config.SellCapLog then
                         print(('[rsg-stores] sell cap: %s sells for $%.2f at %s, so %s pays at most $%.2f (not $%.2f)'):format(
