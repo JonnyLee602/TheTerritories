@@ -73,7 +73,7 @@ Edit the file on `main`, then commit it. That's all: the next update keeps it au
 | Resources | `resources/[framework]` (86, pinned) and `resources/[grumpy]` copied as they are in this repo |
 
 In txAdmin: **Setup → Custom Template / Remote URL**, and use
-`https://raw.githubusercontent.com/<you>/territories-server/main/recipe/territories.yaml`.
+`https://raw.githubusercontent.com/JonnyLee602/TheTerritories/main/recipe/territories.yaml`.
 The recipe downloads the repo's `main` branch at deploy time, so push before deploying.
 
 `recipe/territories_stores.sql` comes from the 2026-11-05 rsg-stores export. Its header lists what was cleaned

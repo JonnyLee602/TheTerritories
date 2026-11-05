@@ -7,12 +7,12 @@ description: |
   The Territories RedM server: RSG framework (pinned, with Territories customizations),
   grumpy-* scripts and the Territories NPC stores. Based on Rexshack's txAdminRecipe.
 
-# Before first use: replace GITHUB_USER/territories-server below with your repository.
+# Source: https://github.com/JonnyLee602/TheTerritories (branch main)
 tasks:
   # ---------------------------------------------------------------- Territories build
   # Our repository: pinned RSG framework + customizations, grumpy scripts, server.cfg, SQL
   - action: download_github
-    src: https://github.com/GITHUB_USER/territories-server
+    src: https://github.com/JonnyLee602/TheTerritories
     ref: main
     dest: ./tmp/territories
 
