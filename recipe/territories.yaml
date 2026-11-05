@@ -11,10 +11,12 @@ description: |
 tasks:
   # ---------------------------------------------------------------- Territories build
   # Our repository: pinned RSG framework + customizations, grumpy scripts, server.cfg, SQL
+  # ~4,400 files: extracting them can take minutes on a slow or USB drive (default limit is 180s)
   - action: download_github
     src: https://github.com/JonnyLee602/TheTerritories
     ref: main
     dest: ./tmp/territories
+    timeoutSeconds: 1800
 
   - action: move_path
     src: ./tmp/territories/recipe/server.cfg
@@ -62,6 +64,7 @@ tasks:
     src: https://github.com/citizenfx/cfx-server-data
     subpath: resources
     dest: ./resources/[cfx-default]
+    timeoutSeconds: 600
 
   - action: download_file
     path: ./tmp/files/oxmysql.zip
