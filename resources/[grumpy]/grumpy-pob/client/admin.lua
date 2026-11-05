@@ -14,11 +14,25 @@ RegisterNetEvent('grumpy-pob:client:refresh', function(which)
     if which == 'admin' and POBC.uiOpen == 'admin' then openAdmin(true) end
 end)
 
--- Current position + heading for a point
-RegisterNUICallback('adminCapture', function(_, cb)
-    local ped = PlayerPedId()
-    local c = GetEntityCoords(ped)
-    cb({ x = c.x, y = c.y, z = c.z, w = GetEntityHeading(ped) })
+-- Place a point (NPC, desk, station, stash, door...) with rsg-gizmo. A stand-in marker shows the spot and
+-- which way the NPC will face; you can walk while placing. Points keep their old meaning: z is standing
+-- height (ground + PointHeight, where peds are spawned at z - 1.0) and w is the heading.
+RegisterNUICallback('adminPlacePoint', function(body, cb)
+    POBC.HideUI()
+    CreateThread(function()
+        local cur = type(body.current) == 'table' and tonumber(body.current.x) and body.current or nil
+        local yawOffset = Config.PointMarker.YawOffset or 0.0
+        local res = exports['rsg-gizmo']:Place(Config.PointMarker.Model, {
+            title = locale('gizmo_point', tostring(body.label or '')),
+            maxDistance = Config.PointMarker.MaxDistance, rotation = 'z', snapToGround = true,
+            startCoords = cur and vector3(cur.x, cur.y, cur.z - Config.PointMarker.PointHeight) or nil,
+            startRotation = cur and vector3(0.0, 0.0, ((tonumber(cur.w) or 0.0) + yawOffset) % 360.0) or nil,
+        })
+        POBC.ShowUI()
+        if not res then return cb(nil) end
+        local yaw = res.heading or (res.rotation and res.rotation.z) or 0.0
+        cb({ x = res.coords.x, y = res.coords.y, z = res.coords.z + Config.PointMarker.PointHeight, w = (yaw - yawOffset) % 360.0 })
+    end)
 end)
 
 -- Place the open/closed sign with rsg-gizmo. Placed at default rotation the sign reads "Closed".

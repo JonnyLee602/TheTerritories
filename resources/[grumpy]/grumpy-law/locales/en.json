@@ -6,5 +6,6 @@
     "alert_shoplifting": "Shoplifter reported at %s",
     "alert_generic": "Crime reported %s",
     "cmd_test": "Show how many NPCs the server and your game can see around you (admin)",
-    "test_result": "Within %s m: server sees %s NPCs, your game sees %s humans (%s networked). Server sees %s NPCs in total."
+    "test_result": "Within %s m: server counts %s witnesses, your game sees %s humans (%s networked). Server sees %s NPCs in total.",
+    "test_breakdown": "Server, in range: %s NPCs (%s read as dead, %s on the animal list). Your %s networked humans on the server: %s OK, %s not found, %s read as dead, %s animal list, %s too far. Details in the server console."
 }

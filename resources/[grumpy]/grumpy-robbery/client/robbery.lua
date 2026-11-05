@@ -145,6 +145,7 @@ CreateThread(function()
                 while not HasModelLoaded(hash) and GetGameTimer() < t do Wait(50) end
                 if HasModelLoaded(hash) then
                     local obj = CreateObject(hash, safe.x, safe.y, safe.z, false, false, false, false, false)
+                    SetEntityCoordsNoOffset(obj, safe.x, safe.y, safe.z, false, false, false) -- match rsg-gizmo's placed coords (no model offset)
                     if safe.rx then SetEntityRotation(obj, safe.rx, safe.ry, safe.rz, 2, true) else SetEntityHeading(obj, safe.h or 0.0) end
                     FreezeEntityPosition(obj, true)
                     SetModelAsNoLongerNeeded(hash)

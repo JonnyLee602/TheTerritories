@@ -550,9 +550,10 @@ function adminRecipes(d) {
 
 function adminEditor(d) {
   const e = S.edit, type = d.types.find(x => x.key === e.type) || d.types[0];
-  setHeader(e.id ? t('ui_edit_business', e.label) : t('ui_new_business'), type.label, () => { S.edit = null; renderAdmin(d); });
+  setHeader(e.id ? t('ui_edit_business', e.label) : t('ui_new_business'), type.label, () => { S.edit = null; adminDraft = null; renderAdmin(d); });
   setTabs(null);
   clear();
+  if (S.draftRestored) add(`<div class="muted">${esc(t('ui_draft_restored'))}</div>`);
   const typeOpts = d.types.map(x => `<option value="${x.key}" ${x.key === e.type ? 'selected' : ''}>${esc(x.label)}</option>`).join('');
   const f = add(`<div class="form">
     <label class="field">${esc(t('ui_type'))}<select data-k="type" ${e.id ? 'disabled' : ''}>${typeOpts}</select></label>
@@ -579,14 +580,17 @@ function adminEditor(d) {
 
   const b = add(`<div class="btn-row"><button class="wood-btn">${esc(t('ui_save'))}</button><button class="wood-btn muted">${esc(t('ui_cancel'))}</button></div>`);
   const [save, cancel] = b.querySelectorAll('button');
-  cancel.onclick = () => { S.edit = null; renderAdmin(d); };
+  cancel.onclick = () => { S.edit = null; adminDraft = null; renderAdmin(d); };
   save.onclick = () => { post('admin', { op: 'save', id: e.id, data: e }); };
 }
 
+// every point is placed with rsg-gizmo (a stand-in marker you can walk around with)
+const placePoint = (label, current) => post('adminPlacePoint', { label, current: current || null });
+
 function pointRow(label, p, onSet) {
   const r = add(`<div class="point row ${p ? '' : 'missing'}"><div class="row-text"><div class="row-title">${esc(label)}</div><div class="coords">${esc(fmt(p))}</div></div>
-    <button class="wood-btn small">${esc(t('ui_use_position'))}</button></div>`);
-  r.querySelector('button').onclick = async () => { const c = await post('adminCapture'); if (c) onSet(c); };
+    <button class="wood-btn small">${esc(t('ui_place'))}</button></div>`);
+  r.querySelector('button').onclick = async () => { const c = await placePoint(label, p); if (c) onSet(c); };
   return r;
 }
 
@@ -602,7 +606,7 @@ function listPoints(d, key, label, max, min) {
   });
   if (e.points[key].length < max) {
     const a = add(`<div class="btn-row"><button class="wood-btn small">${esc(t('ui_add_here', label))}</button></div>`);
-    a.querySelector('button').onclick = async () => { const c = await post('adminCapture'); if (c) { e.points[key].push(c); renderAdmin(d); } };
+    a.querySelector('button').onclick = async () => { const c = await placePoint(label, null); if (c) { e.points[key].push(c); renderAdmin(d); } };
   }
 }
 
@@ -611,21 +615,30 @@ const RENDER = { sign: renderSign, manager: renderManager, craft: renderCraft, t
 
 function render() { const fn = RENDER[S.view]; if (fn && S.data) fn(S.data); }
 
+// Unsaved /pob editor work survives closing the menu: /pob reopens straight into it.
+// Only Save, Cancel or the back arrow drop it.
+let adminDraft = null;
+
 window.addEventListener('message', ({ data }) => {
   if (data.action === 'open') {
     if (data.locale) L = data.locale;
     const same = S.view === data.view;
+    if (!same && S.view === 'admin' && S.edit) adminDraft = S.edit; // e.g. jumping to the government account
     S.view = data.view; S.data = data.data;
-    if (!same) { S.tab = null; S.edit = null; S.recipe = null; S.ledgerPage = 0; }
+    if (!same) {
+      S.tab = null; S.edit = null; S.recipe = null; S.ledgerPage = 0; S.draftRestored = false;
+      if (S.view === 'admin' && adminDraft) { S.edit = adminDraft; S.draftRestored = true; }
+    }
     closeModal();
     app.classList.remove('hidden');
     render();
   } else if (data.action === 'update' && data.view === S.view) {
     S.data = data.data;
-    if (S.data && S.data.closeEditor) S.edit = null;
+    if (S.data && S.data.closeEditor) { S.edit = null; adminDraft = null; S.draftRestored = false; }
     render();
   } else if (data.action === 'close') {
     app.classList.add('hidden'); closeModal();
+    if (S.view === 'admin' && S.edit) adminDraft = S.edit;
     S.view = null; S.data = null; S.edit = null; S.recipe = null;
   } else if (data.action === 'hide') {
     app.classList.add('hidden');
@@ -639,6 +652,5 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (!$('modal-wrap').classList.contains('hidden')) return closeModal();
   if (S.recipe) { S.recipe = null; return render(); }
-  if (S.edit) { S.edit = null; return render(); }
-  post('close');
+  post('close'); // closing the editor with Esc keeps it as a draft (see adminDraft)
 });

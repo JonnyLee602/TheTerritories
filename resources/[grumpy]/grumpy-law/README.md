@@ -24,7 +24,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
   - **Free and alive at the end, and the crime succeeded:** outlaw bonus (`escaped`, with a daily cap).
   - Failed crimes are still reported, but never pay a bonus.
 - **Ready for NPC police:** every report fires `grumpy-law:server:crimeReported(incident, lawOnDutyCount)`. An NPC police module can respond whenever the count is 0.
-- **`/witnesstest`** (admin) shows how many NPCs the **server** sees around you next to how many **your game** sees, so you can check your server's population setup.
+- **`/witnesstest`** (admin) shows how many NPCs the **server** sees around you next to how many **your game** sees, so you can check your server's population setup. It also checks each human your game sees on the server and says which check drops them (not found, read as dead, animal list, too far); details go to the server console.
 
 ## Installation
 1. Put `grumpy-law` in your resources and add after rsg-core (before grumpy-robbery):

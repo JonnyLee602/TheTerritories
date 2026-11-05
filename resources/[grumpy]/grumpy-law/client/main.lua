@@ -41,11 +41,12 @@ RegisterNetEvent('grumpy-law:client:scan', function(incId, seconds)
 end)
 
 -- /witnesstest result
-RegisterNetEvent('grumpy-law:client:test', function(serverCount, serverTotal, radius)
+-- sends the humans this game sees to the server, which checks each one and shows the breakdown
+RegisterNetEvent('grumpy-law:client:test', function(radius)
     local list = humansNear(radius)
-    local networked = 0
-    for _, n in ipairs(list) do if NetworkGetEntityIsNetworked(n.ped) then networked = networked + 1 end end
-    local msg = locale('test_result', math.floor(radius), serverCount, #list, networked, serverTotal)
-    RSGCore.Functions.Notify({ title = locale('title'), description = msg, type = 'inform', duration = 12000 })
-    print('[grumpy-law] ' .. msg)
+    local netIds = {}
+    for _, n in ipairs(list) do
+        if NetworkGetEntityIsNetworked(n.ped) then netIds[#netIds + 1] = NetworkGetNetworkIdFromEntity(n.ped) end
+    end
+    TriggerServerEvent('grumpy-law:server:testResult', netIds, #list)
 end)

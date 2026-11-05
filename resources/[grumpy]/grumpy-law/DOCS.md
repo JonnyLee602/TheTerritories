@@ -77,6 +77,7 @@ Nothing runs unless an incident is hot or someone has heat.
 ## 10. Troubleshooting
 | Problem | Fix |
 |---|---|
+| `/witnesstest`: your game's humans show as **read as dead** on the server | The server can't read ambient NPC health; the health check in `npcsNear` and `scanResult` has to go (tell the developer) |
 | `/witnesstest` server count is 0 | Ambient population isn't networked: check `onesync` is on and `onesync_population` isn't set to false. Witnessing falls back to the client |
 | No escape bonus | The crime didn't succeed (`MarkSucceeded` not called), the player died, was jailed or logged off, or grumpy-reputation's `escaped` daily cap was reached |
 | Law gets no alert | No on-duty `leo` players. The `crimeReported` event still fires for future NPC police |

@@ -184,7 +184,7 @@ inventories (rsg-inventory) grumpy_pob_stash_* / grumpy_pob_stock_*
 - **Change grades or permissions**: edit `Config.Grades` / `Config.Permissions`. Grades are pushed to every business job on the next start. Keep the owner as the last grade.
 - **Turn off tax or wages**: `Config.Tax.Enabled = false` / `Config.Wages.Enabled = false`.
 - **Instant custom items with no approval**: `Config.Approval.Mode = 'auto'` (images still wait for a person when `ImagesNeedHuman = true`).
-- **Move a point**: `/pob` → Edit → stand at the new spot → Use my position → Save. Moving the NPC moves the shop access point too.
+- **Move a point**: `/pob` → Edit → **Place** on that point (the marker starts where it is now) → move it → Save. Moving the NPC moves the shop access point too.
 - **Take a business from an inactive owner**: `/pob` → Reset owner. Staff are let go and the balance goes to the government.
 - **Give a business to a player**: `/pob` → Set owner → their server id.
 - **Laundering off for a type**: remove `launder = true` from it. Off everywhere: `Config.Laundering.Enabled = false`.

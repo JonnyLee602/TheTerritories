@@ -204,6 +204,9 @@ local function spawnSign(biz, w)
     local obj = CreateObject(hash, s.x, s.y, s.z, false, false, false)
     SetModelAsNoLongerNeeded(hash)
     if not DoesEntityExist(obj) then return end
+    -- CreateObject shifts the prop by the model's origin offset; rsg-gizmo's ghost (and so the saved coords) uses none.
+    -- Without this, a hanging sign (origin at the hook) spawns far below where it was placed.
+    SetEntityCoordsNoOffset(obj, s.x, s.y, s.z, false, false, false)
     local yaw = (s.rz or 0.0) + (biz.owned and Config.SignOpenRotation or 0.0)
     SetEntityRotation(obj, s.rx or 0.0, s.ry or 0.0, yaw, 2, true)
     FreezeEntityPosition(obj, true)

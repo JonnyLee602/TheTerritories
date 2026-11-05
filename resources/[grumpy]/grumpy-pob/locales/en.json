@@ -17,6 +17,7 @@
   "target_stash": "Business stash",
   "blip_for_sale": "%s (for sale)",
   "gizmo_sign": "Place the open sign (reads \"Closed\" as placed)",
+  "gizmo_point": "Place: %s (the NPC faces the way the marker faces)",
   "too_far": "You are too far away",
   "unavailable": "This is not available right now",
   "biz_closed": "This business is closed",
@@ -304,7 +305,7 @@
   "ui_price": "Price",
   "ui_rooms": "Rooms (1 to %s)",
   "ui_points": "Points",
-  "ui_points_hint": "Stand on the spot facing the right way, then press the button.",
+  "ui_points_hint": "Press Place, then walk the marker to the spot and click to set it. The NPC faces the way the marker faces. You can close the menu at any time: /pob brings your unsaved changes back.",
   "ui_pt_npc": "NPC",
   "ui_pt_manager": "Manager desk",
   "ui_pt_sign": "Open sign (buy / apply)",
@@ -314,9 +315,9 @@
   "ui_pt_craft": "Crafting station",
   "ui_pt_stash": "Stash",
   "ui_not_set": "Not set",
-  "ui_use_position": "Use my position",
+  "ui_place": "Place",
   "ui_place_sign": "Place sign",
-  "ui_add_here": "Add %s here",
+  "ui_add_here": "Add %s",
   "ui_kind_sale": "Sale",
   "ui_kind_deposit": "Deposit",
   "ui_kind_withdraw": "Withdrawal",
@@ -390,5 +391,6 @@
   "ui_audit_seize": "Seize %s",
   "ui_audit_seize_confirm": "Seize the laundered money from %s's account?",
   "ui_audit_records": "Laundering records",
-  "ui_audit_clean": "The books are clean."
+  "ui_audit_clean": "The books are clean.",
+  "ui_draft_restored": "Your unsaved changes are back. Save to keep them, or Cancel to throw them away."
 }

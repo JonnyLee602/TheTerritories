@@ -23,7 +23,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 - **Daily caps per action**, saved on the character, so grinding one job (or relogging) can't max out standing.
 - **Decay**: after 7 days with no change, standing drifts 10 points a day back toward 0.
 - Players are told when their tier changes ("Folks now see you as Outlaw.").
-- `/rep` panel in the house NUI style: tier, description, outlaw ↔ legit bar, and all other rep values.
+- `/rep` panel in the house NUI style: tier, description, outlaw ↔ legit bar, and all other rep values. It opens in the top-right corner, so the game stays visible.
 - **Honor / infamy prices** (The Territories pricing doctrine). Merchants read your standing at the counter:
   - **Legal** merchants: honorable players buy up to 25% cheaper and are paid up to 50% more; outlaws pay up to 50% more and are paid half.
   - **Underground** traders (fences, black market): the reverse.

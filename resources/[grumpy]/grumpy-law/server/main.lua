@@ -256,11 +256,60 @@ exports('LawOnDuty', function() return #lawOnDuty() end)
 -----------------------------------------------------------------------
 -- /witnesstest: can the server see ambient NPCs on this server?
 -----------------------------------------------------------------------
+-- The breakdown says WHICH filter (range, health, animal list) drops NPCs the client can see.
+local testPending = {}
+
 RSGCore.Commands.Add(Config.TestCommand, locale('cmd_test'), {}, false, function(source)
-    local src = source
-    local pos = GetEntityCoords(GetPlayerPed(src))
-    local serverCount = #npcsNear(pos, W.Radius)
-    local total = 0
-    for _, ped in ipairs(GetAllPeds()) do if not IsPedAPlayer(ped) then total = total + 1 end end
-    TriggerClientEvent('grumpy-law:client:test', src, serverCount, total, W.Radius)
+    testPending[source] = GetGameTimer() + 10000
+    TriggerClientEvent('grumpy-law:client:test', source, W.Radius)
 end, Config.AdminPermission)
+
+RegisterNetEvent('grumpy-law:server:testResult', function(netIds, localCount)
+    local src = source
+    if not testPending[src] or GetGameTimer() > testPending[src] then return end -- only after /witnesstest
+    testPending[src] = nil
+
+    local pos = GetEntityCoords(GetPlayerPed(src))
+    local total, near, dead, animal = 0, 0, 0, 0
+    for _, ped in ipairs(GetAllPeds()) do
+        if not IsPedAPlayer(ped) then
+            total = total + 1
+            if #(GetEntityCoords(ped) - pos) <= W.Radius then
+                near = near + 1
+                if GetEntityHealth(ped) <= 0 then dead = dead + 1
+                elseif AnimalModels[u32(GetEntityModel(ped))] then animal = animal + 1 end
+            end
+        end
+    end
+    local counted = #npcsNear(pos, W.Radius)
+
+    -- the client's networked humans, checked one by one on the server
+    local sent, missing, cDead, cAnimal, cFar, cOk = 0, 0, 0, 0, 0, 0
+    local lines = {}
+    if type(netIds) == 'table' then
+        for i = 1, math.min(#netIds, 20) do
+            sent = sent + 1
+            local ped = NetworkGetEntityFromNetworkId(tonumber(netIds[i]) or 0)
+            if not ped or ped == 0 or not DoesEntityExist(ped) then
+                missing = missing + 1
+            else
+                local hp, model = GetEntityHealth(ped), u32(GetEntityModel(ped))
+                local dist = #(GetEntityCoords(ped) - pos)
+                if hp <= 0 then cDead = cDead + 1
+                elseif AnimalModels[model] then cAnimal = cAnimal + 1
+                elseif dist > W.Radius + 2.0 then cFar = cFar + 1
+                else cOk = cOk + 1 end
+                lines[#lines + 1] = ('  net %s: health %s, model 0x%08X, %.1f m from you (server coords)'):format(tostring(netIds[i]), hp, model, dist)
+            end
+        end
+    end
+
+    local msg = locale('test_result', math.floor(W.Radius), counted, math.floor(tonumber(localCount) or 0), sent, total)
+    local why = locale('test_breakdown', near, dead, animal, sent, cOk, missing, cDead, cAnimal, cFar)
+    TriggerClientEvent('RSGCore:Client:Notify', src, { title = locale('title'), description = msg .. ' ' .. why, type = 'inform', duration = 20000 })
+    print('[grumpy-law] /witnesstest by ' .. src .. ': ' .. msg)
+    print('[grumpy-law] ' .. why)
+    for _, l in ipairs(lines) do print(l) end
+end)
+
+AddEventHandler('playerDropped', function() testPending[source] = nil end)
