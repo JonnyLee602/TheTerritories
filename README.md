@@ -61,7 +61,32 @@ old resource must not run; its database tables are reused as they are. Remove an
 
 Edit the file on `main`, then commit it. That's all: the next update keeps it automatically.
 
+## Fresh install with txAdmin (`recipe/`)
+
+`recipe/territories.yaml` builds a complete server from this repository:
+
+| Step | What it does |
+|---|---|
+| Download | This repo (`main`), plus the same standalone/community/map resources RSG's recipe uses |
+| `server.cfg` | `recipe/server.cfg`: RSG's server.cfg + `ensure [grumpy]` |
+| Database | `recipe/rsg/rsgcore.sql` (all RSG tables), then `recipe/territories_stores.sql` (our NPC shops), then each grumpy `install.sql` |
+| Resources | `resources/[framework]` (86, pinned) and `resources/[grumpy]` copied as they are in this repo |
+
+In txAdmin: **Setup → Custom Template / Remote URL**, and use
+`https://raw.githubusercontent.com/<you>/territories-server/main/recipe/territories.yaml`.
+The recipe downloads the repo's `main` branch at deploy time, so push before deploying.
+
+`recipe/territories_stores.sql` comes from the 2026-11-05 rsg-stores export. Its header lists what was cleaned
+(dropped test shops, remapped item names). To refresh it from a newer export, ask Claude to rebuild it.
+`recipe/rsg/` is RSG's recipe SQL + logo, kept in step by `tools/rsg-update.sh` like any RSG resource.
+
+To check the database steps against a local MariaDB without deploying (asks for your password):
+
+```bash
+bash tools/test-recipe-sql.sh
+```
+
 ## Not in this copy
 
-rsg-target, rsg-gizmo and other non-framework resources the grumpy scripts use live elsewhere on the server,
-along with server.cfg and the database.
+oxmysql, ox_lib, PolyZone and the other standalone, community and map resources: the recipe downloads them.
+The live database, player data and txAdmin settings.
