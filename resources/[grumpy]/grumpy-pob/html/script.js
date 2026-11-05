@@ -584,8 +584,8 @@ function adminEditor(d) {
   save.onclick = () => { post('admin', { op: 'save', id: e.id, data: e }); };
 }
 
-// every point is placed with rsg-gizmo (a stand-in marker you can walk around with)
-const placePoint = (label, current) => post('adminPlacePoint', { label, current: current || null });
+// every point is placed with rsg-gizmo (a ghost of the business NPC you can walk around with)
+const placePoint = (label, current) => post('adminPlacePoint', { label, current: current || null, model: S.edit && S.edit.npcModel, type: S.edit && S.edit.type });
 
 function pointRow(label, p, onSet) {
   const r = add(`<div class="point row ${p ? '' : 'missing'}"><div class="row-text"><div class="row-title">${esc(label)}</div><div class="coords">${esc(fmt(p))}</div></div>

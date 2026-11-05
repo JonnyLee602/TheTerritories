@@ -11,6 +11,8 @@ Config.AdminCommand    = 'hotellist'
 Config.MaxRooms        = 50         -- most rooms one hotel can have
 Config.MaxDaysLimit    = 30         -- highest "max days" an admin can set
 Config.MaxDailyRate    = 5          -- highest daily rate an admin can set ($). Doctrine: a night is $0.25-1.00
+Config.PlaceModel      = 'u_m_m_valhotelowner_01' -- ghost ped for placing the door / interior points (data/rdr3_discoveries/peds/peds_list.lua 0xB66F12F2)
+Config.PlaceDistance   = 30.0       -- rsg-gizmo: how far the ghost may be from you (you can walk while placing)
 
 ---------------------------------------------------------------------
 -- Distances (metres)

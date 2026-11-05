@@ -109,6 +109,7 @@ Config.Laundering = {
 ---------------------------------
 Config.AdminCommand = 'traderadmin'
 Config.DefaultModel = 'mp_u_m_m_trader_01'
+Config.PlaceDistance = 30.0 -- /traderadmin: rsg-gizmo range when placing a trader (a ghost of its NPC; you can walk while placing)
 Config.DefaultBlip  = { sprite = 'blip_shop_market_stall', scale = 0.2 }
 
 Config.DefaultTraders = {

@@ -316,8 +316,8 @@ function openEditor(h) {
 
 $('btn-new-hotel').onclick = () => openEditor(null);
 $('admin-back').onclick = () => { adminView = 'list'; armed = null; renderAdmin(); };
-$('btn-cap-door').onclick = async () => { const p = await post('adminCapture'); if (p) { draft.door = p; renderAdmin(); } };
-$('btn-cap-interior').onclick = async () => { const p = await post('adminCapture'); if (p) { draft.interior = p; renderAdmin(); } };
+$('btn-cap-door').onclick = async () => { const p = await post('adminPlace', { which: 'door', current: draft.door }); if (p) { draft.door = p; renderAdmin(); } };
+$('btn-cap-interior').onclick = async () => { const p = await post('adminPlace', { which: 'interior', current: draft.interior }); if (p) { draft.interior = p; renderAdmin(); } };
 $('btn-save').onclick = () => {
     post('adminSave', {
         id: adminHotel,
@@ -381,6 +381,10 @@ window.addEventListener('message', (ev) => {
         showKnock(m.data);
     } else if (m.action === 'knockClose') {
         hideKnock();
+    } else if (m.action === 'hide') {          // rsg-gizmo placing: keep every form value, just get out of the way
+        $('app').classList.add('hidden');
+    } else if (m.action === 'show') {
+        if (view) $('app').classList.remove('hidden');
     }
 });
 

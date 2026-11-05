@@ -23,7 +23,7 @@
 | `client/main.lua` | `GRC` helpers: store list, finding the clerk ped, clerk reactions, NUI bridge |
 | `client/robbery.lua` | Aim detection, robbery progress, safe zones/props, safe cracking |
 | `client/shoplift.lua` | Shelf target zones and the pocketing progress bar |
-| `client/admin.lua` | Admin panel callbacks, "my position", rsg-gizmo safe placement, teleport |
+| `client/admin.lua` | Admin panel callbacks, rsg-gizmo placement (shelf/safe marker `Config.PointMarker`, safe prop), teleport |
 | `html/` | Admin panel |
 
 ## 2. How the rsg-stores clerk is used
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS `grumpy_robbery_stores` (
 Read-only use of rsg-stores tables: `rsg_shops_npcs` (id, name, shop_label, model, x, y, z, h, store_kind) and `rsg_shops_items` (npc_id, item_name, price, stock).
 
 ## 9. Server owner how-tos
-- **Set up a store:** `/robberyadmin` → pick the store → stand at a shelf → **Add shelf at my position** (up to 4) → stand at the back-room safe → **Safe at my position**, or **Place safe prop**.
+- **Set up a store:** `/robberyadmin` → pick the store → **Add shelf point** and aim the marker at the shelf (up to 4) → **Mark existing safe** and aim it at the back-room safe, or **Place safe prop**.
 - **Make a store safe from robbery but keep shoplifting:** toggle **Register can be robbed** off. Shelves still work.
 - **Require law in town:** `Config.Robbery.MinLawmen = 2`.
 - **Require a tool for safes:** `Config.Safe.RequiredItem = 'your_item'` (it must exist in your items).

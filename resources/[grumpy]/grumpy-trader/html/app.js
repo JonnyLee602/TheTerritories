@@ -407,6 +407,14 @@ window.addEventListener('message', (e) => {
             hideAll();
             $('app').classList.add('hidden');
             break;
+
+        case 'hide': // rsg-gizmo placing: keep everything as it is, just get out of the way
+            $('app').classList.add('hidden');
+            break;
+
+        case 'show':
+            $('app').classList.remove('hidden');
+            break;
     }
 });
 
@@ -510,7 +518,7 @@ $('trader-save').addEventListener('click', async () => {
     };
     if (editingTrader) {
         data.traderid = editingTrader.traderid;
-        data.moveHere = $('f-movehere').checked;
+        data.move = $('f-movehere').checked;
     }
     $('trader-save').disabled = true;
     const res = await post('admin:saveTrader', data);

@@ -24,7 +24,7 @@ function BartenderPos(b) return vector3(b.x, b.y, b.z) end
 local UI_KEYS = {
     'ui_manager_title', 'ui_search', 'ui_new_bartender', 'ui_static',
     'ui_services_none', 'ui_edit', 'ui_teleport', 'ui_duplicate', 'ui_no_bartenders',
-    'ui_place_here', 'ui_move_here', 'ui_back',
+    'ui_back',
     'ui_svc_store', 'ui_svc_hotel', 'ui_svc_lottery', 'ui_svc_loyalty', 'ui_create_shop', 'ui_create_shop_new', 'ui_store_auto',
     'ui_close', 'ui_editor_new', 'ui_editor_edit', 'ui_label', 'ui_model', 'ui_animation',
     'ui_services', 'ui_store_id', 'ui_store_hint', 'ui_hotel', 'ui_hotel_hint', 'ui_none', 'ui_lottery', 'ui_loyalty', 'ui_blip',

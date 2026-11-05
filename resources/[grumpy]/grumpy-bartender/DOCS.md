@@ -69,7 +69,7 @@ None. Other resources should use the server exports.
 Callbacks (rsg-core): `grumpy-bartender:server:getAll` → `{ bartenders, isAdmin }`, `grumpy-bartender:server:adminData` → `{ bartenders }` (admins only, `nil` otherwise).
 
 Server net events (all validated, see §8), all prefixed `grumpy-bartender:server:`:
-- Bartenders: `create(form, coords, heading)`, `createHere(form)`, `update(id, form)`, `move(id, coords, heading)`, `moveHere(id)`, `delete(id)`, `teleport(id)`, `createBarShop(id)`. `form.createShop = true` on `create` / `createHere` also creates the bar shop.
+- Bartenders: `create(form, coords, heading)`, `update(id, form)`, `move(id, coords, heading)`, `delete(id)`, `teleport(id)`, `createBarShop(id)`. `form.createShop = true` on `create` also creates the bar shop.
 
 Client events: `grumpy-bartender:client:sync(list)`, `:openEditor`, `:editorStore(id, storeId)`, `:openManager`, `:managerRefresh`, `:teleport(pos, heading)`.
 

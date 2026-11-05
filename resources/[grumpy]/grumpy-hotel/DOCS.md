@@ -150,7 +150,7 @@ inventories            (rsg-inventory) rows grumpy_hotel_<hotel>_<room>
   4. Save, then link it to a bartender in `/bartenders`.
 - **Several hotels, one interior:** use the same interior point for each. Buckets keep them apart.
 - **Lower the room count:** first evict any rented room above the new count. Save refuses otherwise.
-- **Move a point:** Edit → **Use my position** → Save. Players already inside are not moved.
+- **Move a point:** Edit → **Place** (the ghost starts at the current point) → Save. Players already inside are not moved.
 - **Turn off warrants:** `Config.Warrant.Enabled = false`.
 - **Upgrading grumpy-bartender from its built-in hotel:**
   - Old `Config.Hotels` rentals are not migrated.

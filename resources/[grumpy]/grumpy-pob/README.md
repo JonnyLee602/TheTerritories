@@ -82,7 +82,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `AdminCommand` / `AdminPermission` | `pob` / `'admin'` | Admin menu command and permission |
 | `SpawnDistance` / `InteractDistance` / `ServerDistance` | `60` / `2.5` / `6.0` | NPC/sign spawn range, target range, server distance tolerance |
 | `SignModel` / `SignOpenRotation` | `p_sign_open_close06x` / `180` | Sign prop and the turn that shows "Open" |
-| `PointMarker` | `p_scarecrow01x`, `YawOffset 0`, `PointHeight 1.0`, `MaxDistance 30` | Stand-in marker for placing points with rsg-gizmo. Set `YawOffset = 180.0` if NPCs face away from where the marker faced |
+| `PlaceDistance` | `30.0` | rsg-gizmo range when placing points (a ghost of the business NPC) |
 | `Grades` / `OwnerGrade` | Trainee…Owner / `4` | Grades of every business job (last = owner) |
 | `Permissions` | see file | Minimum grade per action (stock, craft, prices, takeStock, withdraw, hire, fire, rename, wages, …) |
 | `WithdrawDailyLimit` | `{ [3] = 50 }` | Daily withdrawal limit per grade (owner unlimited) |
@@ -115,7 +115,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 ## How to use
 **Admins** (`/pob`, permission `admin`):
 1. **New business** → pick a type, name and price.
-2. Press **Place** on each point: rsg-gizmo shows a stand-in marker (a scarecrow) that you can walk around with. Click to set it; the NPC faces the way the marker faces. Do this for the NPC, manager desk, crafting stations, stashes and the hotel/stable points. You can close the menu at any time and walk off: `/pob` reopens your unsaved changes (only Save, Cancel or the back arrow drop them).
+2. Press **Place** on each point: rsg-gizmo shows a ghost of the business NPC that you can walk around with. Turn it to face the right way and click to set it. Do this for the NPC, manager desk, crafting stations, stashes and the hotel/stable points. You can close the menu at any time and walk off: `/pob` reopens your unsaved changes (only Save, Cancel or the back arrow drop them).
 3. **Place sign**: rsg-gizmo opens; place it so it reads **Closed**. Save.
 4. Approve custom recipes under **Approvals**. Open the government account with the button at the top.
 

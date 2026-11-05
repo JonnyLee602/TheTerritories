@@ -30,7 +30,7 @@ local UI_KEYS = {
     'ui_admin_title', 'ui_new_hotel', 'ui_no_hotels', 'ui_edit', 'ui_renters', 'ui_tp_door', 'ui_tp_interior',
     'ui_delete', 'ui_confirm_delete', 'ui_back', 'ui_no_renters', 'ui_evict', 'ui_confirm_evict', 'ui_offline',
     'ui_inside', 'ui_editor_new', 'ui_editor_edit', 'ui_name', 'ui_room_count', 'ui_daily_rate', 'ui_max_days_label',
-    'ui_blip', 'ui_door_point', 'ui_interior_point', 'ui_use_position', 'ui_not_set', 'ui_save', 'ui_cash',
+    'ui_blip', 'ui_door_point', 'ui_interior_point', 'ui_place', 'ui_not_set', 'ui_save', 'ui_cash',
     'ui_state_active', 'ui_state_grace', 'ui_key', 'ui_door_hint', 'ui_interior_hint',
 }
 local uiStrings

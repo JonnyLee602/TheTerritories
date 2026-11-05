@@ -18,13 +18,8 @@ Config.ServerDistance = 6.0              -- server tolerance for "standing at th
 Config.SignModel = 'p_sign_open_close06x' -- data/rdr3_discoveries/objects/object_list.lua (0xD0C40724)
 Config.SignOpenRotation = 180.0          -- yaw added when the business is owned (sign shows "Open")
 
--- /pob editor: every point is placed with rsg-gizmo using this stand-in marker (you can walk while placing)
-Config.PointMarker = {
-    Model       = 'p_scarecrow01x',   -- data/rdr3_discoveries/objects/object_list.lua (0x1762B861)
-    YawOffset   = 0.0,                -- if NPCs end up facing away from where the marker faced, set 180.0
-    PointHeight = 1.0,                -- saved z = ground + this (peds spawn at z - 1.0, as with standing coords)
-    MaxDistance = 30.0,               -- how far the marker may be from you
-}
+-- /pob editor: every point is placed with rsg-gizmo using a ghost of the business NPC (you can walk while placing)
+Config.PlaceDistance = 30.0              -- how far the ghost may be from you
 
 ---------------------------------------------------------------------
 -- Grades (one rsg-core job per business: pob_<id>)

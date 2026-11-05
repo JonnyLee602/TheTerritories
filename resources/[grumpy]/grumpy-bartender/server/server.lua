@@ -264,13 +264,6 @@ local function readPlacement(src, coords, heading)
     return coords, heading % 360.0
 end
 
--- "Use my position": the server reads the admin's own ped, nothing comes from the client
-local function playerPlacement(src)
-    local ped = GetPlayerPed(src)
-    if not ped or ped == 0 then return nil end
-    return GetEntityCoords(ped), GetEntityHeading(ped) % 360.0
-end
-
 local function createBartender(src, Player, form, pos, h, wantShop)
     local dbId = MySQL.insert.await(
         'INSERT INTO grumpy_bartenders (label, model, animation, x, y, z, h, services, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -295,16 +288,6 @@ RegisterNetEvent('grumpy-bartender:server:create', function(data, coords, headin
     if not Player or not isAdmin(src) or onCooldown(src, 2) then return end
     local form = sanitiseForm(data)
     local pos, h = readPlacement(src, coords, heading)
-    if not form or not pos then return Notify(src, locale('invalid_placement'), 'error') end
-    createBartender(src, Player, form, pos, h, data.createShop == true)
-end)
-
-RegisterNetEvent('grumpy-bartender:server:createHere', function(data)
-    local src = source
-    local Player = RSGCore.Functions.GetPlayer(src)
-    if not Player or not isAdmin(src) or onCooldown(src, 2) then return end
-    local form = sanitiseForm(data)
-    local pos, h = playerPlacement(src)
     if not form or not pos then return Notify(src, locale('invalid_placement'), 'error') end
     createBartender(src, Player, form, pos, h, data.createShop == true)
 end)
@@ -347,16 +330,6 @@ RegisterNetEvent('grumpy-bartender:server:move', function(id, coords, heading)
     local b = editable(src, id)
     if not b then return end
     local pos, h = readPlacement(src, coords, heading)
-    if not pos then return Notify(src, locale('invalid_placement'), 'error') end
-    moveBartender(src, b, pos, h)
-end)
-
-RegisterNetEvent('grumpy-bartender:server:moveHere', function(id)
-    local src = source
-    if onCooldown(src, 1) then return end
-    local b = editable(src, id)
-    if not b then return end
-    local pos, h = playerPlacement(src)
     if not pos then return Notify(src, locale('invalid_placement'), 'error') end
     moveBartender(src, b, pos, h)
 end)

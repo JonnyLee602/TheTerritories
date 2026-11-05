@@ -151,9 +151,12 @@
   "ui_blip": "Map blip",
   "ui_door_point": "Door point",
   "ui_interior_point": "Interior point",
-  "ui_door_hint": "Stand outside at the door, facing it. Players use this to enter and knock, and come out here.",
-  "ui_interior_hint": "Stand inside the room where players should appear. The room menu and storage are here.",
-  "ui_use_position": "Use my position",
+  "ui_door_hint": "Place the ghost outside the door, facing it (you can walk while placing). Players use this to enter and knock, and come out here.",
+  "ui_interior_hint": "Place the ghost inside the room where players should appear, facing into the room. The room menu and storage are here.",
+  "ui_place": "Place",
+  "gizmo_door": "Place the door point (outside, facing the door)",
+  "gizmo_interior": "Place the room point (where players appear inside)",
+  "gizmo_busy": "Placement is not available right now",
   "ui_not_set": "Not set",
   "ui_save": "Save"
 }

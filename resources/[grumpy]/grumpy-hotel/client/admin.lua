@@ -1,4 +1,4 @@
--- /hotellist admin panel. The client only shows the panel and reads the admin's own position;
+-- /hotellist admin panel. The client shows the panel and places points with rsg-gizmo;
 -- the server re-checks the permission and validates every field.
 local RSGCore = exports['rsg-core']:GetCoreObject()
 
@@ -23,11 +23,55 @@ end
 RegisterNetEvent('grumpy-hotel:client:openAdmin', function() CreateThread(openAdmin) end)
 RegisterNetEvent('grumpy-hotel:client:adminRefresh', function() CreateThread(AdminRefresh) end)
 
--- "Use my position": returns the admin's coords + heading to the form
-RegisterNUICallback('adminCapture', function(_, cb)
-    local ped = PlayerPedId()
-    local c = GetEntityCoords(ped)
-    cb({ x = c.x, y = c.y, z = c.z, w = GetEntityHeading(ped) })
+-- Place the door / interior point with rsg-gizmo. rsg-gizmo's Place() only takes props, so (like
+-- grumpy-bartender) a local ghost ped is spawned and moved with Edit(). The ghost shows where players
+-- stand and which way they face; its coords are standing coords, like the old "Use my position".
+local function loadModel(name)
+    local hash = joaat(name)
+    if not IsModelValid(hash) then return nil end
+    RequestModel(hash)
+    local deadline = GetGameTimer() + 5000
+    while not HasModelLoaded(hash) do
+        if GetGameTimer() > deadline then return nil end
+        Wait(10)
+    end
+    return hash
+end
+
+RegisterNUICallback('adminPlace', function(body, cb)
+    if GetResourceState('rsg-gizmo') ~= 'started' or exports['rsg-gizmo']:IsActive() then
+        NotifyLocal(locale('gizmo_busy'), 'error')
+        return cb(nil)
+    end
+    local hash = loadModel(Config.PlaceModel)
+    if not hash then return cb(nil) end
+    local cur = type(body) == 'table' and type(body.current) == 'table' and tonumber(body.current.x) and body.current or nil
+    local me = PlayerPedId()
+    local start = cur and vector3(cur.x, cur.y, cur.z) or GetOffsetFromEntityInWorldCoords(me, 0.0, 1.5, 0.0)
+    local heading = cur and (tonumber(cur.w) or 0.0) or (GetEntityHeading(me) + 180.0)
+
+    SetNuiFocus(false, false)
+    SendNUIMessage({ action = 'hide' })
+    CreateThread(function()
+        local ghost = CreatePed(hash, start.x, start.y, start.z, heading, false, false, false, false)
+        SetModelAsNoLongerNeeded(hash)
+        local res
+        if ghost and ghost ~= 0 then
+            SetRandomOutfitVariation(ghost, true) -- RedM: otherwise peds can spawn invisible
+            SetEntityInvincible(ghost, true)
+            SetBlockingOfNonTemporaryEvents(ghost, true)
+            FreezeEntityPosition(ghost, true)
+            res = exports['rsg-gizmo']:Edit(ghost, {
+                title = locale(body.which == 'interior' and 'gizmo_interior' or 'gizmo_door'),
+                maxDistance = Config.PlaceDistance, rotation = 'z', startMode = 'free',
+            })
+            if DoesEntityExist(ghost) then DeleteEntity(ghost) end
+        end
+        SendNUIMessage({ action = 'show' })
+        if UI.open then SetNuiFocus(true, true) end
+        if not res then return cb(nil) end
+        cb({ x = res.coords.x, y = res.coords.y, z = res.coords.z, w = (res.heading or 0.0) % 360.0 })
+    end)
 end)
 
 RegisterNUICallback('adminSave', function(body, cb)

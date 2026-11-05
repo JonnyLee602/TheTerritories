@@ -161,16 +161,6 @@ RegisterNUICallback('editorPlace', function(body, cb)
     CreateThread(function() placeNew(form); afterEdit() end)
 end)
 
--- "Use my position": the server places it where the admin is standing, facing the way they face
-RegisterNUICallback('editorPlaceHere', function(body, cb)
-    cb('ok')
-    local form = readForm(body)
-    if not form or EditorTarget then return end
-    TriggerServerEvent('grumpy-bartender:server:createHere', form)
-    CloseUI()
-    afterEdit()
-end)
-
 RegisterNUICallback('editorSave', function(body, cb)
     cb('ok')
     local form = readForm(body)
@@ -186,14 +176,6 @@ RegisterNUICallback('editorMove', function(_, cb)
     if not id then return end
     CloseUI()
     CreateThread(function() moveExisting(id); afterEdit() end)
-end)
-
-RegisterNUICallback('editorMoveHere', function(_, cb)
-    cb('ok')
-    if not EditorTarget then return end
-    TriggerServerEvent('grumpy-bartender:server:moveHere', EditorTarget)
-    CloseUI()
-    afterEdit()
 end)
 
 RegisterNUICallback('editorDelete', function(_, cb)

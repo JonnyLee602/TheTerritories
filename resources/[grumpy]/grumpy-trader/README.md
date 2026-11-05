@@ -10,11 +10,11 @@ Based on **rsg-trader by RexShack** (Rexshack-RedM): NPC spawning, stock-based p
 panel are his work. This is a community modification. It is **not** made or supported by the RSG authors, so please
 don't ask them for help with it.
 
-**Dependencies:** `rsg-core`, `rsg-inventory`, `rsg-target`, `oxmysql`
+**Dependencies:** `rsg-core`, `rsg-inventory`, `rsg-target`, `rsg-gizmo`, `oxmysql`
 **Optional:** `grumpy-reputation` (honor/infamy prices, laundering cut by standing, standing from sales)
 
 ## Features
-- Everything rsg-trader does: NPC traders by distance with fade-in, an rsg-target option, a Buy / Sell window with stock bars, prices that move with stock, `/traderadmin` to place and edit traders and stock, map blips, draggable panels, Discord webhooks.
+- Everything rsg-trader does: NPC traders by distance with fade-in, an rsg-target option, a Buy / Sell window with stock bars, prices that move with stock, `/traderadmin` to place and edit traders and stock (traders are placed with **rsg-gizmo**: after Save a ghost of the trader follows your aim and you can walk while placing; tick **Move trader** to move an existing one), map blips, draggable panels, Discord webhooks.
 - **Legal or illegal, per trader.** Choose in the trader form in `/traderadmin`.
 
   | | Legal trader | Illegal trader (fence) |
@@ -60,6 +60,7 @@ don't ask them for help with it.
 | `Config.Laundering.PlayerDailyLimit` / `TraderDailyLimit` | `100` / `500` | Dirty dollars per character per fence per day / per fence per day (0 = no limit) |
 | `Config.AdminCommand` | `'traderadmin'` | Admin panel command |
 | `Config.DefaultModel` / `DefaultBlip` | `mp_u_m_m_trader_01` / market stall | New trader defaults |
+| `Config.PlaceDistance` | `30.0` | rsg-gizmo range when placing a trader |
 | `server/webhook_config.lua` | off | Discord channels: `trade` (buy, sell, launder), `admin`, `security` |
 
 ## How to use

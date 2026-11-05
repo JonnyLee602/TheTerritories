@@ -50,6 +50,11 @@ Config.Safe = {
     PropModel    = 'p_gen_safe01', -- data/rdr3_discoveries/objects/object_list.lua
 }
 
+-- /robberyadmin: shelf points and the "existing safe" point are placed with rsg-gizmo using this small marker.
+-- Aim it at the shelf / safe itself: it sits on the surface you aim at, and that spot becomes the target point.
+Config.PointMarker = 'p_bottlebeer01x' -- data/rdr3_discoveries/objects/object_list.lua (0x6DE02925)
+Config.PlaceDistance = 12.0           -- rsg-gizmo: how far the marker may be from you (you can walk while placing)
+
 ---------------------------------------------------------------------
 -- Shoplifting: up to 4 shelf points per store (admin sets them). Always available.
 ---------------------------------------------------------------------

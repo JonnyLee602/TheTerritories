@@ -238,9 +238,50 @@ local function adminAction(name, after)
     end)
 end
 
+-- Place the trader with rsg-gizmo. rsg-gizmo's Place() only takes props, so (like grumpy-bartender) a local
+-- ghost of the trader's NPC is spawned and moved with Edit(). Returns standing coords (peds spawn at z - 1.0).
+local function placeGhost(modelName, cur)
+    if GetResourceState('rsg-gizmo') ~= 'started' or exports['rsg-gizmo']:IsActive() then return nil end
+    local hash = joaat(modelName)
+    if not IsModelValid(hash) or not IsModelAPed(hash) then return nil end
+    RequestModel(hash)
+    local deadline = GetGameTimer() + 5000
+    while not HasModelLoaded(hash) and GetGameTimer() < deadline do Wait(10) end
+    if not HasModelLoaded(hash) then return nil end
+
+    local me = PlayerPedId()
+    local start = cur and vector3(cur.x, cur.y, cur.z) or GetOffsetFromEntityInWorldCoords(me, 0.0, 1.5, 0.0)
+    local heading = cur and (tonumber(cur.heading) or 0.0) or (GetEntityHeading(me) + 180.0)
+    SendNUIMessage({ action = 'hide' })
+    SetNuiFocus(false, false)
+    local ghost = CreatePed(hash, start.x, start.y, start.z, heading, false, false, false, false)
+    SetModelAsNoLongerNeeded(hash)
+    local res
+    if ghost and ghost ~= 0 then
+        SetRandomOutfitVariation(ghost, true) -- RedM: otherwise peds can spawn invisible
+        SetEntityInvincible(ghost, true)
+        SetBlockingOfNonTemporaryEvents(ghost, true)
+        FreezeEntityPosition(ghost, true)
+        res = exports['rsg-gizmo']:Edit(ghost, {
+            title = locale('ui_gizmo_trader'), maxDistance = Config.PlaceDistance, rotation = 'z', startMode = 'free',
+        })
+        if DoesEntityExist(ghost) then DeleteEntity(ghost) end
+    end
+    SendNUIMessage({ action = 'show' })
+    if uiOpen then SetNuiFocus(true, true) end
+    if not res then return nil end
+    return { x = res.coords.x, y = res.coords.y, z = res.coords.z, w = (res.heading or 0.0) % 360.0 }
+end
+
 adminAction('admin:saveTrader', function(data)
     if data.npcmodel and data.npcmodel ~= '' and not IsModelValid(joaat(data.npcmodel)) then
         return { ok = false, msg = locale('sv_invalid_model') }
+    end
+    if not data.traderid or data.move then
+        local model = (data.npcmodel and data.npcmodel ~= '') and data.npcmodel or Config.DefaultModel
+        local existing = data.traderid and GetTrader(data.traderid) or nil
+        data.pos = placeGhost(model, existing)
+        if not data.pos then return { ok = false, msg = locale('ui_place_cancelled') } end
     end
     local res = await('grumpy-trader:server:admin:saveTrader', data)
     if res and res.ok then sendTraders() end

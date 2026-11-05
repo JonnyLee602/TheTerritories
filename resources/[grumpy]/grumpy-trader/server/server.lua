@@ -500,12 +500,16 @@ callback('grumpy-trader:server:admin:saveTrader', function(source, data)
     trader.launder = launder
     trader.launder_cut = cut
 
-    -- position always taken server-side
-    if not existing or data.moveHere then
-        local ped = GetPlayerPed(src)
-        if ped == 0 then return result(false, locale('sv_invalid_trade')) end
-        local c = GetEntityCoords(ped)
-        trader.x, trader.y, trader.z, trader.heading = c.x, c.y, c.z, GetEntityHeading(ped)
+    -- position from the admin's rsg-gizmo placement (new trader, or "Move trader" ticked), checked here
+    if not existing or data.move then
+        local p = type(data.pos) == 'table' and data.pos or {}
+        local x, y, z, w = tonumber(p.x), tonumber(p.y), tonumber(p.z), tonumber(p.w)
+        local function finite(n) return n ~= nil and n == n and n ~= math.huge and n ~= -math.huge end
+        if not (finite(x) and finite(y) and finite(z) and finite(w))
+            or not exports['rsg-gizmo']:IsPlacementValid(src, vector3(x, y, z), Config.PlaceDistance) then
+            return result(false, locale('sv_invalid_position'))
+        end
+        trader.x, trader.y, trader.z, trader.heading = x, y, z, w % 360.0
     end
 
     MySQL.query.await([[

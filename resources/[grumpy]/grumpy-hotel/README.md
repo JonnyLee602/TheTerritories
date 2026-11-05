@@ -6,12 +6,12 @@ Version 1.1.0 · for RSG Framework (rsg-core 3.x) · see [DOCS.md](DOCS.md) for 
 
 This is a community script. It is **not** made or supported by the RSG authors.
 
-**Dependencies:** `rsg-core`, `rsg-inventory`, `rsg-target`, `oxmysql`
+**Dependencies:** `rsg-core`, `rsg-inventory`, `rsg-target`, `rsg-gizmo`, `oxmysql`
 **Works with:** `grumpy-bartender` (rental point), `grumpy-pob` (hotel businesses: creates hotels and collects rent), `rsg-voice`, `rsg-medic`
 
 ## Features
 - **`/hotellist` admin panel**: create, edit and delete hotels, teleport to the door or interior point, list renters and evict them. One command does everything.
-- Each hotel has a **name, room count, daily rate, max days paid ahead, a door point and an interior point**. Admins set both points with **Use my position**. Optional map blip (`blip_hotel_bed`).
+- Each hotel has a **name, room count, daily rate, max days paid ahead, a door point and an interior point**. Admins place both points with **rsg-gizmo**: a ghost person shows where players stand and which way they face, and you can walk while placing. Optional map blip (`blip_hotel_bed`).
 - **Renting happens at a rental point** (a grumpy-bartender bartender, or a future saloon NPC) through exports. Rooms are paid in cash, per real day, up to *max days* in advance. Players can rent **one room per hotel**. The rental menu shows how many rooms are free.
 - **Door point (outside)**: lists every room.
   - Available rooms show **Available**.
@@ -51,7 +51,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
    ensure grumpy-bartender
    ```
 4. Database: the tables are created automatically. To install them by hand, set `Config.AutoDatabase = false` and import `install.sql`.
-5. In game: `/hotellist` → **New hotel**. Stand at the door, facing it, and click **Use my position** under *Door point*. Walk into the room interior and click **Use my position** under *Interior point*. Fill in the rest and **Save**.
+5. In game: `/hotellist` → **New hotel**. Click **Place** under *Door point* and put the ghost outside the door, facing it. Click **Place** under *Interior point* and put the ghost inside the room where players should appear (walk there while placing, or stand in the room first). Fill in the rest and **Save**.
 6. In `/bartenders`, edit the bartender and set **Hotel** to the new hotel.
 
 ## Configuration (`shared/config.lua`)
@@ -59,6 +59,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 |---|---|---|
 | `AdminPermission` / `AdminCommand` | `'admin'` / `hotellist` | Permission and command for the admin panel |
 | `MaxRooms` / `MaxDaysLimit` / `MaxDailyRate` | `50` / `30` / `5` | Upper limits admins can enter |
+| `PlaceModel` / `PlaceDistance` | `u_m_m_valhotelowner_01` / `30.0` | Ghost ped and range for placing points with rsg-gizmo |
 | `DoorRadius` / `RoomRadius` | `1.5` | rsg-target zone sizes at the door and interior point |
 | `ServerDistance` / `RentalDistance` | `4.0` / `5.0` | Server-side distance tolerance at the points / rental point |
 | `RestoreDistance` | `40.0` | On login, how close to the interior counts as "still in the room" |

@@ -62,8 +62,6 @@
   "ui_teleport": "Teleport",
   "ui_duplicate": "Duplicate",
   "ui_no_bartenders": "No bartenders yet",
-  "ui_place_here": "Use my position",
-  "ui_move_here": "Move to me",
   "ui_back": "Back",
   "ui_svc_store": "Store",
   "ui_svc_hotel": "Hotel",

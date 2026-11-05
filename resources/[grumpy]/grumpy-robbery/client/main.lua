@@ -145,6 +145,18 @@ function GRC.CloseUI()
     SendNUIMessage({ action = 'close' })
 end
 
+-- out of the way while rsg-gizmo runs; the panel keeps the selected store
+function GRC.HideUI()
+    SetNuiFocus(false, false)
+    SendNUIMessage({ action = 'hide' })
+end
+
+function GRC.ShowUI()
+    if not GRC.UIOpen then return end
+    SetNuiFocus(true, true)
+    SendNUIMessage({ action = 'show' })
+end
+
 RegisterNUICallback('close', function(_, cb) GRC.CloseUI(); cb('ok') end)
 
 AddEventHandler('onResourceStop', function(res)

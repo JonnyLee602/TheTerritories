@@ -14,24 +14,51 @@ RegisterNetEvent('grumpy-pob:client:refresh', function(which)
     if which == 'admin' and POBC.uiOpen == 'admin' then openAdmin(true) end
 end)
 
--- Place a point (NPC, desk, station, stash, door...) with rsg-gizmo. A stand-in marker shows the spot and
--- which way the NPC will face; you can walk while placing. Points keep their old meaning: z is standing
--- height (ground + PointHeight, where peds are spawned at z - 1.0) and w is the heading.
+-- Place a point (NPC, desk, station, stash, door...) with rsg-gizmo. rsg-gizmo's Place() only takes props, so
+-- (like grumpy-bartender) a local ghost of the business NPC is spawned and moved with Edit(): it shows exactly
+-- where someone stands and which way they face, and you can walk while placing. The result is standing coords
+-- (peds spawn at z - 1.0), the same as grumpy-bartender.
+local function ghostModel(name, typeKey)
+    for _, m in ipairs({ name, Config.Types[typeKey] and Config.Types[typeKey].npcModel }) do
+        if type(m) == 'string' then
+            local hash = joaat(m)
+            if IsModelValid(hash) and IsModelAPed(hash) then
+                RequestModel(hash)
+                local deadline = GetGameTimer() + 5000
+                while not HasModelLoaded(hash) and GetGameTimer() < deadline do Wait(10) end
+                if HasModelLoaded(hash) then return hash end
+            end
+        end
+    end
+end
+
 RegisterNUICallback('adminPlacePoint', function(body, cb)
+    if exports['rsg-gizmo']:IsActive() then return cb(nil) end
+    local hash = ghostModel(body.model, body.type)
+    if not hash then POBC.Notify(locale('invalid_model'), 'error') return cb(nil) end
+    local cur = type(body.current) == 'table' and tonumber(body.current.x) and body.current or nil
+    local me = PlayerPedId()
+    local start = cur and vector3(cur.x, cur.y, cur.z) or GetOffsetFromEntityInWorldCoords(me, 0.0, 1.5, 0.0)
+    local heading = cur and (tonumber(cur.w) or 0.0) or (GetEntityHeading(me) + 180.0)
     POBC.HideUI()
     CreateThread(function()
-        local cur = type(body.current) == 'table' and tonumber(body.current.x) and body.current or nil
-        local yawOffset = Config.PointMarker.YawOffset or 0.0
-        local res = exports['rsg-gizmo']:Place(Config.PointMarker.Model, {
-            title = locale('gizmo_point', tostring(body.label or '')),
-            maxDistance = Config.PointMarker.MaxDistance, rotation = 'z', snapToGround = true,
-            startCoords = cur and vector3(cur.x, cur.y, cur.z - Config.PointMarker.PointHeight) or nil,
-            startRotation = cur and vector3(0.0, 0.0, ((tonumber(cur.w) or 0.0) + yawOffset) % 360.0) or nil,
-        })
+        local ghost = CreatePed(hash, start.x, start.y, start.z, heading, false, false, false, false)
+        SetModelAsNoLongerNeeded(hash)
+        local res
+        if ghost and ghost ~= 0 then
+            SetRandomOutfitVariation(ghost, true) -- RedM: otherwise peds can spawn invisible
+            SetEntityInvincible(ghost, true)
+            SetBlockingOfNonTemporaryEvents(ghost, true)
+            FreezeEntityPosition(ghost, true)
+            res = exports['rsg-gizmo']:Edit(ghost, {
+                title = locale('gizmo_point', tostring(body.label or '')),
+                maxDistance = Config.PlaceDistance, rotation = 'z', startMode = 'free',
+            })
+            if DoesEntityExist(ghost) then DeleteEntity(ghost) end
+        end
         POBC.ShowUI()
         if not res then return cb(nil) end
-        local yaw = res.heading or (res.rotation and res.rotation.z) or 0.0
-        cb({ x = res.coords.x, y = res.coords.y, z = res.coords.z + Config.PointMarker.PointHeight, w = (yaw - yawOffset) % 360.0 })
+        cb({ x = res.coords.x, y = res.coords.y, z = res.coords.z, w = (res.heading or 0.0) % 360.0 })
     end)
 end)
 

@@ -140,7 +140,8 @@ window.addEventListener('message', ({ data: msg }) => {
   if (msg.locale) L = msg.locale;
   if (msg.action === 'open') { data = msg.data; selected = null; render(); $('app').classList.remove('hidden'); }
   if (msg.action === 'update') { data = msg.data; render(); }
-  if (msg.action === 'close') $('app').classList.add('hidden');
+  if (msg.action === 'close' || msg.action === 'hide') $('app').classList.add('hidden');
+  if (msg.action === 'show') $('app').classList.remove('hidden');
 });
 
 $('close').addEventListener('click', () => post('close'));

@@ -42,5 +42,6 @@ dependencies {
     'rsg-inventory',
     'rsg-target',
     'rsg-stores',
+    'rsg-gizmo',
     'oxmysql',
 }

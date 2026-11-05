@@ -32,8 +32,8 @@ function renderEditor() {
     $('f-lottery').checked = !!f.lottery;
     $('f-loyalty').checked = !!f.loyalty;
     $('f-blip').checked = !!f.blip;
-    ['btn-place', 'btn-place-here'].forEach((id) => $(id).classList.toggle('hidden', !e.isNew));
-    ['btn-save', 'btn-move', 'btn-move-here', 'btn-delete'].forEach((id) => $(id).classList.toggle('hidden', e.isNew));
+    $('btn-place').classList.toggle('hidden', !e.isNew);
+    ['btn-save', 'btn-move', 'btn-delete'].forEach((id) => $(id).classList.toggle('hidden', e.isNew));
     $('editor-back').classList.toggle('show', !!e.fromManager);
     $('f-createshop').checked = false;
     renderShopControls();
@@ -73,10 +73,8 @@ function readForm() {
 }
 
 $('btn-place').onclick = () => post('editorPlace', { form: readForm() });
-$('btn-place-here').onclick = () => post('editorPlaceHere', { form: readForm() });
 $('btn-save').onclick = () => post('editorSave', { form: readForm() });
 $('btn-move').onclick = () => post('editorMove');
-$('btn-move-here').onclick = () => post('editorMoveHere');
 $('editor-back').onclick = () => post('editorBack');
 $('btn-delete').onclick = () => {
     if (!deleteArmed) { deleteArmed = true; $('btn-delete').textContent = S.ui_confirm_delete; return; }

@@ -6,8 +6,8 @@ Version 1.0.0 · for RSG Framework (rsg-core 3.x) · see [DOCS.md](DOCS.md) for 
 
 This is a community script. It is **not** made or supported by the RSG authors.
 
-**Dependencies:** `rsg-core`, `rsg-inventory`, `rsg-target`, `rsg-stores`, `oxmysql`
-**Optional:** `grumpy-law` (witnesses, reports, heat), `rsg-lawman` (alerts), `rsg-lockpick` (safe minigame), `rsg-gizmo` (placing a safe prop), `grumpy-groups` (posse shares the safe), `grumpy-reputation` (standing)
+**Dependencies:** `rsg-core`, `rsg-inventory`, `rsg-target`, `rsg-stores`, `rsg-gizmo` (admin placement), `oxmysql`
+**Optional:** `grumpy-law` (witnesses, reports, heat), `rsg-lawman` (alerts), `rsg-lockpick` (safe minigame), `grumpy-groups` (posse shares the safe), `grumpy-reputation` (standing)
 
 ## Features
 - **Uses rsg-stores as it is.** Stores are read from rsg-stores' `rsg_shops_npcs` table (NPC shops only, never player-owned stores). The clerk is the ped rsg-stores already spawns: grumpy-robbery finds it by model and position. **rsg-stores is not modified.**
@@ -29,8 +29,8 @@ This is a community script. It is **not** made or supported by the RSG authors.
   - Getting caught: the clerk turns on you, the law can be alerted, your reputation shrinks toward 0 (`caught_shoplifting`), and a longer cooldown applies.
 - **Admin menu `/robberyadmin`:** lists every rsg-stores NPC shop by distance. Per store you can:
   - Toggle whether it can be robbed.
-  - Add up to 4 shelf points at your position, remove them, or teleport to them.
-  - Set the safe at your position or place a safe prop with rsg-gizmo, remove it, or teleport to it.
+  - Add up to 4 shelf points with rsg-gizmo: aim a small marker at the shelf itself (you can walk while placing). Remove them or teleport to them.
+  - Mark an existing safe (aim the marker at it) or place a safe prop, both with rsg-gizmo. Remove it or teleport to it.
   - Reload the store list (picks up shops just made in `/createshop`).
 - **With grumpy-law:** a hold-up opens a `store_robbery` incident. The clerk reports it, and NPCs nearby can witness it. Getting caught shoplifting opens a `shoplifting` incident the clerk reports. A clean steal can still be seen by NPCs nearby (`AmbientWitnesses`). After a report, the robber is "hot" for 10 minutes; escaping after a **successful** crime adds outlaw standing. Without grumpy-law, the clerk alerts rsg-lawman directly.
 - **Reputation:** hold-ups and safes are hooked by payout reason (`grumpy-robbery-store`, `grumpy-robbery-safe`). Outlaw standing is only gained by succeeding. A failed robbery (`robbery_failed`) or being caught shoplifting (`caught_shoplifting`) shrinks the player's reputation toward 0 instead, so failing never makes anyone a "better" criminal.
@@ -66,6 +66,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `Config.Shoplift.BaseChance` / `ClerkSees` / `PerWitness` / `MaxChance` | `15` / `45` / `10` / `90` | Catch chance (%) |
 | `Config.AdminCommand` / `AdminPermission` | `robberyadmin` / `admin` | |
 | `Config.MaxPointDistance` | `40.0` | Shelves and safes must be this close to the clerk |
+| `Config.PointMarker` / `PlaceDistance` | `p_bottlebeer01x` / `12.0` | Marker prop and range for placing shelf and safe points with rsg-gizmo |
 
 ## How to use
 | Who | How |

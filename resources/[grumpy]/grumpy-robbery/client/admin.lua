@@ -1,4 +1,4 @@
--- /robberyadmin panel. The client shows the panel and reads the admin's own position;
+-- /robberyadmin panel. The client shows the panel and places points with rsg-gizmo;
 -- the server re-checks the permission and validates every point.
 
 local function fetch()
@@ -27,10 +27,20 @@ RegisterNetEvent('grumpy-robbery:client:adminRefresh', function()
     end)
 end)
 
-local function myPoint()
-    local ped = PlayerPedId()
-    local c = GetEntityCoords(ped)
-    return { x = c.x, y = c.y, z = c.z, h = GetEntityHeading(ped) }
+-- Runs rsg-gizmo with the panel hidden, then sends the result. model = prop shown while placing.
+local function gizmoPlace(model, title, send)
+    if GetResourceState('rsg-gizmo') ~= 'started' then return GRC.Notify(locale('admin_no_gizmo'), 'error') end
+    if exports['rsg-gizmo']:IsActive() then return end
+    GRC.HideUI()
+    CreateThread(function()
+        local res = exports['rsg-gizmo']:Place(model, { title = title, maxDistance = Config.PlaceDistance, rotation = 'z' })
+        GRC.ShowUI()
+        if res then send(res) end
+    end)
+end
+
+local function markerPoint(res)
+    return { x = res.coords.x, y = res.coords.y, z = res.coords.z, h = res.heading }
 end
 
 RegisterNUICallback('toggle', function(body, cb)
@@ -38,9 +48,14 @@ RegisterNUICallback('toggle', function(body, cb)
     if type(body) == 'table' then TriggerServerEvent('grumpy-robbery:server:adminToggle', tonumber(body.id), body.enabled == true) end
 end)
 
+-- shelf point: aim the marker at the shelf itself
 RegisterNUICallback('addShelf', function(body, cb)
     cb('ok')
-    if type(body) == 'table' then TriggerServerEvent('grumpy-robbery:server:adminAddShelf', tonumber(body.id), myPoint()) end
+    if type(body) ~= 'table' then return end
+    local id = tonumber(body.id)
+    gizmoPlace(Config.PointMarker, locale('admin_place_shelf'), function(res)
+        TriggerServerEvent('grumpy-robbery:server:adminAddShelf', id, markerPoint(res))
+    end)
 end)
 
 RegisterNUICallback('removeShelf', function(body, cb)
@@ -48,29 +63,25 @@ RegisterNUICallback('removeShelf', function(body, cb)
     if type(body) == 'table' then TriggerServerEvent('grumpy-robbery:server:adminRemoveShelf', tonumber(body.id), tonumber(body.index)) end
 end)
 
+-- existing safe in the interior: aim the marker at the safe itself (no prop is spawned)
 RegisterNUICallback('safeHere', function(body, cb)
     cb('ok')
-    if type(body) == 'table' then TriggerServerEvent('grumpy-robbery:server:adminSetSafe', tonumber(body.id), myPoint(), false) end
+    if type(body) ~= 'table' then return end
+    local id = tonumber(body.id)
+    gizmoPlace(Config.PointMarker, locale('admin_place_safe_point'), function(res)
+        TriggerServerEvent('grumpy-robbery:server:adminSetSafe', id, markerPoint(res), false)
+    end)
 end)
 
--- place a safe prop with rsg-gizmo (the panel closes while placing)
+-- place a safe prop with rsg-gizmo
 RegisterNUICallback('safeProp', function(body, cb)
     cb('ok')
     if type(body) ~= 'table' then return end
     local id = tonumber(body.id)
-    GRC.CloseUI()
-    CreateThread(function()
-        if GetResourceState('rsg-gizmo') ~= 'started' then return GRC.Notify(locale('admin_no_gizmo'), 'error') end
-        local res = exports['rsg-gizmo']:Place(Config.Safe.PropModel, {
-            title = locale('admin_place_safe'), maxDistance = 8.0, rotation = 'z',
-        })
-        if not res then return end
-        TriggerServerEvent('grumpy-robbery:server:adminSetSafe', id, {
-            x = res.coords.x, y = res.coords.y, z = res.coords.z, h = res.heading,
-            rot = { x = res.rotation.x, y = res.rotation.y, z = res.rotation.z },
-        }, true)
-        Wait(500)
-        TriggerEvent('grumpy-robbery:client:openAdmin')
+    gizmoPlace(Config.Safe.PropModel, locale('admin_place_safe'), function(res)
+        local p = markerPoint(res)
+        p.rot = { x = res.rotation.x, y = res.rotation.y, z = res.rotation.z }
+        TriggerServerEvent('grumpy-robbery:server:adminSetSafe', id, p, true)
     end)
 end)
 

@@ -11,7 +11,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 
 ## Features
 - **`/bartenders` manager panel** (like rsg-stores' `/createshop`): lists every bartender with search, and lets admins edit, teleport to, duplicate, move or delete each one. Hotel rentals are managed in grumpy-hotel (`/hotellist`).
-- Admins place bartenders with **rsg-gizmo**, or with **Use my position** to put the bartender exactly where they stand. Bartenders can also be edited through their target menu. Placed bartenders are saved in the database.
+- Admins place and move bartenders with **rsg-gizmo**: a ghost of the bartender follows your aim, and you can walk while placing. Bartenders can also be edited through their target menu. Placed bartenders are saved in the database.
 - You can also set bartenders in `Config.Bartenders`. These are read-only in game.
 - You pick the **ped model**, **animation** (a scenario or an anim dict/clip) and **position** for each bartender.
 - Each bartender has its own services, set per bartender:
@@ -64,8 +64,8 @@ This is a community script. It is **not** made or supported by the RSG authors.
 **Admins**
 - `/bartenders` (admin) opens the manager panel on the right of the screen, so you can still see the world.
   - **Bartender list:** search the list and click a row to show its actions: **Edit**, **Teleport** (puts you in front of the bartender), **Duplicate** (opens a new-bartender form with the same settings) and **Delete** (click twice). Bartenders from `Config.Bartenders` are marked *Config*; they can only be teleported to or duplicated.
-  - **New bartender:** fill in the form, then click **Place** to position the ghost ped with the gizmo, or **Use my position** to put it where you're standing, facing the way you face. Gizmo controls: LMB or Enter to confirm, RMB or Backspace to cancel, R to switch between free and fine mode.
-  - **Edit form:** **Save**, **Move** (gizmo), **Move to me**, **Delete**. The ‹ button goes back to the list.
+  - **New bartender:** fill in the form, then click **Place** to position the ghost ped with the gizmo (you can walk while placing). Gizmo controls: LMB or Enter to confirm, RMB or Backspace to cancel, R to switch between free and fine mode.
+  - **Edit form:** **Save**, **Move** (gizmo), **Delete**. The ‹ button goes back to the list.
   - **Bar shop:** tick **Create a bar shop automatically** when making a new bartender, or click **Create bar shop** next to the store ID on one that has no store. The store ID fills in by itself. Change the menu and prices later in `/createshop`.
 - `/placebartender` (admin) is a shortcut straight to the new-bartender form.
 - You can also target a bartender and choose **Manage bartender**.
