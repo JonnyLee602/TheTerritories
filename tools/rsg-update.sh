@@ -77,6 +77,13 @@ if git merge --no-edit -q upstream; then
 else
   echo "CONFLICTS (RSG and Territories both changed these lines):"
   git diff --name-only --diff-filter=U | sed 's/^/  /'
-  echo "Resolve them, then: git add -A && git commit"
+  echo "Resolve them, then: git add -A && git commit && python tools/build-recipe.py"
   exit 2
+fi
+
+# 4. regenerate the txAdmin recipe (new pinned commits)
+python -I tools/build-recipe.py
+if [ -n "$(git status --porcelain recipe)" ]; then
+  git add -A recipe && git commit -q -m "recipe: regenerate after RSG update"
+  echo "Recipe regenerated. Push to GitHub (git push origin main upstream) before deploying."
 fi
