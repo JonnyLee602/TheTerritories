@@ -68,18 +68,25 @@ Edit the file on `main`, then commit it. That's all: the next update keeps it au
 
 ## Fresh install with txAdmin (`recipe/`)
 
-`recipe/territories.yaml` builds a complete server from this repository:
+`recipe/territories.yaml` builds a complete server, one resource per step like RSG's own recipe
+(with a 10-second pause every 10 downloads so GitHub doesn't throttle):
 
 | Step | What it does |
 |---|---|
-| Download | This repo (`main`), plus the same standalone/community/map resources RSG's recipe uses |
-| `server.cfg` | `recipe/server.cfg`: RSG's server.cfg + `ensure [grumpy]` |
-| Database | `recipe/rsg/rsgcore.sql` (all RSG tables), then `recipe/territories_stores.sql` (our NPC shops), then each grumpy `install.sql` |
-| Resources | `resources/[framework]` (84, pinned) and `resources/[grumpy]` copied as they are in this repo |
+| Base | `recipe/` from this repo: `server.cfg` (RSG's + `ensure [grumpy]`), logo, SQL |
+| Database | `recipe/rsg/rsgcore.sql` (all RSG tables), `recipe/territories_stores.sql` (our NPC shops), `recipe/grumpy/*.sql` |
+| Standalone | cfx-server-data, oxmysql, ox_lib, PolyZone and the rest, same sources as RSG's recipe |
+| Framework | 84 resources: stock ones straight from Rexshack-RedM **pinned to the commit in `upstream.lock`**, customized ones from this repo |
+| Grumpy | each `resources/[grumpy]/*` script from this repo |
+| Extras | Nt_Blackjack, Nt_Holdem, rsg-mapping, redm-ymaps (as RSG's recipe) |
 
-In txAdmin: **Setup → Custom Template / Remote URL**, and use
+**The recipe is generated:** `python tools/build-recipe.py` (don't edit the YAML by hand). `tools/rsg-update.sh` runs it
+after every update. After a hand-made customization, run it yourself so that resource switches to "from this repo".
+`recipe/grumpy/` holds generated copies of each grumpy `install.sql`.
+
+In txAdmin: **Setup → Remote URL Template**, and use
 `https://raw.githubusercontent.com/JonnyLee602/TheTerritories/main/recipe/territories.yaml`.
-The recipe downloads the repo's `main` branch at deploy time, so push before deploying.
+The recipe reads this repo's `main` branch at deploy time, so push before deploying.
 
 `recipe/territories_stores.sql` comes from the 2026-11-05 rsg-stores export. Its header lists what was cleaned
 (dropped test shops, remapped item names). To refresh it from a newer export, ask Claude to rebuild it.
