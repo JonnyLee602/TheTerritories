@@ -1,4 +1,6 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
+-- [grumpy-pob hook] refresh core copy when items are added at runtime
+AddEventHandler('RSGCore:Server:UpdateObject', function() RSGCore = exports['rsg-core']:GetCoreObject() end)
 
 -- Shops are containers of type 'shop' stored in InvCore.Inventories as 'shop-<name>'.
 -- Drag from shop -> player buys, drag player -> shop sells (if the item has a buyPrice).

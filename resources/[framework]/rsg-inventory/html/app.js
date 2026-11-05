@@ -43,7 +43,11 @@ function totalWeight(map) {
 }
 
 const kg = (g) => (g / 1000).toFixed(1);
-const imgSrc = (it) => state.imagePath + (it.image || `${it.name}.png`);
+// [grumpy-pob hook] custom items can use a full image URL
+const imgSrc = (it) => {
+    const img = it.image || `${it.name}.png`;
+    return /^(https?|nui):\/\//.test(img) ? img : state.imagePath + img;
+};
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /* ------------------------------------------------------------------ render */

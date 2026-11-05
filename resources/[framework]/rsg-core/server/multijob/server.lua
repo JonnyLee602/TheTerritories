@@ -511,6 +511,12 @@ local api = {
     GetPlayerJobCount = ExportGetJobCount,
     GetJobDefinition = function(name) return JobRegistry.Get(name) end,
     GetJobDefinitions = function() return JobRegistry.All() end,
+    -- [grumpy-pob hook] create/update and delete job definitions from another resource (validated by the registry)
+    SaveJobDefinition = function(input)
+        local name = type(input) == 'table' and type(input.name) == 'string' and input.name:lower() or nil
+        return JobRegistry.Save(input, name == nil or JobRegistry.All()[name] == nil)
+    end,
+    DeleteJobDefinition = function(name) return JobRegistry.Delete(name) end,
 }
 
 for name, fn in pairs(api) do

@@ -1,4 +1,6 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
+-- [grumpy-pob hook] Items added at runtime by other resources (grumpy-pob custom items) need a fresh core copy
+AddEventHandler('RSGCore:Server:UpdateObject', function() RSGCore = exports['rsg-core']:GetCoreObject() end)
 
 -- rsg-core callback wrapper: handler returns its answer, we pass it to cb.
 local function registerCallback(name, fn)
@@ -97,6 +99,36 @@ local function discountFor(Player)
     local job, gang = Player.PlayerData.job, Player.PlayerData.gang
     local d = math.max(tonumber(job and DISC.Jobs and DISC.Jobs[job.name]) or 0, tonumber(gang and DISC.Gangs and DISC.Gangs[gang.name]) or 0)
     return math.min(math.max(d, 0), tonumber(DISC.MaxDiscount) or 0.5)
+end
+
+-- [grumpy-reputation hook] honor/infamy buy and sell multipliers for an NPC shop (1.0, 1.0 when not running)
+local function standingMults(src, npc)
+    if not npc or npc.kind ~= 'npc' or not npc.shop or GetResourceState('grumpy-reputation') ~= 'started' then return 1.0, 1.0 end
+    local ok, buy, sell = pcall(function() return exports['grumpy-reputation']:GetShopMultipliers(src, npc.shop.name) end)
+    if not ok or type(buy) ~= 'number' or type(sell) ~= 'number' then return 1.0, 1.0 end
+    return buy, sell
+end
+
+-- cheapest price any open store (or wholesale) sells an item for; caps honor sell bonuses
+local function cheapestBuy(name)
+    local c
+    for _, n in ipairs(CachedNPCs) do
+        if n.shop and not n.packed and n.shop.type ~= 'sell' then
+            for _, it in ipairs(n.shop.items) do
+                local p = tonumber(it.price) or 0
+                if it.name == name and p > 0 and (not c or p < c) then c = p end
+            end
+        end
+    end
+    local w = Config.Wholesale or {}
+    local wc = w.Enabled ~= false and w.Items and tonumber(w.Items[name])
+    if wc and wc > 0 and (not c or wc < c) then c = wc end
+    return c
+end
+
+local function arbitrageFactor()
+    local ok, f = pcall(function() return exports['grumpy-reputation']:GetArbitrageFactor() end)
+    return ok and tonumber(f) or 0.7
 end
 
 -- Positive whole number within [1, MAX_QTY], else nil (blocks 1.5 / -1 / NaN / huge).
@@ -795,6 +827,15 @@ RegisterNetEvent('rsg-stores:server:sellItem', function(npcId, itemName, quantit
     -- NPC shops: a discounted buyer also sells at the discounted price, so a discount
     -- bigger than the shop fee can't be used to buy and sell back for profit.
     if not isOwned then pct = pct * (1 - discountFor(Player)) end
+    -- [grumpy-reputation hook] honor/infamy sell multiplier. Honorable players buy at a discount, so no one
+    -- (any standing) is paid more per unit than the cheapest discounted price the item sells for anywhere.
+    if not isOwned and shopItem.price > 0 and GetResourceState('grumpy-reputation') == 'started' then
+        local _, sellMult = standingMults(src, npc)
+        local unit = shopItem.price * pct * sellMult
+        local cheapest = cheapestBuy(itemName)
+        if cheapest then unit = math.min(unit, cheapest * arbitrageFactor()) end
+        pct = unit / shopItem.price
+    end
     local feePct = math.floor((1 - pct) * 100 + 0.5)
     local payout = round2(shopItem.price * qty * pct)
     if payout < 0.01 then return TriggerClientEvent(FAIL, src, false, locale('sv_bad_price'), getCash(src)) end
@@ -877,6 +918,8 @@ RegisterNetEvent('rsg-stores:server:purchaseCart', function(npcId, cartItems)
     if npc.kind == 'player' and not npc.owner then return fail(locale('sv_store_closed')) end
     -- Staff can't buy from their own store (price-setting staff could otherwise buy stock at $0).
     if npc.kind == 'player' and isStaffOf(npc, Player.PlayerData.citizenid) then return fail(locale('sv_staff_no_trade')) end
+    -- [grumpy-pob hook] Shops run by another resource can bar a job (staff can't buy out their own stock)
+    if npc.blockJob and exports['rsg-core']:HasPlayerJob(src, npc.blockJob) then return fail(locale('sv_staff_no_trade')) end
     if npc.kind == 'player' and (npc.upkeepOwed or 0) > 0 then return fail(locale('sv_store_upkeep')) end
     if npc.shop.type ~= 'both' and npc.shop.type ~= 'buy' then return fail(locale('sv_shop_not_sell')) end
     if not isNearNpc(src, npc) then
@@ -900,6 +943,7 @@ RegisterNetEvent('rsg-stores:server:purchaseCart', function(npcId, cartItems)
         if merged[name] > MAX_QTY then return fail(locale('sv_cart_bad_qty')) end
     end
 
+    local sBuy = (standingMults(src, npc)) -- [grumpy-reputation hook]
     local disc = npc.kind == 'npc' and discountFor(Player) or 0
     local lines, total = {}, 0
     for _, name in ipairs(order) do
@@ -910,7 +954,7 @@ RegisterNetEvent('rsg-stores:server:purchaseCart', function(npcId, cartItems)
             return fail(locale('sv_no_stock_item'):format(shopItem.label))
         end
         if not exports['rsg-inventory']:CanAddItem(src, name, qty) then return fail(locale('sv_inv_full')) end
-        local unit = round2(shopItem.price * (1 - disc))
+        local unit = round2(shopItem.price * (1 - disc) * sBuy) -- [grumpy-reputation hook]
         total = total + unit * qty
         lines[#lines + 1] = { item = shopItem, name = name, qty = qty, unit = unit }
     end
@@ -956,6 +1000,14 @@ RegisterNetEvent('rsg-stores:server:purchaseCart', function(npcId, cartItems)
             return fail(locale('sv_inv_full_refund'))
         end
         granted[#granted + 1] = l
+    end
+
+    -- [grumpy-pob hook] NPC shops: tell other resources what sold (grumpy-pob routes the money to a business account).
+    -- Server-only event: clients cannot trigger it.
+    if npc.kind == 'npc' then
+        local sold = {}
+        for _, l in ipairs(lines) do sold[#sold + 1] = { name = l.name, qty = l.qty, unit = l.unit } end
+        TriggerEvent('rsg-stores:server:externalSale', npc.id, src, sold, total)
     end
 
     -- Owned stores: takings go into the store till for the owner to collect.
@@ -2078,5 +2130,31 @@ exports('DeleteShop', function(npcId)
     broadcastNPCs()
     broadcastBlips()
     print(('[rsg-stores] shop %d deleted by %s'):format(existing.id, GetInvokingResource() or '?'))
+    return true
+end)
+
+-- [grumpy-pob hook] true once shops are loaded from the database (other resources wait for this before creating shops)
+exports('IsReady', function() return DbReady end)
+
+-- [grumpy-pob hook] Replace the label and/or items of an NPC shop from another resource.
+-- data = { label?, items? = { { name, price, amount } }, blockJob? }. Stock is always limited (amount 0 = sold out).
+-- blockJob: players holding this job can't buy here.
+exports('SetShopData', function(npcId, data)
+    local npc = findNpc(tonumber(npcId))
+    if not npc or npc.kind ~= 'npc' or not npc.shop or type(data) ~= 'table' then return false end
+    if type(data.label) == 'string' and data.label ~= '' then
+        npc.shop.label = data.label:sub(1, 100)
+        npc.name = npc.shop.label
+        MySQL.update.await('UPDATE rsg_shops_npcs SET name = ?, shop_label = ? WHERE id = ?', { npc.name, npc.shop.label, npc.id })
+    end
+    if data.blockJob ~= nil then npc.blockJob = type(data.blockJob) == 'string' and data.blockJob or nil end
+    if type(data.items) == 'table' then
+        local items = sanitizeItems(data.items)
+        for _, it in ipairs(items) do it.amount = it.amount or 0 end
+        MySQL.query.await('DELETE FROM rsg_shops_items WHERE npc_id = ?', { npc.id })
+        insertShopItems(npc.id, items)
+        npc.shop.items = items
+    end
+    broadcastShop(npc)
     return true
 end)

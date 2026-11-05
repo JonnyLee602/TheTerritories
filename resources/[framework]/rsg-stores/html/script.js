@@ -236,8 +236,10 @@ var ShopUI = {
     },
 
     // ---------- shared helpers ----------
-    imgFor: function(item) {
-        if (item && item.image) return this.imagePath + item.image;
+    imgFor: function(item) { // [grumpy-pob hook] custom items can use a full image URL
+        var img = item && item.image;
+        if (img && /^(https?|nui):\/\//.test(img)) return img;
+        if (img) return this.imagePath + img;
         return this.imagePath + ((item && item.name) || 'unknown') + '.png';
     },
 

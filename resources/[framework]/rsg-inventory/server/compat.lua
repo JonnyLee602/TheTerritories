@@ -1,4 +1,6 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
+-- [grumpy-pob hook] refresh core copy when items are added at runtime
+AddEventHandler('RSGCore:Server:UpdateObject', function() RSGCore = exports['rsg-core']:GetCoreObject() end)
 
 -- Legacy rsg-inventory exports and player methods, so existing RSG scripts keep working.
 -- All of these are thin wrappers over the API in server/main.lua.

@@ -2797,7 +2797,7 @@ function OpenHorseMenu(stable, horse)
             onSelect = function()
                 local transferOptions = {}
                 for _, s in ipairs(Config.Stables) do
-                    if s.name ~= stable.name then
+                    if s.name ~= stable.name and not s.restrictJob then -- [grumpy-pob hook] job-only stables aren't transfer targets
                         table.insert(transferOptions, {
                             title = s.label,
                             description = locale('transfer_here'),
@@ -3392,4 +3392,25 @@ RSGCore.Functions.CreateClientCallback('rsg-stables:client:isHorseDead', functio
     local ent = NetworkGetEntityFromNetworkId(netId)
     if not ent or ent == 0 or not DoesEntityExist(ent) then return cb(nil) end
     cb(IsEntityDead(ent) or GetEntityHealth(ent) <= 0)
+end)
+
+-- ===================== REGISTERED STABLES (grumpy-pob) =====================
+-- [grumpy-pob hook]
+RegisterNetEvent('rsg-stables:client:externalStables', function(list)
+    for i = #Config.Stables, 1, -1 do
+        if Config.Stables[i].external then table.remove(Config.Stables, i) end
+    end
+    for _, s in ipairs(list or {}) do
+        s.external = true
+        Config.Stables[#Config.Stables + 1] = s
+    end
+end)
+
+CreateThread(function() TriggerServerEvent('rsg-stables:server:requestExternalStables') end)
+
+-- Opens the stable menu for a registered stable (the server still checks job and distance)
+exports('OpenStable', function(name)
+    for _, s in ipairs(Config.Stables) do
+        if s.name == name then return OpenStableMenu(s) end
+    end
 end)

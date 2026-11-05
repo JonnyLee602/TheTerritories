@@ -2,6 +2,8 @@
 -- Server-side usable item registration & consumption
 -- =========================================================================================
 local RSGCore = exports['rsg-core']:GetCoreObject()
+-- [grumpy-pob hook] Items added at runtime by other resources need a fresh core copy (refunds check RSGCore.Shared.Items)
+AddEventHandler('RSGCore:Server:UpdateObject', function() RSGCore = exports['rsg-core']:GetCoreObject() end)
 local config = Config
 
 -- Safety net: if the client never reports back (crash, desync) the lock is released after this
@@ -65,6 +67,29 @@ for category, items in pairs(config.Consumables) do
     registerConsumables(category, items)
 end
 
+-- [grumpy-pob hook] Registers alias (an item another resource added) to consume exactly like base.
+local function categoryOf(base)
+    for category, items in pairs(config.Consumables) do
+        if items[base] then return category end
+    end
+    return nil
+end
+
+exports('RegisterAlias', function(alias, base)
+    local category = categoryOf(base)
+    if type(alias) ~= 'string' or not category then return false end
+    RSGCore.Functions.CreateUseableItem(alias, function(source, item)
+        local src = source
+        if not RSGCore.Functions.GetPlayer(src) then return end
+        local active = pending[src]
+        if active and active.expires > GetGameTimer() then return notifyBusy(src) end
+        if not exports['rsg-inventory']:RemoveItem(src, alias, 1, item and item.slot, 'rsg-consume') then return end
+        pending[src] = { item = base, refund = alias, category = category, expires = GetGameTimer() + CONSUME_TIMEOUT }
+        TriggerClientEvent('rsg-consume:client:consume', src, base, category)
+    end)
+    return true
+end)
+
 ---Client reports the consumption finished.
 ---consumed = true  -> give the configured return item (e.g. emptybottle)
 ---consumed = false -> client could not play it (busy / passed out / dead), refund the item
@@ -80,7 +105,7 @@ RegisterNetEvent('rsg-consume:server:finish', function(consumed)
         local data = config.Consumables[active.category][active.item]
         if data.giveItem then addItem(src, data.giveItem, 'rsg-consume-return') end
     else
-        addItem(src, active.item, 'rsg-consume-refund')
+        addItem(src, active.refund or active.item, 'rsg-consume-refund') -- [grumpy-pob hook] refund the alias item
     end
 end)
 

@@ -144,6 +144,91 @@ local function getStableConfig(stableName)
     return nil
 end
 
+-- ===================== REGISTERED STABLES (other resources, e.g. grumpy-pob) =====================
+-- [grumpy-pob hook]
+local function toV4(p)
+    if not p then return nil end
+    return vector4((p.x or 0) + 0.0, (p.y or 0) + 0.0, (p.z or 0) + 0.0, (p.w or 0) + 0.0)
+end
+
+local function removeStableByName(name)
+    for i = #Config.Stables, 1, -1 do
+        if Config.Stables[i].name == name then table.remove(Config.Stables, i) end
+    end
+end
+
+local function externalList()
+    local list = {}
+    for _, s in ipairs(Config.Stables) do
+        if s.external then
+            list[#list + 1] = { name = s.name, label = s.label, pedCoords = s.pedCoords, storeCoords = s.storeCoords,
+                previewCoords = s.previewCoords, restrictJob = s.restrictJob }
+        end
+    end
+    return list
+end
+
+local function broadcastExternal(target)
+    TriggerClientEvent('rsg-stables:client:externalStables', target or -1, externalList())
+end
+
+-- def = { name, label, pedCoords, storeCoords?, previewCoords?, restrictJob?, maxHorses?, capExempt? }
+exports('RegisterStable', function(def)
+    if type(def) ~= 'table' or type(def.name) ~= 'string' or not def.pedCoords then return false end
+    removeStableByName(def.name)
+    Config.Stables[#Config.Stables + 1] = {
+        name = def.name, label = def.label or def.name,
+        pedCoords = toV4(def.pedCoords), storeCoords = toV4(def.storeCoords or def.pedCoords),
+        previewCoords = toV4(def.previewCoords or def.pedCoords),
+        restrictJob = type(def.restrictJob) == 'string' and def.restrictJob or nil,
+        maxHorses = tonumber(def.maxHorses), capExempt = def.capExempt == true,
+        external = GetInvokingResource() or 'unknown',
+    }
+    broadcastExternal()
+    return true
+end)
+
+exports('RemoveStable', function(name)
+    removeStableByName(name)
+    broadcastExternal()
+end)
+
+AddEventHandler('onResourceStop', function(res)
+    local changed = false
+    for i = #Config.Stables, 1, -1 do
+        if Config.Stables[i].external == res then table.remove(Config.Stables, i) changed = true end
+    end
+    if changed then broadcastExternal() end
+end)
+
+RegisterNetEvent('rsg-stables:server:requestExternalStables', function()
+    broadcastExternal(source)
+end)
+
+-- Restricted stables: only holders of restrictJob (any grade, any duty)
+local function canUseStable(src, stable)
+    if not stable or not stable.restrictJob then return true end
+    local ok, held = pcall(function() return exports['rsg-core']:HasPlayerJob(src, stable.restrictJob) end)
+    return ok and held == true
+end
+
+-- Per-stable horse limit
+local function stableCap(stableName)
+    local s = getStableConfig(stableName)
+    return (s and s.maxHorses) or Config.MaxHorsesPerStable
+end
+
+-- Moves horses out of a stable (fired staff, deleted business). citizenid nil = everyone's.
+exports('MoveHorses', function(fromStable, citizenid, toStable)
+    if type(fromStable) ~= 'string' or type(toStable) ~= 'string' or not getStableConfig(toStable) then return 0 end
+    if citizenid then
+        MySQL.update.await('UPDATE rsg_stables_breeding SET stable = ? WHERE stable = ? AND citizenid = ?', { toStable, fromStable, citizenid })
+        return MySQL.update.await('UPDATE rsg_stables_horses SET stable = ? WHERE stable = ? AND citizenid = ?', { toStable, fromStable, citizenid }) or 0
+    end
+    MySQL.update.await('UPDATE rsg_stables_breeding SET stable = ? WHERE stable = ?', { toStable, fromStable })
+    return MySQL.update.await('UPDATE rsg_stables_horses SET stable = ? WHERE stable = ?', { toStable, fromStable }) or 0
+end)
+
 -- breed handling class -> stored 0..100 handling value (unknown classes fall back to 50)
 local HandlingMap = {
     Heavy = 35,
@@ -161,6 +246,7 @@ local STABLE_INTERACT_DISTANCE = 15.0
 
 local function isNearStable(src, stable, maxDist)
     if not stable then return false end
+    if not canUseStable(src, stable) then return false end -- [grumpy-pob hook]
     local ped = GetPlayerPed(src)
     if not ped or ped == 0 then return false end
     local coords = GetEntityCoords(ped)
@@ -183,14 +269,14 @@ local function nearestStable(src, maxDist)
     if not ped or ped == 0 then return nil end
     local coords = GetEntityCoords(ped)
     local best, bestDist = nil, maxDist
-    for _, stable in ipairs(Config.Stables) do
+    for _, stable in ipairs(Config.Stables) do if canUseStable(src, stable) then -- [grumpy-pob hook]
         for _, point in ipairs({ stable.pedCoords, stable.storeCoords, stable.previewCoords }) do
             if point then
                 local d = #(coords - vector3(point.x, point.y, point.z))
                 if d <= bestDist then best, bestDist = stable, d end
             end
         end
-    end
+    end end
     return best
 end
 
@@ -255,9 +341,16 @@ local function withLock(key, fn)
     return r1, r2
 end
 
+-- [grumpy-pob hook] horses in capExempt stables don't count toward MaxOwnedHorses
 local function countOwnedHorses(citizenid)
-    local result = MySQL.prepare.await('SELECT COUNT(*) FROM rsg_stables_horses WHERE citizenid = ?', { citizenid })
-    return result or 0
+    local exempt = {}
+    for _, s in ipairs(Config.Stables) do if s.capExempt then exempt[#exempt + 1] = s.name end end
+    if #exempt == 0 then
+        return MySQL.prepare.await('SELECT COUNT(*) FROM rsg_stables_horses WHERE citizenid = ?', { citizenid }) or 0
+    end
+    local marks = ('?,'):rep(#exempt):sub(1, -2)
+    return MySQL.prepare.await(('SELECT COUNT(*) FROM rsg_stables_horses WHERE citizenid = ? AND (stable IS NULL OR stable NOT IN (%s))'):format(marks),
+        { citizenid, table.unpack(exempt) }) or 0
 end
 
 local function isTrue(v)
@@ -735,7 +828,7 @@ registerCallback('rsg-stables:server:buyHorse', function(source, stableName, mod
 
         return withLock('stable:' .. stableName, function()
             local atStable = MySQL.prepare.await('SELECT COUNT(*) FROM rsg_stables_horses WHERE citizenid = ? AND stable = ?', { Player.PlayerData.citizenid, stableName })
-            if atStable and atStable >= Config.MaxHorsesPerStable then
+            if atStable and atStable >= stableCap(stableName) then
                 return false, locale('stable_full')
             end
 
@@ -848,7 +941,7 @@ registerCallback('rsg-stables:server:claimWildHorse', function(source, stableNam
         end
         return withLock('stable:' .. stableName, function()
             local atStable = MySQL.prepare.await('SELECT COUNT(*) FROM rsg_stables_horses WHERE citizenid = ? AND stable = ?', { citizenid, stableName })
-            if atStable and atStable >= Config.MaxHorsesPerStable then
+            if atStable and atStable >= stableCap(stableName) then
                 return false, locale('stable_full')
             end
 
@@ -935,7 +1028,7 @@ local function storeActive(source, horseId, health, stamina, requireStable)
         local stableName = horse.stable
         if storeAt and storeAt.name ~= horse.stable then
             local atStable = MySQL.prepare.await('SELECT COUNT(*) FROM rsg_stables_horses WHERE citizenid = ? AND stable = ?', { citizenid, storeAt.name })
-            if not atStable or atStable < Config.MaxHorsesPerStable then stableName = storeAt.name end
+            if not atStable or atStable < stableCap(storeAt.name) then stableName = storeAt.name end
         end
 
         health = math.max(0, math.min(100, tonumber(health) or 100))
@@ -1269,6 +1362,7 @@ registerCallback('rsg-stables:server:transferHorse', function(source, horseId, n
 
     local stable = getStableConfig(newStable)
     if not stable then return false, locale('invalid_stable') end
+    if not canUseStable(source, stable) then return false, locale('invalid_stable') end -- [grumpy-pob hook]
     horseId = toId(horseId)
     if not horseId then return false, locale('horse_not_found') end
 
@@ -1284,7 +1378,7 @@ registerCallback('rsg-stables:server:transferHorse', function(source, horseId, n
         if not nearStableByName(source, horse.stable) then return false, locale('not_close_to_stable') end
 
         local atStable = MySQL.prepare.await('SELECT COUNT(*) FROM rsg_stables_horses WHERE citizenid = ? AND stable = ?', { Player.PlayerData.citizenid, newStable })
-        if atStable and atStable >= Config.MaxHorsesPerStable then
+        if atStable and atStable >= stableCap(newStable) then
             return false, locale('destination_full')
         end
 
@@ -1386,7 +1480,7 @@ registerCallback('rsg-stables:server:giveHorse', function(source, horseId, targe
 
         if countOwnedHorses(targetCid) >= Config.MaxOwnedHorses then return false, locale('give_target_full') end
         local atStable = MySQL.prepare.await('SELECT COUNT(*) FROM rsg_stables_horses WHERE citizenid = ? AND stable = ?', { targetCid, h.stable })
-        if atStable and atStable >= Config.MaxHorsesPerStable then return false, locale('give_target_stable_full') end
+        if atStable and atStable >= stableCap(h.stable) then return false, locale('give_target_stable_full') end
 
         if not targetCanPay(Target) then
             RSGCore.Functions.Notify(targetId, { description = locale('give_you_cant_afford', price), type = 'error' })
@@ -1710,7 +1804,7 @@ registerCallback('rsg-stables:server:collectFoal', function(source, breedingId)
         if owned >= Config.MaxOwnedHorses then return false, locale('horse_limit_reached') end
 
         local atStable = MySQL.prepare.await('SELECT COUNT(*) FROM rsg_stables_horses WHERE citizenid = ? AND stable = ?', { Player.PlayerData.citizenid, job.stable })
-        if atStable and atStable >= Config.MaxHorsesPerStable then
+        if atStable and atStable >= stableCap(job.stable) then
             return false, locale('foal_stable_full')
         end
 

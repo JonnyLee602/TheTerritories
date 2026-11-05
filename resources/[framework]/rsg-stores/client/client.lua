@@ -1,4 +1,6 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
+-- [grumpy-pob hook] Items added at runtime (grumpy-pob custom items): refresh labels and images
+AddEventHandler('RSGCore:Client:UpdateObject', function() RSGCore = exports['rsg-core']:GetCoreObject() end)
 
 local SELL_PCT = Config.SellPricePercentage or 0.80
 local CLOSE_DIST = (Config.TargetDistance or 2.5) + 2.0
@@ -46,6 +48,14 @@ local function myDiscount(npc)
     return math.min(math.max(d, 0), tonumber(DISC.MaxDiscount) or 0.5)
 end
 
+-- [grumpy-reputation hook] display-only honor/infamy multipliers (the server works out the real price)
+local function standingMults(npc)
+    if not npc or npc.kind == 'player' or not npc.shop or GetResourceState('grumpy-reputation') ~= 'started' then return 1.0, 1.0 end
+    local ok, buy, sell = pcall(function() return exports['grumpy-reputation']:GetShopMultipliers(npc.shop.name) end)
+    if not ok or type(buy) ~= 'number' or type(sell) ~= 'number' then return 1.0, 1.0 end
+    return buy, sell
+end
+
 local function formatShopItems(items, discount)
     local out, d = {}, discount or 0
     for _, item in ipairs(items or {}) do
@@ -53,7 +63,7 @@ local function formatShopItems(items, discount)
         local base = tonumber(item.price) or 0
         out[#out + 1] = {
             name = item.name, label = item.label or label or item.name,
-            price = d > 0 and math.floor(base * (1 - d) * 100 + 0.5) / 100 or base, basePrice = base,
+            price = d ~= 0 and math.floor(base * (1 - d) * 100 + 0.5) / 100 or base, basePrice = base,
             amount = item.amount, description = desc, image = image, category = category,
         }
     end
@@ -182,7 +192,9 @@ local function OpenCustomShop(npcData, origin)
     currentShop = npcData
     shopOrigin = origin or vector3(npcData.x, npcData.y, npcData.z)
     local disc = myDiscount(npcData)
-    currentShop.discount = disc
+    local sBuy, sSell = standingMults(npcData) -- [grumpy-reputation hook]
+    currentShop.discount = 1 - (1 - disc) * sBuy   -- job/gang discount and standing in one factor
+    if sBuy ~= 1.0 then pcall(function() exports['grumpy-reputation']:ShopGreeting(npcData.shop.label, sBuy) end) end
     if npcData.kind ~= 'player' then speak(spawnedNpcs[npcData.id], SPEECH.Greet) end
     if disc > 0 then
         RSGCore.Functions.Notify({ title = npcData.shop.label, description = locale('cl_discount'):format(math.floor(disc * 100 + 0.5)), type = 'success', icon = 'fa-solid fa-percent' })
@@ -191,7 +203,7 @@ local function OpenCustomShop(npcData, origin)
 
     local code, strings = GetUiStrings()
     -- NPC shops pay sellers the discounted price too (matches the server)
-    local pct = npcData.kind == 'player' and (tonumber(OS.BuyBackPercentage) or SELL_PCT) or SELL_PCT * (1 - disc)
+    local pct = npcData.kind == 'player' and (tonumber(OS.BuyBackPercentage) or SELL_PCT) or SELL_PCT * (1 - disc) * sSell
     local maxStock = npcData.kind == 'player' and (tonumber(OS.MaxStock) or 0)
         or ((Config.SellAddsStock ~= false) and (tonumber(Config.MaxShopStock) or 0) or 0)
     SendNUIMessage({

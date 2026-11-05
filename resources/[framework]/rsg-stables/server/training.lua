@@ -226,3 +226,46 @@ AddEventHandler('playerDropped', function()
     pending[source] = nil
     rideState[source] = nil
 end)
+
+-- ===================== EXPORTS (grumpy-pob: staff train other players' horses) =====================
+-- [grumpy-pob hook]
+local function horseRow(horseId)
+    return MySQL.single.await('SELECT id, name, model, training, alive FROM rsg_stables_horses WHERE id = ?', { tonumber(horseId) or 0 })
+end
+
+exports('GetActiveHorse', function(citizenid)
+    local h = getActiveHorse(citizenid)
+    return h and { id = h.id, name = h.name, model = h.model } or nil
+end)
+
+local function canTrain(horseId, stat)
+    if type(stat) ~= 'string' or not T.stats[stat] then return false, locale('training_invalid_stat') end
+    local horse = horseRow(horseId)
+    if not horse or (horse.alive ~= 1 and horse.alive ~= true) then return false, locale('no_active_horse') end
+    local data = decode(horse.training)
+    if os.time() < data.lastSession + T.session.cooldown then
+        return false, locale('training_cooldown', math.ceil(((data.lastSession + T.session.cooldown) - os.time()) / 60))
+    end
+    if levelFor(data.stats[stat]) >= MAX_LEVEL then return false, locale('training_max_level') end
+    return true, nil, horse, data
+end
+
+exports('CanTrainHorse', function(horseId, stat)
+    local ok, err = canTrain(horseId, stat)
+    return ok, err
+end)
+
+-- Adds xp to one stat and starts the normal session cooldown. Returns ok, summary | errText
+exports('TrainHorse', function(horseId, stat, xp)
+    local ok, err, horse, data = canTrain(horseId, stat)
+    if not ok then return false, err end
+    data.lastSession = os.time()
+    local ups = addXp(horse, data, { [stat] = math.max(0, tonumber(xp) or 0) })
+    local owner = MySQL.scalar.await('SELECT citizenid FROM rsg_stables_horses WHERE id = ?', { horse.id })
+    local P = owner and RSGCore.Functions.GetPlayerByCitizenId(owner)
+    if P then
+        notifyLevelUps(P.PlayerData.source, horse.name, ups)
+        TriggerClientEvent('rsg-stables:client:trainingUpdate', P.PlayerData.source, horse.id, summary(data))
+    end
+    return true, summary(data)
+end)

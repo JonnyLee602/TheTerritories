@@ -1,4 +1,6 @@
 local RSGCore = exports['rsg-core']:GetCoreObject()
+-- [grumpy-pob hook] Items added at runtime by other resources (rsg-core AddItem) need a fresh core copy
+AddEventHandler('RSGCore:Server:UpdateObject', function() RSGCore = exports['rsg-core']:GetCoreObject() end)
 
 --------------------------------------------------------------------------------
 -- State
@@ -566,7 +568,11 @@ end
 local function OnClosed(src)
     local id = OpenInv[src]
     OpenInv[src] = nil
-    if id then SaveStash(id) CleanupDropIfEmpty(id) end
+    if id then
+        SaveStash(id)
+        CleanupDropIfEmpty(id)
+        if type(id) == 'string' then TriggerEvent('rsg-inventory:server:stashClosed', src, id) end -- [grumpy-pob hook] server-only
+    end
 end
 
 local function OpenFor(src, otherId)
