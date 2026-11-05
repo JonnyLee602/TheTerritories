@@ -42,8 +42,14 @@ for n in $names; do
   old=$(awk -v n="$n" '$1==n{print $2}' upstream.lock)
   new=$(git -C "$d" rev-parse HEAD)
   [ "$old" = "$new" ] && continue
-  rm -rf "$FW/$n"; mkdir -p "$FW/$n"
-  git -c core.autocrlf=false -C "$d" archive HEAD | tar -x -C "$FW/$n"
+  if [ "$n" = "txAdminRecipe" ]; then
+    # RSG's own recipe: we only use its database file and logo (recipe/rsg/), our recipe does the rest
+    rm -rf recipe/rsg; mkdir -p recipe/rsg
+    git -c core.autocrlf=false -C "$d" archive HEAD rsgcore.sql myLogo.png | tar -x -C recipe/rsg
+  else
+    rm -rf "$FW/$n"; mkdir -p "$FW/$n"
+    git -c core.autocrlf=false -C "$d" archive HEAD | tar -x -C "$FW/$n"
+  fi
   if [ -n "$old" ]; then
     sed -i "s/^$n .*/$n $new/" upstream.lock
     log=$(git -C "$d" log --format='    - %s' "$old..$new" 2>/dev/null | head -15)
@@ -59,6 +65,7 @@ if [ -z "$report" ]; then
   git checkout -q main; echo "Everything is already up to date."; exit 0
 fi
 git add -A "$FW" upstream.lock
+[ -d recipe/rsg ] && git add -A recipe/rsg
 git commit -q -m "RSG update $(date +%Y-%m-%d)" -m "$report"
 git checkout -q main
 
