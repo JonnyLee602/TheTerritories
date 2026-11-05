@@ -37,7 +37,8 @@ The commit message on `upstream` lists what RSG changed in each resource. To und
 
 | Resource | Change | Why |
 |---|---|---|
-| rsg-core | `shared/items.lua`: `cooked_poultry`, `cooked_game_meat`, `hardtack`, `blank_paper`, `custom_note` | Custom items |
+| rsg-core | `shared/items.lua`: `cooked_poultry`, `cooked_game_meat`, `hardtack`, `blank_paper`, `custom_note`, `raw_game_meat`, `raw_poultry`, `raw_stringy_meat` | Custom items |
+| rsg-hunting | `Config.Animals`: Territories drops (meat by animal type) + 3 legendaries using RSG's `legendary_*` items | Hunting economy |
 | rsg-inventory | ~56 custom images in `html/images` (seeds, meats, custom items, `legendary_pelt.png`) | Item icons |
 | rsg-doorlock | `shared/doorhashes_custom.lua`: 2 custom doors | New doors |
 | rsg-lottery | Ticket-seller NPCs commented out, blip off; `OpenLottery` export | grumpy-bartender sells tickets |
