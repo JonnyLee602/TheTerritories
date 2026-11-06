@@ -84,9 +84,10 @@ function Tables.SeatWorld(t, i)
     return Geo.ToWorld(Tables.Origin(t), t.h, s)
 end
 
+-- Real players only: NPCs never keep a table open
 function Tables.RealCount(t)
     local n = 0
-    for _ in pairs(t.occupants) do n = n + 1 end
+    for _, occ in pairs(t.occupants) do if not occ.npc then n = n + 1 end end
     return n
 end
 
@@ -102,17 +103,19 @@ local function gameLabel(t)
 end
 
 function Tables.Public(t)
-    local occupied, chips = {}, {}
+    local occupied, chips, npc = {}, {}, {}
     for i = 1, #t.seats do
-        occupied[i] = t.occupants[i] ~= nil
-        chips[i] = t.occupants[i] ~= nil and (t.occupants[i].stack or 0) > 0
+        local occ = t.occupants[i]
+        occupied[i] = occ ~= nil
+        chips[i] = occ ~= nil and (occ.stack or 0) > 0
+        npc[i] = occ ~= nil and occ.npc and occ.model or false
     end
     return {
         id = t.id, label = t.label, kind = t.kind, source = t.source, model = t.model, bound = t.bound,
         x = t.x, y = t.y, z = t.z, h = t.h, currency = t.currency, fixedTier = t.fixedTier, enabled = t.enabled,
         seats = t.seats, dealer = t.dealer, chair = t.chair, sitZ = t.sitZ, chairYaw = t.chairYaw,
         chipForward = t.chipForward, chipHeight = t.chipHeight,
-        state = t.state, game = t.game, gameLabel = gameLabel(t), tier = t.tier, occupied = occupied, chips = chips,
+        state = t.state, game = t.game, gameLabel = gameLabel(t), tier = t.tier, occupied = occupied, chips = chips, npc = npc,
         version = t.version,
     }
 end
@@ -129,7 +132,7 @@ function Tables.Sync(t)
 end
 
 local function notifyTable(t, msg, ntype)
-    for _, occ in pairs(t.occupants) do GG.Notify(occ.src, msg, ntype) end
+    for _, occ in pairs(t.occupants) do if occ.src then GG.Notify(occ.src, msg, ntype) end end
 end
 Tables.NotifyTable = notifyTable
 
@@ -254,6 +257,7 @@ end
 function Tables.Reset(t, reason)
     local h = GG.Hands and GG.Hands.ForTable(t.id)
     if h then GG.Hands.Cancel(h.id, 'table_stopped') end
+    if GG.Npc then GG.Npc.ClearTable(t, true) end -- NPCs leave with the last real player
     if t.state == 'active' and t.game then
         TriggerEvent('grumpy-gambling:server:tableStopping', t.id, t.game, reason or 'empty')
     end
@@ -276,7 +280,7 @@ end
 local function anotherOccupant(t, except)
     for i = 1, #t.seats do
         local occ = t.occupants[i]
-        if occ and occ.src ~= except then return occ.src end
+        if occ and occ.src and occ.src ~= except then return occ.src end
     end
     return nil
 end
@@ -311,7 +315,7 @@ function Tables.Configure(t, src, gameId, tierId)
     Tables.Sync(t)
     notifyTable(t, locale('table_started', g.label, locale(Config.Tiers[tierId].label)), 'success')
     TriggerEvent('grumpy-gambling:server:tableStarted', t.id, g.id, tierId, t.currency)
-    for _, occ in pairs(t.occupants) do GG.Wallet.Offer(occ.src, t, occ) end
+    for _, occ in pairs(t.occupants) do if occ.src then GG.Wallet.Offer(occ.src, t, occ) end end
     return true
 end
 

@@ -1,7 +1,9 @@
 # grumpy-gambling — core design
 
-Status: **phase 1 (foundation) built and tested in game; phase 2 (money) built** 2026-11-05 as v0.2.0, unit- and
-integration-tested in real Lua 5.4 (`tests/`), not yet played in game; phases 3–7 to do. Layout additions to §4.2:
+Status: **phases 1–2 built and tested in game; phase 3 (module library) built** 2026-11-05 as v0.3.0 and tested in
+real Lua 5.4 (`tests/`, incl. the test games playing full hands through the core); phases 4–7 to do. Phase 3 adds
+`server/play.lua` (views, action relay, stakes) and the dev-only `grumpy-gambling-test` resource; `lib/flow.lua`
+became timers in `lib/server.lua`, and the NPC brain moves to phase 5. Layout additions to §4.2:
 `shared/geometry.lua`, `server/registry.lua` (phase 1); `server/money.lua` (pure maths), `server/db.lua` (all money SQL),
 `server/wallet.lua` (stacks) (phase 2). `server/hands.lua`, `rake.lua`, `house.lua` as planned. This file is the contract every
 game module is built against. Update it whenever a decision changes.
@@ -469,7 +471,7 @@ exports['grumpy-gambling']:RegisterGame({
 })
 ```
 
-### 11.2 Core → module (server events, via `GG.On(event, fn)` in the lib)
+### 11.2 Core → module (server events; `GGLib.RegisterGame(def, handlers)` routes them by game id)
 | Event | Data | Module must |
 |---|---|---|
 | `tableStarted` | tableId, tier, currency, seats, options | Set up state, start hands |

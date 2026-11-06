@@ -1,6 +1,6 @@
 # grumpy-gambling — developer docs
 
-Version 0.2.0, phases 1–2 (foundation, money). The full design, including later phases, is in [DESIGN.md](DESIGN.md).
+Version 0.3.0, phases 1–3 (foundation, money, module library). The full design, including later phases, is in [DESIGN.md](DESIGN.md).
 
 ## Contents
 1. Architecture
@@ -32,12 +32,16 @@ Version 0.2.0, phases 1–2 (foundation, money). The full design, including late
 | `server/hands.lua` | The hand API: `BeginHand`, `Bet`, `Return`, `SetRakeable`, `Settle`, `CancelHand`, `GetHand`, `GetSeats` |
 | `server/wallet.lua` | Buy-in / top-up, cash-out, payouts owed to offline players, restart recovery, Chips window |
 | `server/seats.lua` | Sit / stand (cashing out), one seat per player, setup choice, disconnects, sync callback |
+| `server/play.lua` | Views (`PushView`), player actions relayed to the game, `GetStakes`, `TableMessage`, `StandSeat` |
 | `server/admin.lua` | `/gambling`: create, bind, move, rename, toggle, delete, teleport, calibrate |
 | `client/main.lua` | `GGC` namespace, table sync, NUI bridge |
 | `client/world.lua` | Distance-gated spawning of tables, chairs, dealers; seat targets; blips |
 | `client/seat.lua` | Seated scenario, stand / choose-game / chips prompts, picker and chips callbacks |
+| `client/view.lua` | Latest table view and feed for this player; dev `/gga` command (`Config.DevGames`) |
+| `server/npc.lua` | NPC seats: `Seat`, `Remove`, `ClearTable`, money created/destroyed; dev `/ggbot` (`Config.DevGames`) |
 | `client/admin.lua` | Admin panel, rsg-gizmo placement/move, map table binding, calibration flow |
 | `html/*` | NUI: admin panel, game/tier picker and Chips window (house style) |
+| `lib/*` | **Module library**, loaded by game modules (not by the core): `init.lua`, `cards.lua`, `poker.lua`, `betting.lua`, `server.lua` |
 | `tests/*` | Not loaded by the game. Lua tests run in real Lua 5.4: `tests/run_tests.py` (Python 3.12 + `lupa`) |
 | `locales/en.json` | All player-facing text |
 
@@ -100,6 +104,15 @@ Errors: `no_table`, `table_not_started`, `not_your_table`, `hand_open`, `no_play
 `not_in_hand`, `bad_amount`, `not_enough_chips`, `house_cover`, `pvp_only`, `bad_ranking`, `bad_payouts`,
 `payout_too_high`, `unbalanced`, `db_error` (the hand is cancelled).
 
+### Play (phase 3, for game modules; only the game's own resource)
+| Export | Returns | Notes |
+|---|---|---|
+| `PushView(tableId, public, private)` | bool | `public` goes to everyone seated; `private[seat]` only to that seat's player (hole cards, `actions`) |
+| `TableMessage(tableId, src or nil, text)` | bool | A line for one player's or the whole table's feed (text already translated by the module) |
+| `GetStakes(tableId)` | `{ tier, currency, kind, smallBlind, bigBlind, buyInMin, buyInMax, minBet, maxBet, rake }` | Cents |
+| `StandSeat(tableId, seat)` | bool | e.g. a player who keeps timing out (NPC seats are removed) |
+| `SeatNpc(tableId, seat, { name?, model?, stack? })` | bool | Seats an NPC (phase 5 adds the seating rule and brains). NPCs have `npc = true` and no `src` in `GetSeats` |
+
 No client exports.
 
 ## 4. Events for modules and other resources (server, local `AddEventHandler`)
@@ -110,7 +123,8 @@ No client exports.
 | `grumpy-gambling:server:seatTaken` | `tableId, gameId, seat, src` | A player sat at an active table |
 | `grumpy-gambling:server:seatLeft` | `tableId, gameId, seat, src` | A player left an active table |
 | `grumpy-gambling:server:tableStopping` | `tableId, gameId, reason` | The last real player left (reason `empty`); an open hand is cancelled |
-| `grumpy-gambling:server:stackChanged` | `tableId, seat, src, cents` | A player bought in or topped up |
+| `grumpy-gambling:server:stackChanged` | `tableId, gameId, seat, src, cents` | A player bought in or topped up |
+| `grumpy-gambling:server:playerAction` | `tableId, gameId, seat, src, actionId, cents?` | A seated player acted (core checked seat, table and rate; the game checks the move) |
 
 Phase 3 adds the hand API and wraps these in the module library (DESIGN.md §11).
 
@@ -124,6 +138,8 @@ Phase 3 adds the hand API and wraps these in the module library (DESIGN.md §11)
 | `grumpy-gambling:server:requestSetup` / `configure` (`gameId, tierId`) | server | Setup player only |
 | `grumpy-gambling:server:buyIn` (`dollars`) / `requestChips` | server | Seated player at an active table, not in a hand, within the buy-in range |
 | `grumpy-gambling:client:chips` / `chipsClosed` | client | Chips window (amounts in cents) |
+| `grumpy-gambling:server:action` (`actionId, cents?`) | server | Seated player at an active table; 250 ms rate limit |
+| `grumpy-gambling:client:view` (`tableId, public, private, seat`) / `message` (`tableId, text`) | client | Table view and feed |
 | `grumpy-gambling:server:admin*` | server | Admin only: `Create`, `Move`, `Rename`, `Toggle`, `Delete`, `Teleport`, `Calibrate`, `ResetCalibration` |
 | `grumpy-gambling:client:sync` / `table` / `removeTable` | client | Table data |
 | `grumpy-gambling:client:seated` / `stood` / `setup` / `setupClosed` | client | Seat state and picker |
@@ -138,6 +154,41 @@ if seat then print(('seat %d at table %d'):format(seat.seat, seat.tableId)) end
 for _, p in ipairs(exports['grumpy-gambling']:GetSeated(3) or {}) do print(p.seat, p.name) end
 ```
 
+## 6b. Writing a game module
+A module is a small resource; game state lives in it, money and players live in the core.
+
+```lua
+-- fxmanifest.lua
+shared_scripts { '@rsg-core/shared/locale.lua', '@grumpy-gambling/lib/init.lua', '@grumpy-gambling/lib/cards.lua',
+    '@grumpy-gambling/lib/poker.lua', '@grumpy-gambling/lib/betting.lua' }   -- only what the game needs
+server_scripts { '@grumpy-gambling/lib/server.lua', 'server/game.lua' }
+dependencies { 'rsg-core', 'grumpy-gambling' }    -- ensure the module after grumpy-gambling
+
+-- server/game.lua
+GGLib.RegisterGame({ id = 'blackjack', label = locale('label'), kind = 'pvd', minSeats = 1, maxSeats = 4,
+    houseEdge = 0.005, maxPayout = 2.5 }, {
+    tableStarted = function(tableId, tier, currency) end,   -- the first player picked this game
+    seatTaken = function(tableId, seat, src) end,
+    seatLeft = function(tableId, seat, src) end,            -- fold / stand them; bets already in stay in
+    stackChanged = function(tableId, seat, src, cents) end, -- bought in or topped up: maybe start a hand
+    action = function(tableId, seat, src, id, cents) end,   -- validate against your own rules
+    tableStopping = function(tableId, reason) end,          -- the core already cancelled any open hand
+})
+```
+- **Library:** `GGLib.Cards` (`NewShoe(decks)`, `:Draw()`, `Public`, `PublicList`, `Parse`, `Str`), `GGLib.Poker`
+  (`Best(cards)` → score, name, five cards; `Compare`; `Ranking(entries)` → the groups `Settle` wants),
+  `GGLib.Betting` (`New{order, stacks, bigBlind}`, `:Post`, `:Begin`, `:NewStreet`, `:Legal`, `:Act`, `:Remove`,
+  `:Done`, `:Live`, `:Uncalled`), wrappers (`GGLib.BeginHand`, `Bet`, `Return`, `SetRakeable`, `Settle`, `Cancel`,
+  `Hand`, `Seats`, `Table`, `Stakes`, `Stand`, `View`, `Say`), timers (`GGLib.After(key, ms, fn)` replaces any timer
+  with the same key; `CancelTimer`, `CancelTimers(prefix)`), `GGLib.Fmt(cents)`, `GGLib.Cents(dollars)`.
+- **Money:** every chip the betting engine moves (`put` from `Post`/`Act`) goes to the core with `GGLib.Bet`. Give back
+  `Uncalled()` with `GGLib.Return`. Settle with a ranking (PVP) or payouts (PVD). Never touch player money yourself.
+- **Views** (DESIGN.md §11.4): `public` = { game, phase, pot, board, turn, deadline, seats = { { seat, name, stack,
+  bet, cards, label, ... } }, results }, `private[seat]` = { cards, actions = { { id = 'fold' }, { id = 'call',
+  amount }, { id = 'raise', min, max, step } } } (cents). Phase 4 draws this in the NUI.
+- **Example:** `grumpy-gambling-test` (dev only) has a full PVP game (`server/showdown.lua`) and PVD game
+  (`server/highcard.lua`) in about 250 and 150 lines.
+
 ## 7. Persistence and the money model
 Tables (placement, money type, Micro flag, per-table calibration, open/closed) and model calibrations are saved in the
 database. Seats, game and tier are runtime only: a restart empties every table and stands everyone up.
@@ -151,7 +202,8 @@ database. Seats, game and tier are runtime only: a restart empties every table a
 - **Restart:** every stack row left behind is moved to pending; players online get it at once, others at login.
 - **Ledger sign:** `amount_c` is the change in money held by the core (stacks + cashboxes): `buyin`/`topup` +,
   `cashout`/`pending`/`refund`/`recovered` -, `rake` - (destroyed), `mint` + (the house paid a dealer-game win),
-  `sink` - (the house kept a loss), `rake_box`/`paid_pending` 0. With no hand open, the sum of the ledger equals the
+  `sink` - (the house kept a loss), `npc_mint` + (an NPC's chips created when it sits), `npc_sink` - (an NPC's chips
+  destroyed when it leaves, or its win after leaving), `rake_box`/`paid_pending` 0. With no hand open, the sum of the ledger equals the
   stacks plus cashboxes.
 - **Rake tuner:** play stats are buffered and flushed every minute; once a day the tuner reads the last
   `WindowDays` and moves each rate toward the target (DESIGN.md §6.3).
@@ -169,8 +221,13 @@ database. Seats, game and tier are runtime only: a restart empties every table a
   money (`RemoveMoney` must succeed) and an open hand. Modules can't touch money directly: `Settle` refuses rankings with
   unknown or repeated seats, payouts above stake × `maxPayout`, and any result where awards + rake don't equal the bets.
 - Only the resource that registered the game can drive hands at its tables (`GetInvokingResource`).
-- Tested in real Lua 5.4: 2,000 random side-pot hands, and an integration run of 600 poker + 400 dealer hands with
-  buy-ins, top-ups, leavers, drops, a crash and a database failure: money conserved after every step.
+- Only the game's own resource may push views, send table messages or stand seats for its tables.
+- Player actions reach the game only from a seated player at an active table running that game, at most 4 a second;
+  the game decides whether the move is legal.
+- Tested in real Lua 5.4 (`tests/`): 2,000 random side-pot hands; 3,000 random betting rounds; an integration run of
+  600 poker + 400 dealer hands with buy-ins, top-ups, leavers, drops, a crash and a database failure; and the test
+  games (a separate resource) playing 300 poker hands and 200 dealer rounds through the core with random legal
+  moves, time-outs and players coming and going. Money conserved after every hand.
 
 ## 9. Database schema
 ```sql

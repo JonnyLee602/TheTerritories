@@ -20,7 +20,10 @@ def run(files):
         load = L.eval('function(src, name) local fn, err = load(src, "@" .. name) if not fn then error(err) end return fn() end')
         try:
             for dep in DEPS.get(f.name, []):
-                load((ROOT / dep).read_text(encoding='utf-8'), dep)
+                if dep.startswith('lua:'):
+                    L.execute(dep[4:])
+                else:
+                    load((ROOT / dep).read_text(encoding='utf-8'), dep)
             load(f.read_text(encoding='utf-8'), f.name)
         except Exception as e:
             print(f'ERROR {f.name}: {e}'); bad += 1; continue
@@ -30,11 +33,17 @@ def run(files):
 
 SERVER = ['tests/fakes.lua', 'shared/config.lua', 'shared/geometry.lua', 'shared/models.lua',
           'server/main.lua', 'server/money.lua', 'server/db.lua', 'server/registry.lua', 'server/tables.lua',
-          'server/rake.lua', 'server/house.lua', 'server/hands.lua', 'server/wallet.lua', 'server/seats.lua',
+          'server/rake.lua', 'server/house.lua', 'server/hands.lua', 'server/wallet.lua', 'server/seats.lua', 'server/npc.lua',
           'tests/fake_db.lua']
 DEPS = {
     'test_money.lua': ['server/money.lua'],
     'test_hands.lua': SERVER,
+    'test_lib.lua': ['lib/init.lua', 'lib/cards.lua', 'lib/poker.lua', 'lib/betting.lua'],
+    # the dev test games live in a sibling resource (builds/grumpy-gambling-test) and are loaded "inside" it
+    'test_play.lua': SERVER + ['server/play.lua', 'lua:GG.Ready = true', 'lua:Fake.resource = "grumpy-gambling-test"',
+                               'lib/init.lua', 'lib/cards.lua', 'lib/poker.lua', 'lib/betting.lua', 'lib/server.lua',
+                               '../grumpy-gambling-test/server/showdown.lua', '../grumpy-gambling-test/server/highcard.lua',
+                               'lua:Fake.resource = "grumpy-gambling"'],
 }
 if __name__ == '__main__':
     tests = sorted((ROOT / 'tests').glob('test_*.lua'))

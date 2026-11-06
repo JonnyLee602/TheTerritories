@@ -3,16 +3,17 @@
 The gambling core for The Territories: card tables, seating, stake tiers and (in later phases) stacks, rake, NPC players
 and business tables, shared by small **game modules** (blackjack, poker, faro, …) that only define rules and odds.
 
-Version 0.2.0 (**phase 2 of 7: money**) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
+Version 0.3.0 (**phase 3 of 7: module library**) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
 developers and [DESIGN.md](DESIGN.md) for the full design.
 
 This is a community script. It is **not** made or supported by the RSG authors.
 
 **Dependencies:** `rsg-core`, `rsg-target`, `rsg-gizmo`, `oxmysql`
 
-> **Status.** Phase 1 (tables, seating, game + tier choice) and phase 2 (chips, hands, rake, ledger) are built.
-> No game modules exist yet, so until one is installed the picker says no games are available. On a dev server,
-> `Config.DevGames = true` adds placeholder games so buy-in and cash-out can be tried.
+> **Status.** Phases 1–3 are built: tables and seating, chips/hands/rake/ledger, and the **module library** game
+> modules are written with (`lib/`). The table UI (cards, action buttons) is phase 4, so no real game modules are
+> released yet. Dev servers: `grumpy-gambling-test` adds two test games playable with the `/gga` chat command, and
+> `Config.DevGames = true` adds placeholder games for trying chips.
 
 ## Features
 - **`/gambling` admin panel** (house style NUI):
@@ -45,6 +46,9 @@ This is a community script. It is **not** made or supported by the RSG authors.
   2.5 minimum bets per hour (dealer games, the game's own edge included). Fractions of a cent carry between hands. Public
   tables destroy the rake (a money sink). Micro tables pay none.
 - **Ledger** of every buy-in, cash-out, payout, rake and house win or loss; hands are recorded too.
+- **Module library** (`lib/`): cards and shoes, a poker hand evaluator, a no-limit betting engine (blinds, min-raise,
+  short all-ins that don't reopen the betting, uncalled bets), and server wrappers for the core (register a game,
+  table events, hands, views, timers). A game module is a small resource that loads these files; see DOCS.md.
 - Everything is checked on the server: admin permission, distances, seat ownership, model and type, micro limits.
 
 ## Installation
@@ -84,7 +88,8 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `Currencies` | `cash`, `bloodmoney` | Table money types |
 | `Tiers` | micro, low, mid, high | Stakes per tier (blinds, buy-in range, NPC cap). See DESIGN.md §6 |
 | `Pvd.MaxBetMultiplier` | `10` | Dealer games: max bet = 10 × min bet |
-| `DevGames` | `false` | Dev servers: placeholder games with no gameplay so chips can be tested |
+| `DevGames` | `false` | Dev servers: placeholder games, `/gga <action> [dollars]` to act, `/ggbot [n|clear]` (admin) to seat test NPCs |
+| `Npc.Models` / `Names` | townsfolk / six names | NPC players' looks and names (phase 5 adds personalities and regulars) |
 | `ChipStacks.Enabled` / `Models` / `Forward` / `Height` | `true` / one per tier / `0.6` / `0.80` | Chip stack props in front of seats with chips; a model can override `chipForward` / `chipHeight` |
 | `Money.SavePlayer` / `BuyInStep` | `true` / `smallBlind` | Save the player after a buy-in or cash-out; buy-in slider step |
 | `Rake.Target` | pvp `3.0`, pvd `2.5` | Average loss per player-hour: big blinds (PVP), minimum bets (PVD) |

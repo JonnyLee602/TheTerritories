@@ -19,6 +19,7 @@ local function despawn(id)
     for _, f in ipairs(w.frozen) do if DoesEntityExist(f) then FreezeEntityPosition(f, false) end end
     for _, hd in ipairs(w.hidden) do RemoveModelHide(hd.x, hd.y, hd.z, hd.r, hd.model, false) end
     for _, c in pairs(w.chipProps or {}) do deleteEntity(c.obj) end
+    for _, n in pairs(w.npcPeds or {}) do deleteEntity(n.ped) end
     deleteEntity(w.dealer)
     deleteEntity(w.obj)
     world[id] = nil
@@ -153,8 +154,44 @@ local function updateChips(t, w)
     end
 end
 
+-- NPC players: a seated local ped in every NPC seat, sitting like a player does
+local function updateNpcs(t, w)
+    w.npcPeds = w.npcPeds or {}
+    for i = 1, #t.seats do
+        local want = t.npc and t.npc[i] or nil
+        if want == false then want = nil end
+        local have = w.npcPeds[i]
+        if have and have.model ~= want then
+            deleteEntity(have.ped)
+            w.npcPeds[i], have = nil, nil
+        end
+        if want and not have then
+            local slot = { model = want }       -- claim the seat before loading (loading yields)
+            w.npcPeds[i] = slot
+            local x, y, z, h = GGC.SeatWorld(t, i)
+            local hash = GGC.LoadModel(want)
+            local ped
+            if hash then
+                ped = CreatePed(hash, x, y, z, h, false, false, 0, 0)
+                SetModelAsNoLongerNeeded(hash)
+            end
+            if ped and DoesEntityExist(ped) and w.npcPeds[i] == slot and world[t.id] == w then
+                Citizen.InvokeNative(0x283978A15512B2FE, ped, true) -- _SET_RANDOM_OUTFIT_VARIATION
+                SetEntityInvincible(ped, true)
+                SetBlockingOfNonTemporaryEvents(ped, true)
+                SetEntityCollision(ped, false, false)
+                FreezeEntityPosition(ped, true)
+                TaskStartScenarioAtPosition(ped, joaat(Config.Seating.Scenario), x, y, z + (t.sitZ or 0.5), h, -1, false, true)
+                slot.ped = ped
+            else
+                deleteEntity(ped)
+            end
+        end
+    end
+end
+
 local function spawn(t)
-    local w = { key = geometryKey(t), chairs = {}, zones = {}, frozen = {}, hidden = {}, chipProps = {} }
+    local w = { key = geometryKey(t), chairs = {}, zones = {}, frozen = {}, hidden = {}, chipProps = {}, npcPeds = {} }
     world[t.id] = w
     if not t.bound then
         hideMapChairs(t, w)
@@ -175,6 +212,7 @@ local function spawn(t)
         if chair then w.chairs[#w.chairs + 1] = chair end
     end
     updateChips(t, w)
+    updateNpcs(t, w)
     for i = 1, #t.seats do
         local x, y, z = GGC.SeatWorld(t, i)
         w.zones[#w.zones + 1] = exports['rsg-target']:addSphereZone({
@@ -208,7 +246,7 @@ AddEventHandler('grumpy-gambling:client:tableChanged', function(id)
     updateBlip(t)
     -- chip stacks follow buy-ins, busts and cash-outs (only for tables spawned near us, same geometry)
     local w = world[id]
-    if w and w.key == geometryKey(t) then CreateThread(function() updateChips(t, w) end) end
+    if w and w.key == geometryKey(t) then CreateThread(function() updateChips(t, w); updateNpcs(t, w) end) end
 end)
 
 AddEventHandler('grumpy-gambling:client:tableRemoved', function(id)

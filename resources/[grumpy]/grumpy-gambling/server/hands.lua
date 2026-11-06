@@ -81,7 +81,7 @@ function Hands.Begin(tableId)
     for i = 1, #t.seats do
         local occ = t.occupants[i]
         if occ and (occ.stack or 0) > 0 then
-            seats[i] = { cid = occ.cid, src = occ.src, name = occ.name, contrib = 0, net = 0, skim = 0 }
+            seats[i] = { cid = occ.cid, src = occ.src, name = occ.name, npc = occ.npc == true, contrib = 0, net = 0, skim = 0 }
             n = n + 1
         end
     end
@@ -185,7 +185,8 @@ function Hands.Cancel(handId, reason)
     close(h)
     for _, s in pairs(h.seats) do
         if s.departed and s.contrib > 0 then
-            GG.Wallet.PayOrPend(s.cid, h.currency, s.contrib, 'refund', h.tableId, h.id)
+            if s.npc then GG.Npc.Sink(h.tableId, h.id, s.cid, h.currency, s.contrib)
+            else GG.Wallet.PayOrPend(s.cid, h.currency, s.contrib, 'refund', h.tableId, h.id) end
         end
     end
     GG.Debug('hand cancelled', h.id, reason)
@@ -267,6 +268,8 @@ function Hands.Settle(handId, result)
             local ns = occ.stack - s.contrib + award
             newStacks[seat] = ns
             stacks[#stacks + 1] = { cid = s.cid, tableId = t.id, currency = h.currency, amount = ns }
+        elseif award > 0 and s.npc then
+            GG.Npc.Sink(t.id, h.id, s.cid, h.currency, award, ledger) -- an NPC that left can't be paid
         elseif award > 0 then
             pending[#pending + 1] = { cid = s.cid, currency = h.currency, amount = award }
             ledger[#ledger + 1] = { kind = 'pending', tableId = t.id, handId = h.id, cid = s.cid, currency = h.currency,
@@ -329,7 +332,7 @@ function Hands.Seats(tableId)
     for i = 1, #t.seats do
         local occ = t.occupants[i]
         if occ then
-            list[#list + 1] = { seat = i, src = occ.src, cid = occ.cid, name = occ.name, stack = occ.stack or 0,
+            list[#list + 1] = { seat = i, src = occ.src, cid = occ.cid, name = occ.name, npc = occ.npc == true, stack = occ.stack or 0,
                 available = (occ.stack or 0) - Hands.Contributed(t.id, i), inHand = Hands.InHand(t.id, i) }
         end
     end

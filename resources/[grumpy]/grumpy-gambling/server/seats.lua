@@ -29,7 +29,9 @@ function Seats.Stand(src, reason, dropped)
 end
 
 function Seats.StandAll(t, reason)
-    for _, occ in pairs(t.occupants) do Seats.Stand(occ.src, reason) end
+    for seat, occ in pairs(t.occupants) do
+        if occ.npc then GG.Npc.Remove(t, seat) else Seats.Stand(occ.src, reason) end
+    end
 end
 
 RegisterNetEvent('grumpy-gambling:server:sit', function(tableId, seat)

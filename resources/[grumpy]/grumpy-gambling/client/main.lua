@@ -8,8 +8,8 @@ GGC = {
     uiOpen = nil,       -- 'admin' | 'setup' | nil
 }
 
-function GGC.Notify(msg, ntype)
-    RSGCore.Functions.Notify({ title = locale('title'), description = msg, type = ntype or 'inform', duration = 5000 })
+function GGC.Notify(msg, ntype, duration)
+    RSGCore.Functions.Notify({ title = locale('title'), description = msg, type = ntype or 'inform', duration = duration or 5000 })
 end
 
 function GGC.LoadModel(model)

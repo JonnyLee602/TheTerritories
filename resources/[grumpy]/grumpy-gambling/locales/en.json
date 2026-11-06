@@ -27,6 +27,11 @@
   "chips_bought": "You buy %s in chips. Stack: %s",
   "chips_cashed_out": "You cash out %s in %s",
   "chips_pending_paid": "You collect %s in %s owed to you from the card tables",
+  "stood_by_game": "The game stood you up from the table",
+  "dev_bot_sit_first": "Sit at a table that has started a game first",
+  "dev_bot_cleared": "Test NPCs removed",
+  "dev_bot_added": "%s test NPC(s) seated",
+  "dev_your_turn": "Your turn: %s (type /gga <action> [amount])",
   "currency_cash": "cash",
   "currency_bloodmoney": "bloodmoney",
 

@@ -134,7 +134,10 @@ function Wallet.Recover()
     local n, total = 0, 0
     for _, r in ipairs(GG.DB.StacksAll()) do
         GG.DB.StackDelete(r.cid)
-        if r.amount > 0 then
+        if r.amount > 0 and GG.Npc.IsNpcCid(r.cid) then
+            -- an NPC's chips from the last run: nobody to pay, destroyed
+            GG.DB.Ledger({ kind = 'npc_sink', tableId = r.tableId, cid = r.cid, currency = r.currency, amount = -r.amount })
+        elseif r.amount > 0 then
             GG.DB.PendingAdd(r.cid, r.currency, r.amount)
             GG.DB.Ledger({ kind = 'recovered', tableId = r.tableId, cid = r.cid, currency = r.currency, amount = -r.amount })
             n, total = n + 1, total + r.amount
@@ -165,7 +168,8 @@ RegisterNetEvent('grumpy-gambling:server:buyIn', function(dollars)
     GG.Notify(src, locale('chips_bought', M.Fmt(amountC), M.Fmt(res)), 'success')
     TriggerClientEvent('grumpy-gambling:client:chipsClosed', src)
     local s = GG.Seats.bySrc[src]
-    if s then TriggerEvent('grumpy-gambling:server:stackChanged', s.id, s.seat, src, res) end
+    local t = s and GG.Tables.Get(s.id)
+    if t then TriggerEvent('grumpy-gambling:server:stackChanged', t.id, t.game, s.seat, src, res) end
 end)
 
 RegisterNetEvent('grumpy-gambling:server:requestChips', function()
