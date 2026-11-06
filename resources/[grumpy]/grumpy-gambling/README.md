@@ -3,7 +3,7 @@
 The gambling core for The Territories: card tables, seating, stake tiers, chip stacks, the rake, NPC players and
 business tables, shared by small **game modules** (blackjack, poker, faro, …) that only define rules and odds.
 
-Version 0.7.0 (**core complete**, phases 1–7) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
+Version 0.8.0 (core complete, plus cards and animations for game modules) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
 developers and [DESIGN.md](DESIGN.md) for the full design.
 
 This is a community script. It is **not** made or supported by the RSG authors.
@@ -13,7 +13,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 
 > **Status.** The core is complete (phases 1–7): tables and seating, chips/hands/rake/ledger, the **module library**
 > game modules are written with (`lib/`), the **table UI**, **NPC players**, and **business tables** for grumpy-pob
-> owners. No game modules are released yet: blackjack, five-card draw, hold'em, faro, roulette and poker dice come
+> owners. Game modules: **grumpy-blackjack** (0.1.0). Five-card draw, hold'em, faro, roulette and poker dice come
 > next, each as its own resource. Dev servers: `grumpy-gambling-test` adds two test games, `/ggbot` overrides the NPC count,
 > and `Config.DevGames = true` adds placeholder games for trying chips.
 
@@ -143,6 +143,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `Pvd.MaxBetMultiplier` | `10` | Dealer games: max bet = 10 × min bet |
 | `DevGames` | `false` | Dev servers: placeholder games, `/gga <action> [dollars]` to act, `/ggbot [n|clear|auto]` (admin) to override the NPC count |
 | `TableUI.AutoFocus` / `FeedLines` | `true` / `8` | Take the mouse on your turn; feed lines shown |
+| `Cards.Style` / `StyleByTable` / `Height` | `val` / `{}` / `0.805` | Deck look for cards on the table (val, bla, rho, camp, van, rrs, std_labastille, new), per table, and the table-top height |
 | `Business.Items` / `Models` | `gambling_table_pvp` / `pvd` | The two items and the models they place |
 | `Business.MaxDistanceFromNpc` | `25.0` | Tables must stand this close to the business's clerk |
 | `Business.MaxTables` | 2 + 2 | Per business |

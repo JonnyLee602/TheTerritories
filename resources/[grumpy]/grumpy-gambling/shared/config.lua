@@ -106,6 +106,26 @@ Config.Anim = {
     },
 }
 
+-- Cards on the table (props a game module lays out with SetProps). Models are p_crd_<rank>_<suit>01x_<style>
+-- (data/rdr3_discoveries/objects/object_list.lua: all 52 exist for val, bla, rho, camp, van, rrs, std_labastille,
+-- new). A face-down card is the same model turned over.
+Config.Cards = {
+    Style = 'val',                         -- Valentine deck; e.g. 'std_labastille' for Saint Denis
+    StyleByTable = {},                     -- [tableId] = style, to give one table its own deck
+    Height = 0.805,                        -- metres above the floor: the table top (like Config.ChipStacks.Height)
+    Max = 48,                              -- most props one table may show
+}
+
+-- The pot: a pile of chips on the table while a hand has bets in it (from the first bet until it settles). In front
+-- of the dealer at dealer tables, in the middle at card tables. Model: data/rdr3_discoveries/objects/object_list.lua
+-- (p_saloon_01.rpf). Offsets: x = forward, y = right from the dealer (or the table's centre), metres.
+Config.Pot = {
+    Enabled = true,
+    Model = 'p_gen_pokerchipante01x',
+    Dealer = { x = 0.55, y = 0.0 },       -- straight out in front of the dealer, beyond his own cards
+    Table = { x = 0.0, y = 0.0 },
+}
+
 -- Table UI (phase 4): the panel shown while seated
 Config.TableUI = {
     AutoFocus = true,                      -- take the mouse when it's your turn (Esc gives it back, G takes it again)
@@ -242,6 +262,7 @@ Config.Dealer = {
     ChairYaw = 180.0,                      -- p_windsorchair03x's model faces backwards (seen in game 2026-11-05)
     IdleDict = 'mini_games@blackjack_mg@dealer@self@idle', -- data/rdr3_discoveries/animations/ingameanims/ingameanims_list.lua
     IdleClip = 'idle',
+    ActionFlag = 24,                       -- dealer moves from game modules (DealerAnim): upper body, played once
     IdleFlag = 25,                         -- 1 loop + 8 upper body + 16 secondary: dealer arms over the seated (or
                                            -- standing) pose. Full body (1) plays the seated clip with no chair under him.
                                            -- Set IdleDict = nil for no idle.

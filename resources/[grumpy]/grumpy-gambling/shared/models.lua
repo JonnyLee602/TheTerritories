@@ -34,12 +34,14 @@ Models = {
     -- second pass with the seated dealer's chair).
     p_blackjacktable01x = {
         kind = 'pvd', label = 'Blackjack table', spawn = true,
+        chipForward = 0.42,  -- the player's chips right in front of them; cards and the bet lie further in (grumpy-blackjack)
         chair = nil, ghostChair = 'p_windsorchair03x', sitZ = 0.5, chairYaw = 0.0,
         seats = {
-            { x = 1.2184, y = 0.1549, z = 0.0000, h = 97.2454 },
-            { x = 0.6092, y = -0.5847, z = 0.0000, h = 46.1756 },
-            { x = -0.5878, y = -0.6020, z = 0.0000, h = -44.3162 },
-            { x = -1.1983, y = 0.1346, z = 0.0000, h = -96.4089 },
+            -- measured in game by the owner (2026-11-06, recalibrated)
+            { x = 1.1291, y = 0.1701, z = 0.0000, h = 98.5672 },
+            { x = 0.5917, y = -0.5665, z = 0.0000, h = 46.2464 },
+            { x = -0.5911, y = -0.5234, z = 0.0000, h = -48.4761 },
+            { x = -1.1484, y = 0.1851, z = 0.0000, h = -99.1562 },
         },
         dealer = { x = 0.0180, y = 0.7344, z = 0.0000, h = 178.5960 },   -- seated dealer's chair
     },
@@ -59,6 +61,7 @@ Models = {
     },
     p_blackjacktable02x = {
         kind = 'pvd', label = 'Blackjack table (alt)',
+        chipForward = 0.42,
         chair = 'p_chairpokerfancy01x', sitZ = 0.5, chairYaw = 0.0,
         seats = Geo.Ring(4, 1.377, 67.5, -45.0, 0.0),
         dealer = { x = 0.0, y = 0.574, z = 1.0, h = 180.0 },

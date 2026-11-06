@@ -138,6 +138,116 @@ function Play.SettleCues(t, h, awards)
     end
 end
 
+---------------------------------------------------------------------
+-- Game animations and table props (cards). Only players near the table get them; a client that walks up later asks
+-- for the current props when it spawns the table. anim = { dict, clip, ms, fem? (female dict) }.
+---------------------------------------------------------------------
+Play.props = {}
+Play.pots = {}   -- [tableId] = true while a hand has bets in it
+
+local function nearby(t)
+    local out, r = {}, Config.SpawnDistance + 10.0
+    local here = vector3(t.x, t.y, t.z)
+    for _, s in ipairs(GetPlayers()) do
+        local src = tonumber(s)
+        local pos = src and GG.PlayerCoords(src)
+        if pos and #(pos - here) <= r then out[#out + 1] = src end
+    end
+    return out
+end
+Play.Nearby = nearby
+
+local function toNearby(t, event, ...)
+    for _, src in ipairs(nearby(t)) do TriggerClientEvent(event, src, ...) end
+end
+
+local function animDef(a)
+    if type(a) ~= 'table' or type(a.dict) ~= 'string' or type(a.clip) ~= 'string' then return nil end
+    return { dict = a.dict:sub(1, 96), fem = type(a.fem) == 'string' and a.fem:sub(1, 96) or nil, clip = a.clip:sub(1, 64),
+        ms = math.max(100, math.min(15000, math.tointeger(tonumber(a.ms)) or 2000)) }
+end
+
+exports('SeatAnim', function(tableId, seat, a)
+    local t = GG.Tables.Get(tableId)
+    seat = math.tointeger(seat)
+    local def = animDef(a)
+    if not t or not seat or not def or not callerOk(t) or not t.occupants[seat] then return false end
+    toNearby(t, 'grumpy-gambling:client:seatAnim', t.id, seat, def)
+    return true
+end)
+
+exports('DealerAnim', function(tableId, a)
+    local t = GG.Tables.Get(tableId)
+    local def = animDef(a)
+    if not t or t.kind ~= 'pvd' or not def or not callerOk(t) then return false end
+    toNearby(t, 'grumpy-gambling:client:dealerAnim', t.id, def)
+    return true
+end)
+
+local RANKS = { ['2'] = true, ['3'] = true, ['4'] = true, ['5'] = true, ['6'] = true, ['7'] = true, ['8'] = true, ['9'] = true,
+    T = true, J = true, Q = true, K = true, A = true }
+local SUITS = { c = true, d = true, h = true, s = true }
+local function num(v, lim) v = tonumber(v) or 0.0; if v ~= v then v = 0.0 end return math.max(-lim, math.min(lim, v)) + 0.0 end
+
+-- list = { { key, at = 'seat' | 'dealer' | 'table', seat?, card = { r, s, down? } | model = 'name', x (forward),
+--            y (right), z (up), h (turn) }, ... }. Replaces the table's props; send {} to clear.
+function Play.SetProps(t, list)
+    local clean = {}
+    for _, p in ipairs(type(list) == 'table' and list or {}) do
+        if #clean >= Config.Cards.Max then break end
+        if type(p) == 'table' and type(p.key) == 'string' and (p.at == 'seat' or p.at == 'dealer' or p.at == 'table') then
+            local item = { key = p.key:sub(1, 32), at = p.at, seat = math.tointeger(p.seat),
+                x = num(p.x, 3), y = num(p.y, 3), z = num(p.z, 1), h = num(p.h, 360) }
+            if type(p.card) == 'table' and RANKS[p.card.r] and SUITS[p.card.s] then
+                item.card = { r = p.card.r, s = p.card.s, down = p.card.down == true }
+            elseif type(p.model) == 'string' then
+                item.model = p.model:sub(1, 64)
+            end
+            if (item.card or item.model) and (item.at ~= 'seat' or (item.seat and t.seats[item.seat])) then clean[#clean + 1] = item end
+        end
+    end
+    Play.props[t.id] = clean
+    toNearby(t, 'grumpy-gambling:client:props', t.id, Play.TableProps(t))
+    return true
+end
+
+-- What clients get: the game's props plus the pot
+function Play.TableProps(t)
+    local list = Play.props[t.id] or {}
+    if not Play.pots[t.id] or not Config.Pot.Enabled then return list end
+    local out = {}
+    for i, p in ipairs(list) do out[i] = p end
+    local off = t.kind == 'pvd' and Config.Pot.Dealer or Config.Pot.Table
+    out[#out + 1] = { key = '_pot', at = t.kind == 'pvd' and 'dealer' or 'table', model = Config.Pot.Model,
+        x = off.x + 0.0, y = off.y + 0.0, z = 0.0, h = 0.0 }
+    return out
+end
+
+-- Called by hands.lua: the first bet of a hand puts the pot on the table; settling or cancelling takes it away
+function Play.SetPot(t, on)
+    on = on == true
+    if (Play.pots[t.id] == true) == on then return end
+    Play.pots[t.id] = on or nil
+    toNearby(t, 'grumpy-gambling:client:props', t.id, Play.TableProps(t))
+end
+
+exports('SetProps', function(tableId, list)
+    local t = GG.Tables.Get(tableId)
+    if not t or not callerOk(t) then return false end
+    return Play.SetProps(t, list)
+end)
+
+GG.Core.Functions.CreateCallback('grumpy-gambling:server:props', function(source, cb, tableId)
+    local t = GG.Tables.Get(tableId)
+    cb(t and Play.TableProps(t) or {})
+end)
+
+AddEventHandler('grumpy-gambling:server:tableStopping', function(tableId)
+    local t = GG.Tables.Get(tableId)
+    if t then Play.pots[t.id] = nil end
+    if t and Play.props[t.id] then Play.SetProps(t, {}) end
+end)
+
 -- A module stands a seat up (e.g. a player who keeps timing out)
 exports('StandSeat', function(tableId, seat)
     local t = GG.Tables.Get(tableId)

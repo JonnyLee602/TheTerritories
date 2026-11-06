@@ -1,7 +1,10 @@
 # grumpy-gambling — core design
 
 Status: **core complete** 2026-11-06 as v0.7.0: phases 1–6 built and tested in game, phase 7 (audit, docs,
-compliance) done. Next: game modules (§15). Phase 3 was tested in real Lua 5.4 (`tests/`, incl. the test games
+compliance) done. v0.8.0 adds cards on the table (`SetProps`), seat and dealer clips (`SeatAnim`/`DealerAnim`) and
+several hands per seat in the panel, for the first module, **grumpy-blackjack** 0.1.0 (classic rules chosen
+2026-11-06: 6 decks, S17, 3:2, peek, double any two incl. after split, split to 4 hands, aces once, insurance, no
+surrender; bet window then turns). Phase 3 was tested in real Lua 5.4 (`tests/`, incl. the test games
 playing full hands through the core). Phase 3 adds
 `server/play.lua` (views, action relay, stakes) and the dev-only `grumpy-gambling-test` resource; `lib/flow.lua`
 became timers in `lib/server.lua`, and the NPC brain moves to phase 5. Layout additions to §4.2:
@@ -616,7 +619,6 @@ Still open:
 - Micro tables: locations and which is PVP vs PVD (admins place them with `/gambling`, max 2).
 - Rake tuner bounds (`MinRate`/`MaxRate`/`MaxDailyStep`): watch the stats after launch.
 - grumpy-pob's audit screen could list a business's cashboxes (`GetBusinessCashboxes` is ready).
-- Saint Denis card style (`01x_std_labastille` vs `..._std`): check when the card props come with the poker modules.
 - Not yet seen in game: a bloodmoney table with a cardsharp call-out.
 - Removing rsg-roulette once the roulette module exists (doctrine gap 9).
 

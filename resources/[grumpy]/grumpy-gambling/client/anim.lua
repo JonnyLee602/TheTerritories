@@ -43,6 +43,20 @@ function GGC.Anim.Play(ped, cue)
     end)
 end
 
+-- A clip from a game module (DealerAnim / SeatAnim): on an animated (seated) ped the idle waits for it
+function GGC.Anim.PlayClip(ped, dict, clip, ms, flag)
+    if not ped or not DoesEntityExist(ped) then return end
+    local st = peds[ped]
+    if st then
+        st.busyUntil = now() + ms
+        st.nextIdleAt = st.busyUntil
+    end
+    CreateThread(function()
+        if not GGC.LoadDict(dict) or not DoesEntityExist(ped) then return end
+        TaskPlayAnim(ped, dict, clip, 4.0, -2.0, ms, flag or A.Flag, 0.0, false, 0, false, 0, false)
+    end)
+end
+
 -- One light loop for every animated ped: idles start, swap, and come back after a clip
 CreateThread(function()
     while true do

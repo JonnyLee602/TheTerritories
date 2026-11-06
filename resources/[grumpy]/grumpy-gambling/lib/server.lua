@@ -96,6 +96,12 @@ end
 -- NPC moves may also get a chatter line. Pot wins and buy-ins are cued by the core.
 function GGLib.Cue(tableId, seat, cue) return core():SeatCue(tableId, seat, cue) end
 
+-- Animations and props, seen by players near the table (DESIGN.md §10). anim = { dict, clip, ms, fem? }: fem is the
+-- female dict to use for women where the game has one. Props: see the core's DOCS.md (SetProps).
+function GGLib.SeatAnim(tableId, seat, anim) return core():SeatAnim(tableId, seat, anim) end
+function GGLib.DealerAnim(tableId, anim) return core():DealerAnim(tableId, anim) end
+function GGLib.Props(tableId, list) return core():SetProps(tableId, list or {}) end
+
 -- Sends the table view to everyone seated: public for all, private[seat] only to that seat's player (hole cards,
 -- the actions they can take). See DESIGN.md §11.4 for the shape.
 function GGLib.View(tableId, public, private) return core():PushView(tableId, public, private or {}) end

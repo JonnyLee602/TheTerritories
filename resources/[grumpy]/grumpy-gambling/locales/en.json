@@ -298,5 +298,7 @@
   "ui_biz_move": "Move",
   "ui_biz_packup": "Pack up",
   "ui_biz_packup_note": "Takes the table back as an item and pays you the cashbox. Nobody may be seated.",
-  "ui_biz_packup_confirm": "Pack up this table? The cashbox (%s) comes to you."
+  "ui_biz_packup_confirm": "Pack up this table? The cashbox (%s) comes to you.",
+  "ui_act_insurance": "Insurance",
+  "ui_act_no_insurance": "No insurance"
 }

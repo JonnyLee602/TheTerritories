@@ -1,4 +1,5 @@
 -- Distance-gated spawning of tables, chairs and dealer peds (local entities), seat targets and blips.
+local RSGCore = exports['rsg-core']:GetCoreObject()
 local world = {}   -- [id] = { key, obj, chairs = {}, dealer, zones = {}, frozen = {} }
 local blips = {}   -- [id] = blip
 
@@ -8,7 +9,10 @@ local function geometryKey(t)
 end
 
 local function deleteEntity(e)
-    if e and DoesEntityExist(e) then DeleteEntity(e) end
+    if e and DoesEntityExist(e) then
+        SetEntityAsMissionEntity(e, true, true) -- ours to delete, whatever the game thinks
+        DeleteEntity(e)
+    end
 end
 
 local function despawn(id)
@@ -19,6 +23,7 @@ local function despawn(id)
     for _, f in ipairs(w.frozen) do if DoesEntityExist(f) then FreezeEntityPosition(f, false) end end
     for _, hd in ipairs(w.hidden) do RemoveModelHide(hd.x, hd.y, hd.z, hd.r, hd.model, false) end
     for _, c in pairs(w.chipProps or {}) do deleteEntity(c.obj) end
+    for _, p in pairs(w.props or {}) do deleteEntity(p.obj) end
     for _, n in pairs(w.npcPeds or {}) do
         GGC.Anim.Stop(n.ped)
         deleteEntity(n.ped)
@@ -108,7 +113,9 @@ local function seatOptions(id, i)
             distance = Config.InteractDistance,
             canInteract = function()
                 local t = GGC.Tables[id]
-                if not t or not t.enabled or t.usable == false or GGC.Seat then return false end
+                -- a table that's closed for a reason (unfunded, owner gone, out of range) still offers the seat: the
+                -- server answers with the reason instead of the option silently missing
+                if not t or not t.enabled or GGC.Seat then return false end
                 if t.occupied and t.occupied[i] then return false end
                 return not IsEntityDead(PlayerPedId())
             end,
@@ -218,6 +225,107 @@ RegisterNetEvent('grumpy-gambling:client:seatCue', function(tableId, seat, cue)
     if slot and slot.ped then GGC.Anim.Play(slot.ped, cue) end
 end)
 
+---------------------------------------------------------------------
+-- Game animations and table props (cards) from the core (SeatAnim / DealerAnim / SetProps)
+---------------------------------------------------------------------
+GGC.TableProps = {}   -- [tableId] = latest prop list (kept while the table is spawned)
+
+local RANK = { T = '10', J = 'j', Q = 'q', K = 'k', A = 'a' }
+local function cardModel(t, card)
+    local style = Config.Cards.StyleByTable[t.id] or Config.Cards.Style
+    return ('p_crd_%s_%s01x_%s'):format(RANK[card.r] or card.r, card.s, style)
+end
+
+-- Anchor frame: position on the floor and the heading the anchor faces (seat: the player; dealer: the dealer)
+local function anchorOf(t, p)
+    if p.at == 'seat' then
+        local x, y, z, h = GGC.SeatWorld(t, p.seat)
+        return x, y, z, h
+    elseif p.at == 'dealer' and t.dealer then
+        local off = t.dealer
+        return Geo.ToWorld(GGC.Origin(t), t.h, { x = off.x, y = off.y, z = 0.0, h = off.h })
+    end
+    return t.x, t.y, t.z, t.h
+end
+
+local function updateProps(t, w)
+    w.props = w.props or {}
+    local want = {}
+    for _, p in ipairs(GGC.TableProps[t.id] or {}) do
+        local ax, ay, az, ah = anchorOf(t, p)
+        if ax then
+            local r = math.rad(ah)
+            local fx, fy = -math.sin(r), math.cos(r)  -- forward
+            local rx, ry = math.cos(r), math.sin(r)   -- right
+            local model = p.card and cardModel(t, p.card) or p.model
+            local x, y = ax + fx * p.x + rx * p.y, ay + fy * p.x + ry * p.y
+            local z = az + Config.Cards.Height + p.z
+            local sig = ('%s|%.3f|%.3f|%.3f|%.1f|%s'):format(model, x, y, z, ah + p.h, p.card and p.card.down and 'd' or 'u')
+            want[p.key] = { model = model, x = x, y = y, z = z, h = ah + p.h, down = p.card and p.card.down, sig = sig }
+        end
+    end
+    for key, have in pairs(w.props) do
+        if not want[key] or want[key].sig ~= have.sig then
+            deleteEntity(have.obj)
+            w.props[key] = nil
+        end
+    end
+    for key, d in pairs(want) do
+        if not w.props[key] then
+            local slot = { sig = d.sig }
+            w.props[key] = slot
+            local hash = GGC.LoadModel(d.model)
+            local obj = hash and CreateObject(hash, d.x, d.y, d.z, false, false, false) or nil
+            if hash then SetModelAsNoLongerNeeded(hash) end
+            if obj and DoesEntityExist(obj) and w.props[key] == slot and world[t.id] == w then
+                SetEntityCoordsNoOffset(obj, d.x, d.y, d.z, false, false, false)
+                SetEntityRotation(obj, 0.0, d.down and 180.0 or 0.0, d.h, 2, true)
+                SetEntityCollision(obj, false, false)
+                FreezeEntityPosition(obj, true)
+                slot.obj = obj
+            else
+                deleteEntity(obj)
+            end
+        end
+    end
+end
+
+RegisterNetEvent('grumpy-gambling:client:props', function(tableId, list)
+    if Config.Debug then print(('[grumpy-gambling] props for table %s: %d'):format(tostring(tableId), type(list) == 'table' and #list or -1)) end
+    GGC.TableProps[tableId] = list
+    local t, w = GGC.Tables[tableId], world[tableId]
+    if t and w then CreateThread(function() updateProps(t, w) end) end
+end)
+
+RegisterNetEvent('grumpy-gambling:client:seatAnim', function(tableId, seat, a)
+    local ped
+    if GGC.Seat and GGC.Seat.id == tableId and GGC.Seat.seat == seat then
+        ped = PlayerPedId()
+    else
+        local w = world[tableId]
+        local slot = w and w.npcPeds and w.npcPeds[seat]
+        ped = slot and slot.ped
+    end
+    if not ped or not DoesEntityExist(ped) then return end
+    local dict = (a.fem and not IsPedMale(ped)) and a.fem or a.dict
+    GGC.Anim.PlayClip(ped, dict, a.clip, a.ms)
+end)
+
+RegisterNetEvent('grumpy-gambling:client:dealerAnim', function(tableId, a)
+    local w = world[tableId]
+    local ped = w and w.dealer
+    if not ped or not DoesEntityExist(ped) then return end
+    w.dealerBusy = (w.dealerBusy or 0) + 1
+    local mine = w.dealerBusy
+    CreateThread(function()
+        if not GGC.LoadDict(a.dict) or not DoesEntityExist(ped) then return end
+        TaskPlayAnim(ped, a.dict, a.clip, 4.0, -2.0, a.ms, Config.Dealer.ActionFlag or 24, 0.0, false, 0, false, 0, false)
+        Wait(a.ms)
+        -- back to the idle unless another move started meanwhile
+        if w.dealerBusy == mine and DoesEntityExist(ped) then playDealerIdle(ped) end
+    end)
+end)
+
 local function spawn(t)
     local w = { key = geometryKey(t), chairs = {}, zones = {}, frozen = {}, hidden = {}, chipProps = {}, npcPeds = {} }
     world[t.id] = w
@@ -241,6 +349,15 @@ local function spawn(t)
     end
     updateChips(t, w)
     updateNpcs(t, w)
+    -- cards already on the table when we arrive
+    local id = t.id
+    CreateThread(function()
+        local list = RSGCore.Functions.AwaitCallback('grumpy-gambling:server:props', 5000, id)
+        if world[id] == w and type(list) == 'table' then
+            GGC.TableProps[id] = list
+            updateProps(t, w)
+        end
+    end)
     for i = 1, #t.seats do
         local x, y, z = GGC.SeatWorld(t, i)
         w.zones[#w.zones + 1] = exports['rsg-target']:addSphereZone({
@@ -313,7 +430,15 @@ AddEventHandler('grumpy-gambling:client:tableChanged', function(id)
     updateBlip(t)
     -- chip stacks follow buy-ins, busts and cash-outs (only for tables spawned near us, same geometry)
     local w = world[id]
-    if w and w.key == geometryKey(t) then CreateThread(function() updateChips(t, w); updateNpcs(t, w) end) end
+    -- an empty table has no game, so nothing may stay on it (cards, the pot), whatever messages went missing
+    if t.state == 'empty' then GGC.TableProps[id] = {} end
+    if w and w.key == geometryKey(t) then
+        CreateThread(function()
+            updateChips(t, w)
+            updateNpcs(t, w)
+            if t.state == 'empty' then updateProps(t, w) end
+        end)
+    end
 end)
 
 AddEventHandler('grumpy-gambling:client:tableRemoved', function(id)

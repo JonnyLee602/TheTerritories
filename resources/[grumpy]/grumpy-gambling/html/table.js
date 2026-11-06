@@ -39,8 +39,12 @@ function renderSeats(pub, mySeat) {
       ]),
       el('div', { class: 'tb-seat-bottom' }, [
         el('div', { class: 'tb-seat-money', text: money.join(' · ') }),
-        s.cards ? cardsEl(s.cards, false) : null,
+        s.cards && !s.hands ? cardsEl(s.cards, false) : null,
       ]),
+      ...(s.hands || []).map((hd) => el('div', { class: 'tb-hand' + (hd.active ? ' active' : '') }, [
+        cardsEl(hd.cards, false),
+        hd.label ? el('span', { class: 'tb-seat-label', text: hd.label }) : null,
+      ])),
       s.label ? el('div', { class: 'tb-seat-label', text: s.label }) : null,
     ]);
   }));
@@ -99,7 +103,10 @@ function renderTable() {
 
   const centre = [];
   if (pub.board && pub.board.length) centre.push(el('div', { class: 'section-label', text: tr('ui_board') }), cardsEl(pub.board, true));
-  if (pub.dealer && pub.dealer.length) centre.push(el('div', { class: 'section-label', text: tr('ui_dealer') }), cardsEl(pub.dealer, true));
+  if (pub.dealer && pub.dealer.length) {
+    centre.push(el('div', { class: 'section-label', text: tr('ui_dealer') }), cardsEl(pub.dealer, true));
+    if (pub.dealerLabel) centre.push(el('div', { class: 'tb-seat-label', text: pub.dealerLabel }));
+  }
   if (pub.pot != null) centre.push(el('div', { class: 'tb-pot' }, [el('span', { class: 'section-label', text: tr('ui_pot') }), el('b', { text: ' ' + tbMoney(pub.pot) })]));
   centre.push(el('div', { class: 'tb-status', id: 'tb-status', text: statusText(pub, mySeat) }));
   centre.push(el('div', { class: 'bar tb-timer' + (pub.deadline ? '' : ' hidden') }, [el('div', { class: 'fill stat-good', id: 'tb-timer-fill' })]));

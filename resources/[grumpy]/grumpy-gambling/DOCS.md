@@ -1,6 +1,6 @@
 # grumpy-gambling — developer docs
 
-Version 0.7.0, core complete (foundation, money, module library, table UI, NPC players, business tables). The full design is in [DESIGN.md](DESIGN.md).
+Version 0.8.0, core complete plus cards and animations for modules (foundation, money, module library, table UI, NPC players, business tables). The full design is in [DESIGN.md](DESIGN.md).
 
 ## Contents
 1. Architecture
@@ -125,6 +125,9 @@ Errors: `no_table`, `table_not_started`, `not_your_table`, `hand_open`, `no_play
 | `NpcEvent(tableId, seat, event)` | bool | `strong` / `bluff` (maybe a tell), `sleight` (a sharp cheated), or a move id for a chance of chatter |
 | `ResolveCallOut(tableId, seat, caught)` | bool | Answer to a `callOut`: true = the NPC cheated this hand (cancel the hand first) |
 | `SeatCue(tableId, seat, cue)` | bool | Plays a `Config.Anim.Cues` clip on a seat for everyone near the table; an NPC move may also get a chatter line |
+| `SeatAnim(tableId, seat, { dict, clip, ms, fem? })` | bool | Game's own resource: a one-off clip on a seat (the player's own ped, or the NPC), for players near the table; `fem` = female dict |
+| `DealerAnim(tableId, { dict, clip, ms })` | bool | Game's own resource, dealer tables: a dealer move (`Config.Dealer.ActionFlag`), then back to the idle |
+| `SetProps(tableId, list)` | bool | Game's own resource: the props on the table, replacing the last list. Item: `{ key, at = 'seat'/'dealer'/'table', seat?, card = { r = '2'..'9'/'T'/'J'/'Q'/'K'/'A', s = 'c'/'d'/'h'/'s', down? } or model, x (forward), y (right), z (up), h (turn) }`, offsets in metres from the anchor (the seat facing the table, the dealer, or the table). At most `Config.Cards.Max`; kept for players who walk up later |
 | `GetTableLimits(businessId)` | `{ pvp = { item, placed, max }, pvd = ... }` | For grumpy-pob's Gambling tab |
 | `GetBusinessCashboxes(businessId)` | `{ tableId, label, kind, currency, balance }[]` | Cashboxes of a business's tables (cents), e.g. for law screens |
 | `GetNpcWindow(cid, tableId?)` | `{ total, cap }` | What a player has won from NPCs in the window, and the cap at that table (cents) |
@@ -164,6 +167,7 @@ The module library wraps these for game modules (`GGLib.RegisterGame` handlers, 
 | `grumpy-gambling:server:bizMove` (`tableId, coords, heading`) | server | Owner, nobody seated, still inside the business |
 | `grumpy-gambling:server:bizPanel` / `bizMine` | callback | Owner panel data / the caller's table ids |
 | `grumpy-gambling:client:bizPlace` / `bizPanel` / `myTables` | client | Place form, panel refresh, owned table ids |
+| `grumpy-gambling:client:props` (`tableId, list`) / `seatAnim` (`tableId, seat, anim`) / `dealerAnim` (`tableId, anim`) | client | Sent to players near the table; `grumpy-gambling:server:props` (callback) returns the current props on spawn |
 | `grumpy-gambling:client:seatCue` (`tableId, seat, cue`) | client | Plays a clip on that seat: your own ped if it's your seat (synced by the network), else the local NPC ped |
 | `grumpy-gambling:client:view` (`tableId, public, private, seat`) / `message` (`tableId, text`) | client | Table view and feed |
 | NUI `act` (`{ id, amount }`) / `tableBlur` | NUI → client | A move from the action bar (sent as `server:action`); Esc on the table |
@@ -210,6 +214,11 @@ GGLib.RegisterGame({ id = 'blackjack', label = locale('label'), kind = 'pvd', mi
   with the same key; `CancelTimer`, `CancelTimers(prefix)`), `GGLib.Fmt(cents)`, `GGLib.Cents(dollars)`.
 - **Money:** every chip the betting engine moves (`put` from `Post`/`Act`) goes to the core with `GGLib.Bet`. Give back
   `Uncalled()` with `GGLib.Return`. Settle with a ranking (PVP) or payouts (PVD). Never touch player money yourself.
+- **Several hands per seat:** `seats[].hands = { { cards, label, active } }` draws one row per hand (blackjack
+  splits); `public.dealerLabel` shows under the dealer's cards.
+- **Cards and animations on the table:** `GGLib.Props(tableId, list)`, `GGLib.SeatAnim(tableId, seat, anim)`,
+  `GGLib.DealerAnim(tableId, anim)` (see Exports). Cards are `p_crd_<rank>_<suit>01x_<Config.Cards.Style>`, face down =
+  turned over. Only players within `SpawnDistance` get them. grumpy-blackjack is the worked example.
 - **The table UI** draws any view: `public.board` or `public.dealer` (card lists), `pot`, `turn` (seat), `deadline`
   (os.time; the core adds `_now` so the client counts down on the server clock), `phase = 'waiting'`, `seats[]` with
   `seat, name, stack?, bet?, cards?, label?, dealer?, folded?, allin?`, and `results[]` (`seat, amount`). Action buttons

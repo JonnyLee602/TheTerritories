@@ -63,6 +63,9 @@ local function callerOk(t)
     return g ~= nil and g.resource == inv
 end
 
+-- the pot appears on the table with the hand's first chip (GG.Play loads after this file)
+local function potUp(t) if GG.Play then GG.Play.SetPot(t, true) end end
+
 local function handAndTable(handId)
     local h = Hands.open[handId]
     if not h then return nil, nil, 'no_hand' end
@@ -129,6 +132,7 @@ function Hands.Bet(handId, seat, amountC)
     if h.kind == 'pvd' and s.npc then
         s.contrib = s.contrib + amountC
         s.net = s.net + amountC
+        potUp(t)
         return true, amountC
     end
 
@@ -142,9 +146,11 @@ function Hands.Bet(handId, seat, amountC)
         s.net = s.net + net
         s.skim = s.skim + skim
         s.contrib = s.contrib + amountC
+        potUp(t)
         return true, net
     end
     s.contrib = s.contrib + amountC
+    potUp(t)
     return true, amountC
 end
 
@@ -191,6 +197,8 @@ end
 local function close(h)
     Hands.open[h.id] = nil
     if Hands.byTable[h.tableId] == h.id then Hands.byTable[h.tableId] = nil end
+    local t = GG.Play and GG.Tables.Get(h.tableId)
+    if t then GG.Play.SetPot(t, false) end
 end
 
 function Hands.Cancel(handId, reason)

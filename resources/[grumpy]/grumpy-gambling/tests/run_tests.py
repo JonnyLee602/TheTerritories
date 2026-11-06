@@ -7,7 +7,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 HARNESS = r'''
 Test = { passed = 0, failed = 0 }
 local out = print
-function Test.ok(c, msg) if c then Test.passed = Test.passed + 1 else Test.failed = Test.failed + 1; out('  FAIL: ' .. msg) end end
+function Test.ok(c, msg) if os.getenv("VERBOSE") and c then out("  ok: " .. msg) end if c then Test.passed = Test.passed + 1 else Test.failed = Test.failed + 1; out('  FAIL: ' .. msg) end end
 function Test.eq(a, b, msg) Test.ok(a == b, msg .. ' (got ' .. tostring(a) .. ', want ' .. tostring(b) .. ')') end
 function Test.near(a, b, eps, msg) Test.ok(type(a) == 'number' and math.abs(a - b) <= eps, msg .. ' (got ' .. tostring(a) .. ', want ~' .. tostring(b) .. ')') end
 '''
@@ -49,6 +49,11 @@ DEPS = {
 }
 # business tables: the test games plus server/business.lua
 DEPS['test_business.lua'] = DEPS['test_play.lua'][:1 + DEPS['test_play.lua'].index('server/play.lua')] + ['server/business.lua'] +     DEPS['test_play.lua'][1 + DEPS['test_play.lua'].index('server/play.lua'):]
+# blackjack: the core plus the grumpy-blackjack resource
+DEPS['test_blackjack.lua'] = SERVER + ['server/play.lua', 'lua:Config.Npc.Enabled = false', 'lua:GG.Ready = true',
+    'lua:Fake.resource = "grumpy-blackjack"', 'lib/init.lua', 'lib/cards.lua', 'lib/poker.lua', 'lib/npc_brain.lua', 'lib/server.lua',
+    '../grumpy-blackjack/shared/config.lua', '../grumpy-blackjack/server/rules.lua', '../grumpy-blackjack/server/game.lua',
+    'lua:Fake.resource = "grumpy-gambling"']
 # NPC system: the same, with NPCs on
 DEPS['test_npc.lua'] = [d for d in DEPS['test_play.lua'] if d != 'lua:Config.Npc.Enabled = false']
 if __name__ == '__main__':
