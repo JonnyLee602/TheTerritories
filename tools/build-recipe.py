@@ -109,7 +109,7 @@ w("""  - action: move_path
     dest: ./server.cfg
 
   - action: move_path
-    src: ./tmp/territories/rsg/myLogo.png
+    src: ./tmp/territories/territories-logo.png
     dest: ./myLogo.png
 
   # ================================================================ Database

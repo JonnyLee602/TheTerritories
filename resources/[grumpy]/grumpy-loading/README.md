@@ -10,7 +10,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 **Replaces:** `rsg-loading`. Run only one loading screen.
 
 ## Features
-- **Newspaper front page.** It has a blackletter masthead and the issue number, which counts days since `firstIssue`. The dateline shows today's month and day in 1899, with the right weekday.
+- **Newspaper front page.** It has the server logo framed in the corner, a blackletter masthead and the issue number, which counts days since `firstIssue`. The dateline shows today's month and day in 1899, with the right weekday.
 - **Live population** in the masthead: "12 of 48 souls in the Territory today". It comes from the server while the player connects.
 - **Rotating lead stories.** Each one has a kicker, headline, deck and body. The default five cover:
   - settlement and no fixed path;
@@ -41,6 +41,7 @@ There are no items and no database.
 | Option | Default | Description |
 |---|---|---|
 | `locale` | `'en'` | Language file in `locales/` |
+| `logo` | `'images/logo.png'` | Server logo, framed in the masthead's left corner (it replaces the left corner text). Blank = text only. |
 | `year` | `1899` | Year printed in the dateline |
 | `firstIssue` | `'2026-11-05'` | Date of Issue No. 1. The issue number counts days since then. |
 | `storySeconds` | `14` | Seconds per front-page story |

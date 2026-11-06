@@ -52,6 +52,11 @@ function masthead() {
   $('title').textContent = t('masthead_title');
   $('earLeft').textContent = t('ear_left');
   $('earRight').textContent = t('ear_right');
+  if (CFG.logo) {
+    const img = $('logoImg');
+    img.onload = () => { $('earLogo').classList.remove('hidden'); $('earLeft').classList.add('hidden'); };
+    img.src = CFG.logo; // if it fails to load, the left ear keeps its text
+  }
   $('issue').textContent = fmt(t('issue'), issueNumber());
   $('dateline').textContent = dateline();
   $('price').textContent = t('price');

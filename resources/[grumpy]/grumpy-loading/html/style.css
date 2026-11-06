@@ -121,6 +121,23 @@ html, body {
 .ear-left  { left: 0; }
 .ear-right { right: 0; }
 
+/* Server logo, printed as a framed plate in the left ear (replaces the left ear text) */
+.ear-logo {
+  position: absolute;
+  top: 40px;
+  left: 40px;
+  padding: 4px;
+  border: 3px double var(--rule);
+  background: #0c0b0a;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: rotate(-2deg);
+}
+.ear-logo img {
+  display: block;
+  width: 72px;
+  height: 72px;
+}
+
 .topline {
   display: flex;
   justify-content: space-between;

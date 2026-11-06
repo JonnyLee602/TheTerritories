@@ -24,7 +24,7 @@
 | `html/config.js` | Page options (`window.GAZETTE_CONFIG`). |
 | `html/script.js` | Locale loading, masthead, story and notice rotation, backgrounds, music, telegraph progress, finish and auto-close. |
 | `locales/en.json` | All on-screen text. |
-| `html/music/`, `html/images/` | Music and background photos. |
+| `html/music/`, `html/images/` | Music, the server logo (`images/logo.png`, 96×96) and background photos. |
 
 ## 2. Data formats
 **Locale keys** (`locales/<lang>.json`). Numbered groups stop at the first missing number.
@@ -73,6 +73,7 @@ None.
   1. Drop an `.mp3` or `.ogg` into `html/music/`.
   2. Set `music: 'music/<file>'` in `html/config.js`.
   3. Keep the file under about 8 MB, because every new player downloads it before joining.
+- **Change the logo:** replace `html/images/logo.png`. It is shown at 72 px in a framed plate, so a square image works best. A larger source (e.g. 256×256) stays sharper on 1440p and 4K screens.
 - **Add background photos:** put them in `html/images/` and list them in `backgrounds`. Screenshots from Rockstar Editor in RedM work well. Keep each under about 1 MB.
 - **Add a story:** add `story_6_kicker`, `story_6_headline`, `story_6_deck` and `story_6_body` to the locale.
 - **Preview outside the game:** serve the resource folder over HTTP, because `file://` blocks the locale fetch. For example, run `py -m http.server 8731 --directory builds/grumpy-loading`, then open `/html/index.html`. The progress bar runs on its own when previewed this way.
