@@ -19,7 +19,11 @@ local function despawn(id)
     for _, f in ipairs(w.frozen) do if DoesEntityExist(f) then FreezeEntityPosition(f, false) end end
     for _, hd in ipairs(w.hidden) do RemoveModelHide(hd.x, hd.y, hd.z, hd.r, hd.model, false) end
     for _, c in pairs(w.chipProps or {}) do deleteEntity(c.obj) end
-    for _, n in pairs(w.npcPeds or {}) do deleteEntity(n.ped) end
+    for _, n in pairs(w.npcPeds or {}) do
+        if n.ped and n.target then exports['rsg-target']:removeLocalEntity(n.ped) end
+        GGC.Anim.Stop(n.ped)
+        deleteEntity(n.ped)
+    end
     deleteEntity(w.dealer)
     deleteEntity(w.obj)
     world[id] = nil
@@ -154,19 +158,47 @@ local function updateChips(t, w)
     end
 end
 
--- NPC players: a seated local ped in every NPC seat, sitting like a player does
+-- NPC players: a seated local ped in every NPC seat, sitting like a player does. The server picks the outfit so
+-- every client shows the same person.
+local function applyOutfit(ped, outfit)
+    local n = outfit and Citizen.InvokeNative(0x10C70A515BC03707, ped, Citizen.ResultAsInteger()) or 0 -- GET_NUM_META_PED_OUTFITS
+    if n and n > 0 then
+        Citizen.InvokeNative(0x77FF8D35EEC6BBC4, ped, outfit % n, false) -- _EQUIP_META_PED_OUTFIT_PRESET
+    else
+        Citizen.InvokeNative(0x283978A15512B2FE, ped, true)             -- _SET_RANDOM_OUTFIT_VARIATION
+    end
+end
+
+-- Back rooms: "Call out cheat" on NPC players, for players seated at the same table
+local function callOutTarget(t, i, ped)
+    exports['rsg-target']:addLocalEntity(ped, {
+        {
+            name = ('grumpy-gambling:callout:%d:%d'):format(t.id, i),
+            icon = 'fa-solid fa-hand-point-right',
+            label = locale('target_callout'),
+            distance = 3.5,
+            canInteract = function() return GGC.Seat ~= nil and GGC.Seat.id == t.id end,
+            onSelect = function() TriggerServerEvent('grumpy-gambling:server:callOut', t.id, i) end,
+        },
+    })
+end
+
 local function updateNpcs(t, w)
     w.npcPeds = w.npcPeds or {}
     for i = 1, #t.seats do
         local want = t.npc and t.npc[i] or nil
         if want == false then want = nil end
+        local outfit = want and t.npcOutfit and t.npcOutfit[i] or nil
+        if outfit == false then outfit = nil end
         local have = w.npcPeds[i]
-        if have and have.model ~= want then
+        if have and (have.model ~= want or have.outfit ~= outfit) then
+            if have.ped and have.target then exports['rsg-target']:removeLocalEntity(have.ped) end
+            GGC.Anim.Stop(have.ped)
             deleteEntity(have.ped)
             w.npcPeds[i], have = nil, nil
         end
         if want and not have then
-            local slot = { model = want }       -- claim the seat before loading (loading yields)
+            local slot = { model = want, outfit = outfit } -- claim the seat before loading (loading yields)
             w.npcPeds[i] = slot
             local x, y, z, h = GGC.SeatWorld(t, i)
             local hash = GGC.LoadModel(want)
@@ -176,19 +208,32 @@ local function updateNpcs(t, w)
                 SetModelAsNoLongerNeeded(hash)
             end
             if ped and DoesEntityExist(ped) and w.npcPeds[i] == slot and world[t.id] == w then
-                Citizen.InvokeNative(0x283978A15512B2FE, ped, true) -- _SET_RANDOM_OUTFIT_VARIATION
+                applyOutfit(ped, outfit)
                 SetEntityInvincible(ped, true)
                 SetBlockingOfNonTemporaryEvents(ped, true)
                 SetEntityCollision(ped, false, false)
                 FreezeEntityPosition(ped, true)
                 TaskStartScenarioAtPosition(ped, joaat(Config.Seating.Scenario), x, y, z + (t.sitZ or 0.5), h, -1, false, true)
                 slot.ped = ped
+                GGC.Anim.Start(ped)
+                if t.currency == 'bloodmoney' then callOutTarget(t, i, ped); slot.target = true end
             else
                 deleteEntity(ped)
             end
         end
     end
 end
+
+-- Moves, wins and tells (Config.Anim.Cues): on our own ped when it's our seat (everyone else sees it through the
+-- network), or on the NPC ped this client spawned for that seat
+RegisterNetEvent('grumpy-gambling:client:seatCue', function(tableId, seat, cue)
+    if GGC.Seat and GGC.Seat.id == tableId and GGC.Seat.seat == seat then
+        return GGC.Anim.Play(PlayerPedId(), cue)
+    end
+    local w = world[tableId]
+    local slot = w and w.npcPeds and w.npcPeds[seat]
+    if slot and slot.ped then GGC.Anim.Play(slot.ped, cue) end
+end)
 
 local function spawn(t)
     local w = { key = geometryKey(t), chairs = {}, zones = {}, frozen = {}, hidden = {}, chipProps = {}, npcPeds = {} }

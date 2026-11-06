@@ -3,17 +3,17 @@
 The gambling core for The Territories: card tables, seating, stake tiers and (in later phases) stacks, rake, NPC players
 and business tables, shared by small **game modules** (blackjack, poker, faro, …) that only define rules and odds.
 
-Version 0.4.0 (**phase 4 of 7: table UI**) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
+Version 0.5.0 (**phase 5 of 7: NPC players**) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
 developers and [DESIGN.md](DESIGN.md) for the full design.
 
 This is a community script. It is **not** made or supported by the RSG authors.
 
 **Dependencies:** `rsg-core`, `rsg-target`, `rsg-gizmo`, `oxmysql`
 
-> **Status.** Phases 1–4 are built: tables and seating, chips/hands/rake/ledger, the **module library** game modules
-> are written with (`lib/`), and the **table UI**. No real game modules are released yet (blackjack, poker, faro … come
-> next). Dev servers: `grumpy-gambling-test` adds two test games, `/ggbot` seats NPC opponents, and
-> `Config.DevGames = true` adds placeholder games for trying chips.
+> **Status.** Phases 1–5 are built: tables and seating, chips/hands/rake/ledger, the **module library** game modules
+> are written with (`lib/`), the **table UI**, and **NPC players**. No real game modules are released yet (blackjack,
+> poker, faro … come next). Dev servers: `grumpy-gambling-test` adds two test games, `/ggbot` overrides the NPC count,
+> and `Config.DevGames = true` adds placeholder games for trying chips.
 
 ## Features
 - **`/gambling` admin panel** (house style NUI):
@@ -52,6 +52,28 @@ This is a community script. It is **not** made or supported by the RSG authors.
   shows your moves (Fold, Check, Call $x, All in, and a Min / slider / Max for bets and raises). **Esc** gives the
   mouse back so you can look around; **G** (Your turn) takes it again. It draws whatever the game sends, so every
   module gets it for free.
+- **Seated animations:** everyone at a table (players and NPCs) moves like the game's own poker players: a looping
+  idle that changes every few seconds, and a clip for every check, call, bet, raise, all-in, fold, blind, buy-in and
+  pot win, so the table never looks frozen (`Config.Anim`).
+- **NPC players** fill empty seats so a lone player always has a game: a table keeps **one seat free** for a real
+  player (6 seats, 1 player → 4 NPCs; 2 players → 3 …). When someone takes the free seat, an NPC gives up its chair
+  **at the end of the hand**. NPCs leave with the last real player.
+  - **Personalities** (teacher, tight, balanced, loose, aggressive, shark), mixed by tier: patient teachers at Micro,
+    bolder players and sharks at High. Each NPC has a session plan: cut its losses, leave with its winnings, or get bored.
+  - **Poker brain** (`lib/npc_brain.lua`): hand strength, draws, board danger, opponents, position, pot odds, stack
+    pressure and a little randomness, plus **reads** on players (calls wider against players who raise everything).
+  - **Tells** in the world (never in the UI): a long look around with strong cards, fidgeting on a bluff. NPCs decide
+    first and act after a moment's thought, so the tell plays before the move. Watch the NPCs to get an edge.
+  - **Chatter** in the table feed: joining, big wins and losses, raises, leaving. **Drunks** in the evening (looser
+    play, more tells, rambling), **tilt** after a big loss (wilder for a few hands, or storming off).
+  - **Regulars:** named NPCs with a fixed look and personality who prefer their home saloon and remember you ("Back
+    for more, Arthur?").
+  - **Cardsharps** at back-room (bloodmoney) tables sometimes cheat. A tell gives them away; **Call out cheat** (target
+    the NPC) voids the hand and throws them out if you're right. A wrong accusation has a cost.
+  - **Free NPC money is capped:** NPC chips are created and destroyed, so what one player can win from NPCs is capped
+    over a rolling 90 minutes (20× the minimum buy-in at Micro and Low, 10× at Mid, 5× at High). At the cap the NPCs
+    call it a night at your table until the window frees up; games with real players carry on.
+  - At dealer tables (PVD) NPC bets are scenery: they never touch the house's money.
 - **Module library** (`lib/`): cards and shoes, a poker hand evaluator, a no-limit betting engine (blinds, min-raise,
   short all-ins that don't reopen the betting, uncalled bets), and server wrappers for the core (register a game,
   table events, hands, views, timers). A game module is a small resource that loads these files; see DOCS.md.
@@ -94,9 +116,18 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `Currencies` | `cash`, `bloodmoney` | Table money types |
 | `Tiers` | micro, low, mid, high | Stakes per tier (blinds, buy-in range, NPC cap). See DESIGN.md §6 |
 | `Pvd.MaxBetMultiplier` | `10` | Dealer games: max bet = 10 × min bet |
-| `DevGames` | `false` | Dev servers: placeholder games, `/gga <action> [dollars]` to act, `/ggbot [n|clear]` (admin) to seat test NPCs |
+| `DevGames` | `false` | Dev servers: placeholder games, `/gga <action> [dollars]` to act, `/ggbot [n|clear|auto]` (admin) to override the NPC count |
 | `TableUI.AutoFocus` / `FeedLines` | `true` / `8` | Take the mouse on your turn; feed lines shown |
-| `Npc.Models` / `Names` | townsfolk / six names | NPC players' looks and names (phase 5 adds personalities and regulars) |
+| `Npc.Enabled` / `MaxPerTable` | `true` / `5` | NPC players on or off; most NPCs at one table |
+| `Npc.CapWindowMinutes` | `90` | The win-cap window (cap multipliers are in `Tiers`) |
+| `Npc.Personas` / `Mix` / `TierMods` | see config | Personalities, who sits at which tier, how tiers shift them |
+| `Npc.Models` / `Names` / `BloodmoneyModels` | townsfolk | Strangers' looks and names |
+| `Anim` | poker clips | Seated idles (swap time), the clip for each move, win and tell, female versions |
+| `Npc.Tells` | 60%, strong ≥ 0.70 | How often tells show (× the persona's `tells`) and what counts as a strong hand |
+| `Npc.Chatter` | | Chance per event, gap between lines, number of locale lines |
+| `Npc.Drunk` / `Tilt` | 21:00–03:00 | Drunk hours (rsg-weather time) and modifiers; tilt trigger and effects |
+| `Npc.Sharp` | 15% of back-room NPCs | Cardsharps: how often they cheat, how often it shows, call-out cooldown |
+| `Npc.Regulars` | 5 regulars | Named NPCs: look, personality, skill, home saloon, tiers |
 | `ChipStacks.Enabled` / `Models` / `Forward` / `Height` | `true` / one per tier / `0.6` / `0.80` | Chip stack props in front of seats with chips; a model can override `chipForward` / `chipHeight` |
 | `Money.SavePlayer` / `BuyInStep` | `true` / `smallBlind` | Save the player after a buy-in or cash-out; buy-in slider step |
 | `Rake.Target` | pvp `3.0`, pvd `2.5` | Average loss per player-hour: big blinds (PVP), minimum bets (PVD) |

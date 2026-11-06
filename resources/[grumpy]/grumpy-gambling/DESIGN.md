@@ -1,7 +1,7 @@
 # grumpy-gambling — core design
 
-Status: **phases 1–3 built and tested in game; phase 4 (table UI) built** 2026-11-05 as v0.4.0 (previewed in a
-browser, not yet played in game); phases 5–7 to do. Phase 3 was tested in real Lua 5.4 (`tests/`, incl. the test games
+Status: **phases 1–4 built and tested in game; phase 5 (NPC players) built** 2026-11-05 as v0.5.0 (tested in
+Lua 5.4, not yet played in game); phases 6–7 to do. Phase 3 was tested in real Lua 5.4 (`tests/`, incl. the test games
 playing full hands through the core). Phase 3 adds
 `server/play.lua` (views, action relay, stakes) and the dev-only `grumpy-gambling-test` resource; `lib/flow.lua`
 became timers in `lib/server.lua`, and the NPC brain moves to phase 5. Layout additions to §4.2:
@@ -341,10 +341,16 @@ doesn't balance is **refused**: the hand is refunded, the module gets an error e
 - NT-style flow: up to N NPCs join per hand; each stays a random number of hands; personalities have
   cut-loss and leave-with-winnings rules.
 
+**As built (phase 5):** NPCs join one at a time between hands (a tick every 3 s plus 2.5 s after each hand); leaving
+(make room, capped, bust, cut loss, take profit, bored, storm off, caught) happens only when no hand is open. The seat
+count is min(table seats, the game's `maxSeats`), and at most `Config.Npc.MaxPerTable`.
+
 ### 8.2 Money
 - PVP: an NPC sits with a made-up bankroll (between the tier's buy-in min and max) drawn from `mint`; what it has
   left when it leaves goes to `sink`.
 - **PVD: NPC bets move no money.** They're scenery. This keeps business owners from farming their own tables.
+  As built: the NPC's own made-up stack still follows the result (ledgered `npc_mint`/`npc_sink`, note
+  `pvd scenery`), with no rake, cover or house result.
 
 ### 8.3 Win cap (faucet guard)
 - Per player, one **shared rolling window** across all tables and tiers (`Config.Npc.CapWindowMinutes`, default 90).
@@ -355,6 +361,9 @@ doesn't balance is **refused**: the hand is refunded, the module gets an error e
 - When a player reaches the cap, the NPCs at their table "call it a night" at the end of the hand, and NPCs won't sit
   with that player until the window frees up. Real-player games are unaffected.
 - Window entries are persisted (relogging doesn't reset it) and purged after the window.
+- As built: entries are written in the hand's settle transaction (`grumpy_gambling_npc_window`). Credits are capped at
+  what each player actually won or lost that hand. Losing to NPCs lowers the window total again (it's net).
+  Window: 90 minutes (`Config.Npc.CapWindowMinutes`).
 
 ### 8.4 Behaviour by tier
 | Tier | Personality mix | Tells | Cheats |
@@ -377,10 +386,21 @@ confidence into check/call/raise/all-in with bluff and slow-play chances and rai
 
 PVD NPCs use simple brains (e.g. blackjack basic strategy with personality noise).
 
+**As built (phase 5):** `lib/npc_brain.lua` (`Preflop` Chen-style score, `Strength` with made hand vs board, pair
+rank, draws (flush, open-ended, gutshot), board threat and a multiway penalty; `Decide`; `Tracker`; `PvdBet`;
+`ThinkMs`; `SharpSwap`). The core builds each NPC's profile (`GetNpc`) from `Config.Npc.Personas` + `TierMods` +
+drunk + tilt + a regular's skill (less noise). `GGLib.NpcDecide` runs the brain and reports tells and chatter. Monte
+Carlo equity was left out on purpose (server cost).
+
+**Strangers as built:** a random model from `Config.Npc.Models` (some back-room models at bloodmoney tables) and a
+server-chosen outfit number, applied as an outfit preset on every client (the same person for everyone). The ambient
+ped scan from NT was not used: it needs a client to report models, and the preset gives the same variety.
+
 ### 8.6 Strangers and regulars
 - **Strangers:** like NT, one nearby client scans networked ambient peds in an area around the table and returns a
   model and outfit; every client spawns its own local copy in the seat.
-- **Regulars:** named recurring NPCs stored in the DB with a fixed look, personality, skill and a home table or town.
+- **Regulars:** named recurring NPCs with a fixed look, personality, skill and a home table or town (as built: defined
+  in `Config.Npc.Regulars`, not a DB table, so owners edit them like any config; only their memory is in the DB).
   They prefer their home tables. Each keeps a small memory per player (hands played together, net result,
   last seen), read when the player sits down, which drives greetings and grudges ("Back for more, friend?").
 
@@ -395,6 +415,18 @@ PVD NPCs use simple brains (e.g. blackjack basic strategy with personality noise
   visible sleight tell, and can be **called out** by a player through rsg-target during or right after the hand.
   Correct call: hand refunded, cheater thrown out (any payout counts toward the NPC cap). Wrong call: consequences
   (to design with the module; e.g. the NPC takes offence). Detailed at module time.
+  As built: the core handles the target, the checks and the outcome; the module says whether that NPC cheated this
+  hand. Right: the module cancels the hand (everyone keeps their pre-hand chips) and the NPC is thrown out. Wrong: the
+  NPC takes offence and the accuser can't call anyone out for 10 minutes. Call-outs work during a hand only; "right
+  after the hand" is left for the poker module.
+- **Tells and seated animation as built:** first in-game test (2026-11-06): the chair scenario alone looked stiff and
+  no tells were seen (preflop hands rarely counted as strong, and the move's clip replaced the tell at once). Now
+  `Config.Anim` gives every seated ped a looping upper-body poker idle (flag 25, swapped every 8–20 s) and a clip for
+  every move, pot win and buy-in (`SeatCue`), from `mini_games@poker_mg@base` / `fem_relaxed` (the same set Nt_Holdem
+  uses). NPCs decide at the start of their think time (`GGLib.NpcTurn`), so a tell (`look_no_cards_long_*` strong,
+  `no_cards_idle_subtle_*` fidget for a bluff, `peek_cheat_idle` sleight) plays before the move; strong = strength
+  ≥ 0.70, 60% × persona.
+- **Drunk as built:** in-game hours 21:00–03:00 from rsg-weather (`GlobalState.rsgTime`), 35% chance (5% otherwise).
 
 ## 9. Business (POB) tables
 
@@ -558,7 +590,7 @@ Texas Hold'em (PVP) · Faro (PVD, *the* 1890s saloon game) · Roulette (PVD, rep
 - `Config.Rake.Pvd.OwnerShare` (draft 0%, option 25%).
 - Rake tuner bounds: `MinRate`/`MaxRate` per tier × kind and `MaxDailyStep` (drafts: PVP 1–7%, PVD 0.25–3%;
   step 0.25 percentage points a day).
-- NPC cap window: 60 or 90 minutes (draft 90).
+- NPC cap window: 60 or 90 minutes (built with 90; one config value).
 - Cardsharp call-out consequences.
 - Seat/dealer/prop anchors: measure in game per model (calibration tool).
 - Saint Denis card style: NT uses `01x_std_labastille`; the object list shows `..._std` — check in game.

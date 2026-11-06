@@ -110,9 +110,44 @@ function DB.StatsWindow(days)
 end
 
 ---------------------------------------------------------------------
+-- NPC win-cap window and regulars' memory (DESIGN.md §8.3, §8.6)
+---------------------------------------------------------------------
+local WINDOW_SQL = 'INSERT INTO grumpy_gambling_npc_window (citizenid, ts, amount_c) VALUES (?, ?, ?)'
+
+-- { { ts, amount } } for one player since `since`
+function DB.WindowLoad(cid, since)
+    local out = {}
+    for _, r in ipairs(MySQL.query.await('SELECT ts, amount_c FROM grumpy_gambling_npc_window WHERE citizenid = ? AND ts >= ?',
+        { cid, since }) or {}) do
+        out[#out + 1] = { ts = r.ts, amount = math.tointeger(r.amount_c) or 0 }
+    end
+    return out
+end
+
+function DB.WindowPurge(before)
+    MySQL.query('DELETE FROM grumpy_gambling_npc_window WHERE ts < ?', { before })
+end
+
+function DB.MemoryGet(regularId, cid)
+    local r = MySQL.single.await('SELECT hands, net_c, last_seen FROM grumpy_gambling_regular_memory WHERE regular_id = ? AND citizenid = ?',
+        { regularId, cid })
+    return r and { hands = r.hands, net = math.tointeger(r.net_c) or 0, lastSeen = r.last_seen } or nil
+end
+
+-- rows: { { regularId, cid, hands, net, lastSeen } }: hands and net are ADDED to what's stored
+function DB.MemorySave(rows)
+    for _, m in ipairs(rows) do
+        MySQL.query([[INSERT INTO grumpy_gambling_regular_memory (regular_id, citizenid, hands, net_c, last_seen) VALUES (?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE hands = hands + VALUES(hands), net_c = net_c + VALUES(net_c), last_seen = VALUES(last_seen)]],
+            { m.regularId, m.cid, m.hands, m.net, m.lastSeen })
+    end
+end
+
+---------------------------------------------------------------------
 -- Settlement: one transaction for everything a hand changes.
 -- s = { stacks = { { cid, tableId, currency, amount } }, remainder = { tableId, value },
---       cashbox = { tableId, currency, delta } | nil, hand = {...}, ledger = { entries } }
+--       cashbox = { tableId, currency, delta } | nil, hand = {...}, ledger = { entries },
+--       npcWindow = { { cid, ts, amount } } }
 ---------------------------------------------------------------------
 function DB.Settle(s)
     local q = {}
@@ -139,5 +174,6 @@ function DB.Settle(s)
         wagered_c, rake_c, house_c, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)]],
         values = { h.id, h.tableId, h.game, h.tier, h.currency, h.startedAt, now(), h.wagered, h.rake, h.house, json.encode(h.data) } }
     for _, e in ipairs(s.ledger) do q[#q + 1] = { query = LEDGER_SQL, values = ledgerParams(e) } end
+    for _, w in ipairs(s.npcWindow or {}) do q[#q + 1] = { query = WINDOW_SQL, values = { w.cid, w.ts, w.amount } } end
     return MySQL.transaction.await(q) == true
 end

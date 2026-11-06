@@ -21,6 +21,14 @@ function Hands.Contributed(tableId, seat)
     return s and s.contrib or 0
 end
 
+-- Chips of a seat that are really in the pot. NPC bets at PVD tables are scenery (DESIGN.md §8.2): nothing at risk.
+function Hands.AtRisk(tableId, seat)
+    local h = Hands.ForTable(tableId)
+    local s = h and h.seats[seat]
+    if not s or (h.kind == 'pvd' and s.npc) then return 0 end
+    return s.contrib
+end
+
 function Hands.InHand(tableId, seat)
     local h = Hands.ForTable(tableId)
     return h ~= nil and h.seats[seat] ~= nil and not h.seats[seat].departed
@@ -116,6 +124,14 @@ function Hands.Bet(handId, seat, amountC)
     if not occ or occ.cid ~= s.cid then return false, 'not_in_hand' end
     if amountC > occ.stack - s.contrib then return false, 'not_enough_chips' end
 
+    -- PVD NPC bets move no money: no rake, no house cover, no house result. Only the NPC's own (made-up) stack
+    -- follows the result, so it looks like a real player.
+    if h.kind == 'pvd' and s.npc then
+        s.contrib = s.contrib + amountC
+        s.net = s.net + amountC
+        return true, amountC
+    end
+
     if h.kind == 'pvd' then
         local skim, rem = M.Skim(amountC, h.rate, h.rem)
         local net = amountC - skim
@@ -185,11 +201,13 @@ function Hands.Cancel(handId, reason)
     close(h)
     for _, s in pairs(h.seats) do
         if s.departed and s.contrib > 0 then
-            if s.npc then GG.Npc.Sink(h.tableId, h.id, s.cid, h.currency, s.contrib)
+            if s.npc then
+                if h.kind == 'pvp' then GG.Npc.Sink(h.tableId, h.id, s.cid, h.currency, s.contrib) end
             else GG.Wallet.PayOrPend(s.cid, h.currency, s.contrib, 'refund', h.tableId, h.id) end
         end
     end
     GG.Debug('hand cancelled', h.id, reason)
+    if t and GG.Npc then GG.Npc.AfterHand(t, nil) end
     return true
 end
 
@@ -238,7 +256,9 @@ local function settlePvd(h, result)
         local p = payouts[seat] or 0
         if p > math.floor(s.net * h.maxPayout + 0.5) then return nil, 'payout_too_high' end
         if p > 0 then awards[seat] = p end
-        paid, net, rakeC, sum = paid + p, net + s.net, rakeC + s.skim, sum + s.contrib
+        if not s.npc then -- NPC bets are scenery: they never touch the house
+            paid, net, rakeC, sum = paid + p, net + s.net, rakeC + s.skim, sum + s.contrib
+        end
     end
     if net + rakeC ~= sum then return nil, 'unbalanced' end
     -- house: > 0 pays players (created or from the cashbox), < 0 keeps the players' losses
@@ -263,13 +283,20 @@ function Hands.Settle(handId, result)
     for seat, s in pairs(h.seats) do
         local award = r.awards[seat] or 0
         local occ = t.occupants[seat]
-        data[#data + 1] = { seat = seat, cid = s.cid, bet = s.contrib, won = award, left = s.departed == true }
+        data[#data + 1] = { seat = seat, cid = s.cid, bet = s.contrib, won = award, left = s.departed == true, npc = s.npc or nil }
         if not s.departed and occ and occ.cid == s.cid then
             local ns = occ.stack - s.contrib + award
             newStacks[seat] = ns
             stacks[#stacks + 1] = { cid = s.cid, tableId = t.id, currency = h.currency, amount = ns }
-        elseif award > 0 and s.npc then
-            GG.Npc.Sink(t.id, h.id, s.cid, h.currency, award, ledger) -- an NPC that left can't be paid
+            if s.npc and h.kind == 'pvd' and award ~= s.contrib then
+                -- the NPC's scenery bet: its made-up stack grows or shrinks with nobody paying
+                ledger[#ledger + 1] = { kind = award > s.contrib and 'npc_mint' or 'npc_sink', tableId = t.id, handId = h.id,
+                    cid = s.cid, currency = h.currency, amount = award - s.contrib, note = 'pvd scenery' }
+            end
+        elseif s.npc then
+            if award > 0 and h.kind == 'pvp' then
+                GG.Npc.Sink(t.id, h.id, s.cid, h.currency, award, ledger) -- an NPC that left can't be paid
+            end
         elseif award > 0 then
             pending[#pending + 1] = { cid = s.cid, currency = h.currency, amount = award }
             ledger[#ledger + 1] = { kind = 'pending', tableId = t.id, handId = h.id, cid = s.cid, currency = h.currency,
@@ -288,8 +315,10 @@ function Hands.Settle(handId, result)
             currency = h.currency, amount = r.house }
     end
 
+    local npcWindow = GG.Npc and h.kind == 'pvp' and GG.Npc.CapEntries(h, r.awards) or {}
+
     local ok = GG.DB.Settle({
-        stacks = stacks, pending = pending, ledger = ledger,
+        stacks = stacks, pending = pending, ledger = ledger, npcWindow = npcWindow,
         remainder = { tableId = t.id, value = r.rem },
         cashbox = cashbox and { tableId = t.id, currency = h.currency, delta = boxDelta } or nil,
         hand = { id = h.id, tableId = t.id, game = h.game, tier = h.tier, currency = h.currency, startedAt = h.startedAt,
@@ -318,6 +347,11 @@ function Hands.Settle(handId, result)
     for _, p in ipairs(pending) do
         local Player = GG.Core.Functions.GetPlayerByCitizenId(p.cid)
         if Player then GG.Wallet.PayPending(Player) end
+    end
+    if GG.Play then GG.Play.SettleCues(t, h, r.awards) end
+    if GG.Npc then
+        GG.Npc.CapApplied(npcWindow)
+        GG.Npc.AfterHand(t, h, r.awards)
     end
     return true, { awards = r.awards, rake = r.rake, house = r.house, wagered = r.wagered }
 end

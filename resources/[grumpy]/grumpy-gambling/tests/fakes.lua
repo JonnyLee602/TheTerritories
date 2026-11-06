@@ -37,7 +37,7 @@ end
 function TriggerClientEvent(name, src, ...)
     local args = { ... }
     Fake.clientEvents[#Fake.clientEvents + 1] = { name = name, src = src, args = args }
-    if #Fake.clientEvents > 200 then table.remove(Fake.clientEvents, 1) end
+    if #Fake.clientEvents > 3000 then table.remove(Fake.clientEvents, 1) end
     if name == 'grumpy-gambling:client:view' then
         Fake.lastView[src] = { tableId = args[1], public = args[2], private = args[3], seat = args[4] }
     elseif name == 'grumpy-gambling:client:message' then

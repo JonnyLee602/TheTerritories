@@ -1,5 +1,6 @@
 -- Server wrappers for game modules: register a game, receive table events, and call the core.
--- Load order in a module: lib/init.lua, lib/cards.lua, lib/poker.lua, lib/betting.lua (as needed), lib/server.lua.
+-- Load order in a module: lib/init.lua, lib/cards.lua, lib/poker.lua, lib/betting.lua, lib/npc_brain.lua (as needed),
+-- lib/server.lua.
 -- List this file under server_scripts only (it uses server natives and exports).
 
 local CORE = GGLib.CoreResource
@@ -10,7 +11,8 @@ local function core() return exports[CORE] end
 ---------------------------------------------------------------------
 -- handlers (all optional): tableStarted(tableId, tier, currency), seatTaken(tableId, seat, src),
 -- seatLeft(tableId, seat, src), stackChanged(tableId, seat, src, cents), action(tableId, seat, src, id, amount),
--- tableStopping(tableId, reason)
+-- tableStopping(tableId, reason), callOut(tableId, npcSeat, src) (a player accuses a back-room NPC of cheating:
+-- answer with GGLib.ResolveCallOut)
 function GGLib.RegisterGame(def, handlers)
     GGLib.Game = def
     local function register()
@@ -33,6 +35,7 @@ function GGLib.RegisterGame(def, handlers)
     on('stackChanged', handlers.stackChanged)
     on('playerAction', handlers.action)
     on('tableStopping', handlers.tableStopping)
+    on('playerCallOut', handlers.callOut)
     -- register now if the core is up, and again whenever the core (re)starts
     AddEventHandler('grumpy-gambling:server:ready', register)
     if GetResourceState(CORE) == 'started' then
@@ -55,6 +58,43 @@ function GGLib.Seats(tableId) return core():GetSeats(tableId) or {} end
 function GGLib.Table(tableId) return core():GetTable(tableId) end
 function GGLib.Stakes(tableId) return core():GetStakes(tableId) end
 function GGLib.Stand(tableId, seat) return core():StandSeat(tableId, seat) end
+
+---------------------------------------------------------------------
+-- NPCs (DESIGN.md §8). Seats with npc = true in GGLib.Seats are NPCs; the core seats and removes them.
+---------------------------------------------------------------------
+-- The NPC's personality numbers for lib/npc_brain.lua (tier, drunk and tilt already applied), or nil
+function GGLib.NpcProfile(tableId, seat) return core():GetNpc(tableId, seat) end
+
+-- Tell the core what an NPC just did: 'strong' / 'bluff' (may show a tell in the world), 'sleight' (a cardsharp
+-- cheated), or a move id ('raise', 'allin', 'fold', 'call', 'check') for a chance of a chatter line
+function GGLib.NpcEvent(tableId, seat, event) return core():NpcEvent(tableId, seat, event) end
+
+-- Answer a call-out: caught = true if that NPC cheated in this hand (cancel or settle the hand yourself first)
+function GGLib.ResolveCallOut(tableId, seat, caught) return core():ResolveCallOut(tableId, seat, caught) end
+
+-- Poker convenience: gets the profile, runs GGLib.Brain.Decide(ctx) and reports a possible tell.
+-- ctx as in Brain.Decide (persona is filled in). Returns action, amount, meta.
+function GGLib.NpcDecide(tableId, seat, ctx)
+    ctx.persona = ctx.persona or GGLib.NpcProfile(tableId, seat)
+    local action, amount, meta = GGLib.Brain.Decide(ctx)
+    if meta.bluff then meta.told = GGLib.NpcEvent(tableId, seat, 'bluff')
+    elseif meta.strong and action ~= 'fold' then meta.told = GGLib.NpcEvent(tableId, seat, 'strong') end
+    return action, amount, meta
+end
+
+-- An NPC's whole poker turn: it decides at once (so a tell plays while it "thinks"), then after its think time
+-- calls act(action, amount). `key` is the timer key (scheduling it again replaces the turn).
+function GGLib.NpcTurn(key, tableId, seat, ctx, act)
+    local action, amount, meta = GGLib.NpcDecide(tableId, seat, ctx)
+    local ms = GGLib.Brain.ThinkMs(ctx.persona, meta.strength)
+    if meta.told then ms = math.max(ms, 3200) end -- let the tell finish before the move's own clip
+    GGLib.After(key, ms, function() act(action, amount) end)
+end
+
+-- Plays a clip on a seat for everyone near the table (Config.Anim.Cues): moves ('check', 'call', 'bet', 'raise',
+-- 'allin', 'fold', 'blind'), or 'happy' / 'sad' / 'cheer' / 'despair'. Call it for every move, players and NPCs:
+-- NPC moves may also get a chatter line. Pot wins and buy-ins are cued by the core.
+function GGLib.Cue(tableId, seat, cue) return core():SeatCue(tableId, seat, cue) end
 
 -- Sends the table view to everyone seated: public for all, private[seat] only to that seat's player (hole cards,
 -- the actions they can take). See DESIGN.md §11.4 for the shape.

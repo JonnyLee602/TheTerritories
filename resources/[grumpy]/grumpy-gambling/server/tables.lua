@@ -103,12 +103,13 @@ local function gameLabel(t)
 end
 
 function Tables.Public(t)
-    local occupied, chips, npc = {}, {}, {}
+    local occupied, chips, npc, npcOutfit = {}, {}, {}, {}
     for i = 1, #t.seats do
         local occ = t.occupants[i]
         occupied[i] = occ ~= nil
         chips[i] = occ ~= nil and (occ.stack or 0) > 0
         npc[i] = occ ~= nil and occ.npc and occ.model or false
+        npcOutfit[i] = occ ~= nil and occ.npc and occ.outfit or false -- every client shows the same outfit
     end
     return {
         id = t.id, label = t.label, kind = t.kind, source = t.source, model = t.model, bound = t.bound,
@@ -116,6 +117,7 @@ function Tables.Public(t)
         seats = t.seats, dealer = t.dealer, chair = t.chair, sitZ = t.sitZ, chairYaw = t.chairYaw,
         chipForward = t.chipForward, chipHeight = t.chipHeight,
         state = t.state, game = t.game, gameLabel = gameLabel(t), tier = t.tier, occupied = occupied, chips = chips, npc = npc,
+        npcOutfit = npcOutfit,
         version = t.version,
     }
 end

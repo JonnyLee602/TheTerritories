@@ -1,5 +1,6 @@
 -- In-memory replacement for server/db.lua (same functions), loaded after the server files (tests only).
 local F = { stacks = {}, pending = {}, ledger = {}, cashboxes = {}, remainders = {}, rates = {}, stats = {}, hands = {},
+    window = {}, memory = {},
     failSettle = false }
 FakeDB = F
 local DB = GG.DB
@@ -29,7 +30,23 @@ function DB.RemaindersAll() return {} end
 function DB.RatesAll() return {} end
 function DB.RateSet(kind, tier, game, rate) F.rates[kind .. ':' .. tier .. ':' .. game] = rate end
 function DB.StatsAdd(rows) for _, r in ipairs(rows) do F.stats[#F.stats + 1] = r end end
-function DB.StatsWindow() return F.window or {} end
+function DB.StatsWindow() return F.statsWindow or {} end
+function DB.WindowLoad(cid, since)
+    local out = {}
+    for _, w in ipairs(F.window) do if w.cid == cid and w.ts >= since then out[#out + 1] = { ts = w.ts, amount = w.amount } end end
+    return out
+end
+function DB.WindowPurge(before)
+    for i = #F.window, 1, -1 do if F.window[i].ts < before then table.remove(F.window, i) end end
+end
+function DB.MemoryGet(rid, cid) local m = F.memory[rid .. '|' .. cid]; return m and { hands = m.hands, net = m.net, lastSeen = m.lastSeen } end
+function DB.MemorySave(rows)
+    for _, m in ipairs(rows) do
+        local k = m.regularId .. '|' .. m.cid
+        local o = F.memory[k] or { hands = 0, net = 0 }
+        F.memory[k] = { hands = o.hands + m.hands, net = o.net + m.net, lastSeen = m.lastSeen }
+    end
+end
 
 function DB.Settle(s)
     if F.failSettle then return false end
@@ -39,5 +56,6 @@ function DB.Settle(s)
     if s.cashbox then F.cashboxes[s.cashbox.tableId] = (F.cashboxes[s.cashbox.tableId] or 0) + s.cashbox.delta end
     F.hands[#F.hands + 1] = s.hand
     for _, e in ipairs(s.ledger) do F.ledger[#F.ledger + 1] = e end
+    for _, w in ipairs(s.npcWindow or {}) do F.window[#F.window + 1] = { cid = w.cid, ts = w.ts, amount = w.amount } end
     return true
 end

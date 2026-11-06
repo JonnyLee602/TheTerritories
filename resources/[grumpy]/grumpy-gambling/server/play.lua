@@ -99,6 +99,45 @@ exports('TableMessage', function(tableId, src, text)
     return true
 end)
 
+---------------------------------------------------------------------
+-- Seat cues (Config.Anim.Cues): a move, a win or a tell played on that seat's ped by every client near the table.
+-- A move by an NPC may also get a line in the feed.
+---------------------------------------------------------------------
+local MOVES = { check = true, call = true, bet = true, raise = true, allin = true, fold = true }
+
+function Play.Cue(t, seat, cue)
+    if not Config.Anim.Enabled or not Config.Anim.Cues[cue] or not t.occupants[seat] then return false end
+    TriggerClientEvent('grumpy-gambling:client:seatCue', -1, t.id, seat, cue)
+    return true
+end
+
+exports('SeatCue', function(tableId, seat, cue)
+    local t = GG.Tables.Get(tableId)
+    seat = math.tointeger(seat)
+    if not t or not seat or not callerOk(t) or type(cue) ~= 'string' then return false end
+    local occ = t.occupants[seat]
+    if occ and occ.npc and MOVES[cue] then GG.Npc.Say(t, seat, cue == 'bet' and 'raise' or cue) end
+    return Play.Cue(t, seat, cue)
+end)
+
+-- After a settled hand: the pot winner(s) rake it in (PVP); at dealer games winners smile and big losers sulk
+function Play.SettleCues(t, h, awards)
+    local bb = h.bb
+    for seat, s in pairs(h.seats) do
+        if not s.departed then
+            local res = (awards[seat] or 0) - s.contrib
+            if h.kind == 'pvp' then
+                if res > 0 then Play.Cue(t, seat, 'win')
+                elseif res <= -15 * bb then Play.Cue(t, seat, 'despair') end
+            elseif s.contrib > 0 then
+                if res >= 5 * bb then Play.Cue(t, seat, 'cheer')
+                elseif res > 0 then Play.Cue(t, seat, 'happy')
+                elseif res < 0 and math.random() < 0.5 then Play.Cue(t, seat, 'sad') end
+            end
+        end
+    end
+end
+
 -- A module stands a seat up (e.g. a player who keeps timing out)
 exports('StandSeat', function(tableId, seat)
     local t = GG.Tables.Get(tableId)

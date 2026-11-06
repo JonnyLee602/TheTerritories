@@ -38,10 +38,12 @@ local function sitAt(t, seat)
     ClearPedTasksImmediately(ped)
     FreezeEntityPosition(ped, true)
     TaskStartScenarioAtPosition(ped, joaat(Config.Seating.Scenario), x, y, z, h, -1, false, true)
+    GGC.Anim.Start(ped)
 end
 
 local function leaveSeat()
     local ped = PlayerPedId()
+    GGC.Anim.Stop(ped)
     FreezeEntityPosition(ped, false)
     ClearPedTasksImmediately(ped)
     if preSeat and #(GetEntityCoords(ped) - vector3(preSeat.x, preSeat.y, preSeat.z)) < 10.0 then

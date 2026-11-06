@@ -59,16 +59,180 @@ Config.ChipStacks = {
                                            -- chipForward / chipHeight in shared/models.lua)
 }
 
+-- Seated animations (players and NPCs). The chair scenario alone leaves everyone frozen with their hands on the
+-- table, so a looping upper-body poker idle plays over it (swapped now and then), and every move, win and tell plays
+-- its own clip. Clips: data/rdr3_discoveries/animations/ingameanims/ingameanims_list.lua (mini_games@poker_mg@base, the
+-- game's own poker players; Nt_Holdem uses the same set). Flags: 25 = loop + upper body + secondary (idles),
+-- 24 = upper body + secondary, played once (moves). Set Enabled = false to keep the plain scenario.
+Config.Anim = {
+    Enabled = true,
+    Dict = 'mini_games@poker_mg@base',
+    Idles = { 'no_cards_idle_a', 'no_cards_idle_b', 'no_cards_idle_c', 'no_cards_idle_d', 'no_cards_idle_e',
+              'no_cards_idle_subtle_a', 'no_cards_idle_subtle_b', 'no_cards_idle_subtle_c' },
+    IdleFlag = 25,
+    IdleSwapMs = { 8000, 20000 },          -- a different idle every so often, so a table never looks frozen
+    StartDelayMs = 600,                    -- after sitting: let the chair scenario settle first (same as the dealer)
+    Flag = 24,
+    -- cue = { clips, ms, dict? }. Moves come from the game (GGLib.Cue); win/buyin from the core; the rest are NPC tells
+    -- and reactions. Female = clips from the female set where the game has them.
+    Cues = {
+        check   = { clips = { 'check_a', 'check_b', 'check_c' }, ms = 1200 },
+        call    = { clips = { 'bet_stack_a', 'bet_stack_b' }, ms = 2000 },
+        bet     = { clips = { 'bet_stack_a', 'bet_stack_b', 'bet_stack_c', 'bet_stack_d' }, ms = 2000 },
+        raise   = { clips = { 'bet_stack_b', 'bet_stack_c', 'bet_stack_d' }, ms = 2000 },
+        allin   = { clips = { 'bet_all' }, ms = 3000 },
+        fold    = { clips = { 'fold' }, ms = 1200 },
+        blind   = { clips = { 'bet_blind_a' }, ms = 1200 },
+        buyin   = { clips = { 'buy_in_a', 'buy_in_b', 'buy_in_c' }, ms = 4000 },
+        win     = { dict = 'mini_games@poker_mg@take_pot@base@a', clips = { 'take' }, ms = 3000 },
+        happy   = { clips = { 'express_win_subtle_a', 'express_win_subtle_b', 'express_win_subtle_c' }, ms = 3000 },
+        sad     = { clips = { 'express_loss_subtle_a', 'express_loss_subtle_b', 'express_loss_subtle_c' }, ms = 3000 },
+        cheer   = { clips = { 'express_win_a', 'express_win_b', 'express_win_c' }, ms = 3500 },
+        despair = { clips = { 'express_loss_a', 'express_loss_b', 'express_loss_c' }, ms = 3500 },
+        -- NPC tells: a long look at strong cards, fidgeting on a bluff, a cardsharp's peek
+        strong  = { clips = { 'look_no_cards_long_1a', 'look_no_cards_long_2b', 'look_no_cards_long_3c' }, ms = 3500 },
+        bluff   = { clips = { 'no_cards_idle_subtle_d', 'no_cards_idle_subtle_e', 'look_no_cards_quick_2a' }, ms = 3000 },
+        sleight = { clips = { 'peek_cheat_idle' }, ms = 3000 },
+    },
+    Female = {
+        dict = 'mini_games@poker_mg@fem_relaxed',
+        Cues = {
+            check = { 'check_a', 'check_b', 'check_c' }, call = { 'bet_stack_a', 'bet_stack_b' },
+            bet = { 'bet_stack_a', 'bet_stack_b', 'bet_stack_c', 'bet_stack_d' }, raise = { 'bet_stack_b', 'bet_stack_c' },
+            allin = { 'bet_all' }, fold = { 'fold' },
+            happy = { 'express_win_subtle_a', 'express_win_subtle_b' }, sad = { 'express_loss_subtle_a', 'express_loss_subtle_b' },
+            cheer = { 'express_win_a', 'express_win_b' }, despair = { 'express_loss_a', 'express_loss_b' },
+        },
+    },
+}
+
 -- Table UI (phase 4): the panel shown while seated
 Config.TableUI = {
     AutoFocus = true,                      -- take the mouse when it's your turn (Esc gives it back, G takes it again)
     FeedLines = 8,                         -- lines of the table feed shown
 }
 
--- NPC players (phase 3: seat plumbing + dev /ggbot; phase 5: seating rule, win cap, brains, regulars)
+---------------------------------------------------------------------
+-- NPC players (DESIGN.md §8). Free NPCs: their chips are created when they sit and destroyed when they leave
+-- (accepted doctrine deviation, doctrine/compliance.md), bounded by the per-player win cap (npcCapMultiplier).
+---------------------------------------------------------------------
 Config.Npc = {
-    Models = { 'a_m_m_valtownfolk_01', 'a_m_m_rhdtownfolk_01', 'a_f_m_valtownfolk_01' }, -- data/rdr3_discoveries/peds/peds_list.lua
-    Names = { 'Silas', 'Walter', 'Ezra', 'Martha', 'Josephine', 'Clara' },
+    Enabled = true,
+    MaxPerTable = 5,                       -- never more NPCs than this, whatever the seat count
+    -- seats = min(table seats, game maxSeats); NPCs = seats - real players - 1 (one seat always stays free)
+    TickMs = 3000,                         -- how often tables between hands are checked (one NPC joins per check)
+    LeaveDelayMs = 2500,                   -- after a hand: time to see the result before NPCs leave or join
+    CapWindowMinutes = 90,                 -- the shared rolling win-cap window (DESIGN.md §8.3; open item: 60 or 90)
+    ThinkMs = { 1200, 3500 },              -- poker NPCs "think" this long before acting (drunks a bit longer)
+    BigPotBB = 15,                         -- a hand result this big (in big blinds) gets a win/loss reaction
+
+    -- Strangers' looks: a random model and outfit preset (every client shows the same outfit)
+    Models = {                             -- data/rdr3_discoveries/peds/peds_list.lua
+        'a_m_m_valtownfolk_01', 'a_m_m_valtownfolk_02', 'a_m_m_rhdtownfolk_01', 'a_m_m_strtownfolk_01',
+        'a_m_m_valfarmer_01', 'a_m_m_vallaborer_01', 'a_m_m_rancher_01', 'a_m_m_blwupperclass_01',
+        'a_f_m_valtownfolk_01', 'a_f_m_rhdtownfolk_01', 'a_f_m_blwtownfolk_01',
+    },
+    Names = {
+        'Silas', 'Walter', 'Ezra', 'Amos', 'Jedediah', 'Horace', 'Virgil', 'Cyrus', 'Elias', 'Otis', 'Thaddeus',
+        'Martha', 'Josephine', 'Clara', 'Hattie', 'Lottie', 'Adeline',
+    },
+    FemaleNames = { 'Martha', 'Josephine', 'Clara', 'Hattie', 'Lottie', 'Adeline' }, -- used with a_f_* models
+    BloodmoneyModels = { 'a_m_m_valcriminals_01', 'a_m_m_strtownfolk_01', 'a_m_m_vallaborer_01' }, -- back rooms
+
+    -- Personalities. Poker: play = strength needed to enter a pot (0–1), call = extra margin over the pot odds,
+    -- raise = strength to bet/raise, aggression = chance to bet/raise when strong enough, bluff = chance to bluff,
+    -- slowplay = chance to just check a monster, size = bet size as a share of the pot, open = preflop raise in big
+    -- blinds, noise = random error, tells = how often tells show (×), tiltProne = chance a big loss tilts them.
+    -- Session: cutLoss = leaves after losing this share of the buy-in, takeProfit = may leave after winning this
+    -- multiple of it, hands = stays this many hands. PVD: bet = { min, max } × the minimum bet.
+    Personas = {
+        teacher    = { play = 0.55, call = 0.05, raise = 0.72, aggression = 0.35, bluff = 0.02, slowplay = 0.05, size = 0.5,
+                       open = 2.5, noise = 0.08, tells = 1.5, tiltProne = 0.0, cutLoss = 0.8, takeProfit = 2.0, hands = { 25, 70 },
+                       bet = { 1, 2 } },
+        tight      = { play = 0.60, call = 0.08, raise = 0.75, aggression = 0.45, bluff = 0.03, slowplay = 0.15, size = 0.6,
+                       open = 3.0, noise = 0.06, tells = 1.0, tiltProne = 0.2, cutLoss = 0.5, takeProfit = 1.0, hands = { 15, 45 },
+                       bet = { 1, 2 } },
+        balanced   = { play = 0.50, call = 0.03, raise = 0.68, aggression = 0.50, bluff = 0.06, slowplay = 0.10, size = 0.7,
+                       open = 3.0, noise = 0.06, tells = 1.0, tiltProne = 0.3, cutLoss = 0.7, takeProfit = 1.2, hands = { 15, 45 },
+                       bet = { 1, 3 } },
+        loose      = { play = 0.38, call = -0.03, raise = 0.70, aggression = 0.35, bluff = 0.08, slowplay = 0.05, size = 0.6,
+                       open = 2.5, noise = 0.08, tells = 1.2, tiltProne = 0.4, cutLoss = 0.9, takeProfit = 1.5, hands = { 10, 40 },
+                       bet = { 1, 4 } },
+        aggressive = { play = 0.43, call = 0.00, raise = 0.60, aggression = 0.70, bluff = 0.12, slowplay = 0.05, size = 0.85,
+                       open = 3.5, noise = 0.07, tells = 1.0, tiltProne = 0.5, cutLoss = 1.0, takeProfit = 1.5, hands = { 10, 35 },
+                       bet = { 2, 6 } },
+        shark      = { play = 0.50, call = 0.02, raise = 0.62, aggression = 0.65, bluff = 0.09, slowplay = 0.20, size = 0.8,
+                       open = 3.0, noise = 0.03, tells = 0.4, tiltProne = 0.1, cutLoss = 0.8, takeProfit = 2.0, hands = { 20, 60 },
+                       bet = { 2, 8 } },
+    },
+    -- Who sits where (weights), and how each tier shifts them (DESIGN.md §8.4): bolder as stakes rise
+    Mix = {
+        micro = { teacher = 6, tight = 2, balanced = 2 },
+        low   = { tight = 3, balanced = 3, loose = 2, aggressive = 2 },
+        mid   = { tight = 1, balanced = 3, loose = 3, aggressive = 3 },
+        high  = { balanced = 2, loose = 3, aggressive = 4, shark = 2 },
+    },
+    TierMods = {                           -- added to the persona (tells is a multiplier)
+        micro = { tells = 2.0 },
+        low   = {},
+        mid   = { play = -0.03, call = -0.02, size = 0.1 },
+        high  = { play = -0.05, call = -0.04, size = 0.2, aggression = 0.05, tells = 0.5 },
+    },
+
+    Tells = {
+        Chance = { strong = 0.6, bluff = 0.6 },   -- × the persona's tells: how often a tell shows when it applies
+        Strong = 0.70,                     -- hand strength (0–1) that counts as "strong" for a tell
+    },
+    Chatter = {
+        GapSeconds = 6,                    -- at most one NPC line per table this often (greetings and exits skip it)
+        Chance = { join = 0.6, leave = 0.8, win_big = 0.6, lose_big = 0.6, raise = 0.12, allin = 0.5, fold = 0.06,
+                   call = 0.05, check = 0.03, drunk = 0.15 },
+        -- number of locale lines per event: npc_<event>_<n>
+        Lines = { join = 5, greet_friend = 3, greet_grudge = 3, greet_known = 2, win_big = 5, lose_big = 5, raise = 4,
+                  allin = 3, fold = 4, call = 3, check = 2, drunk = 5, leave_bust = 3, leave_profit = 3, leave_loss = 3,
+                  leave_night = 3, leave_room = 2, leave_storm = 3, leave_bored = 3, caught = 2, offended = 3 },
+    },
+
+    Drunk = {
+        Hours = { 21, 3 },                 -- in-game hours (rsg-weather) when saloon NPCs are often drunk
+        Chance = 0.35, DayChance = 0.05,
+        Mods = { play = -0.10, call = -0.05, bluff = 0.05, noise = 0.08, tells = 2.0 },
+    },
+    Tilt = {
+        LossBB = 20,                       -- losing this many big blinds in one hand may tilt (× tiltProne)
+        Hands = 4,                         -- tilt lasts this many hands
+        StormOff = 0.25,                   -- chance a tilted NPC leaves at the end of the hand (× tiltProne)
+        Mods = { aggression = 0.25, bluff = 0.08, call = -0.05, play = -0.08, noise = 0.05 },
+    },
+    -- Back-room (bloodmoney) tables only: some NPCs cheat. The game module decides how (DESIGN.md §8.7).
+    Sharp = {
+        Chance = 0.15,                     -- an NPC at a bloodmoney table is a cardsharp
+        CheatChance = 0.25,                -- chance per hand they try something
+        TellChance = 0.6,                  -- chance their sleight shows (a peek animation)
+        CallOutCooldownSeconds = 600,      -- after a wrong call-out
+    },
+
+    -- Recurring named NPCs with a fixed look and personality (DESIGN.md §8.6). They remember each player (hands
+    -- together, money won from them) and greet them. home = { x, y, z, radius }: they prefer tables there; roams = may
+    -- sit anywhere else too. tiers = where they play (nil = any).
+    Regulars = {
+        Chance = 0.35,                     -- chance a joining NPC is a free regular who fits the table
+        KnownHands = 10,                   -- hands together before a regular greets you by name
+        List = {
+            { id = 'old_jeb', name = 'Old Jeb', model = 'a_m_m_valfarmer_01', outfit = 3, persona = 'tight', skill = 0.6,
+              home = { x = -308.29, y = 810.2, z = 117.98, radius = 120.0 }, roams = false, -- Valentine saloon (rsg-fortuneteller config)
+              tiers = { micro = true, low = true } },
+            { id = 'miss_lottie', name = 'Miss Lottie', model = 'a_f_m_rhdtownfolk_01', outfit = 1, persona = 'balanced', skill = 0.7,
+              home = { x = 1355.99, y = -1298.06, z = 76.78, radius = 150.0 }, roams = true }, -- Rhodes (rsg-bountyhunter office)
+            { id = 'deacon_ward', name = 'Deacon Ward', model = 'a_m_m_blwupperclass_01', outfit = 2, persona = 'shark', skill = 0.85,
+              home = { x = 2510.08, y = -1318.03, z = 48.53, radius = 250.0 }, roams = true, -- Saint Denis (rsg-bountyhunter office)
+              tiers = { mid = true, high = true } },
+            { id = 'whistling_pete', name = 'Whistling Pete', model = 'a_m_m_vallaborer_01', outfit = 4, persona = 'loose', skill = 0.3,
+              roams = true, tiers = { low = true, mid = true } },
+            { id = 'colonel_bragg', name = 'Colonel Bragg', model = 'a_m_m_rhdupperclass_01', outfit = 0, persona = 'aggressive', skill = 0.55,
+              roams = true, tiers = { mid = true, high = true } },
+        },
+    },
 }
 
 Config.Dealer = {

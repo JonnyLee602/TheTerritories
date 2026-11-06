@@ -81,6 +81,7 @@ function Wallet.BuyIn(src, amountC)
     if first then occ.markAt = os.time() end
     occ.stack = newStack
     if first then GG.Tables.Sync(t) end -- a chip stack appears in front of the seat
+    if GG.Play then GG.Play.Cue(t, s.seat, 'buyin') end
     return true, newStack
 end
 

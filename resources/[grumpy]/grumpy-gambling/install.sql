@@ -1,5 +1,5 @@
 -- grumpy-gambling tables. Created automatically on start unless Config.AutoDatabase = false.
--- Phases 1–2: tables, money. NPC and business tables are added in later phases (DESIGN.md §13).
+-- Phases 1–2: tables, money. Phase 5: NPC win-cap window and regulars' memory. Business tables come in phase 6.
 -- Money columns ending in _c are integer cents.
 
 CREATE TABLE IF NOT EXISTS `grumpy_gambling_tables` (
@@ -123,4 +123,26 @@ CREATE TABLE IF NOT EXISTS `grumpy_gambling_rake_rates` (
   `samples` INT NOT NULL DEFAULT 0,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`tier`, `kind`, `game`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- NPC win cap (DESIGN.md §8.3): what each player won from (+) or lost to (-) NPCs, per hand, inside the window.
+-- Purged once older than Config.Npc.CapWindowMinutes.
+CREATE TABLE IF NOT EXISTS `grumpy_gambling_npc_window` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `citizenid` VARCHAR(50) NOT NULL,
+  `ts` INT NOT NULL,
+  `amount_c` BIGINT NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `player_ts` (`citizenid`, `ts`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- What each regular NPC remembers about a player (DESIGN.md §8.6). net_c = what the regular won from them (+) or
+-- lost to them (-) over hands played together.
+CREATE TABLE IF NOT EXISTS `grumpy_gambling_regular_memory` (
+  `regular_id` VARCHAR(40) NOT NULL,
+  `citizenid` VARCHAR(50) NOT NULL,
+  `hands` INT NOT NULL DEFAULT 0,
+  `net_c` BIGINT NOT NULL DEFAULT 0,
+  `last_seen` INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`regular_id`, `citizenid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

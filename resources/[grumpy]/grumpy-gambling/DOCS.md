@@ -1,6 +1,6 @@
 # grumpy-gambling — developer docs
 
-Version 0.4.0, phases 1–4 (foundation, money, module library, table UI). The full design, including later phases, is in [DESIGN.md](DESIGN.md).
+Version 0.5.0, phases 1–5 (foundation, money, module library, table UI, NPC players). The full design, including later phases, is in [DESIGN.md](DESIGN.md).
 
 ## Contents
 1. Architecture
@@ -39,7 +39,9 @@ Version 0.4.0, phases 1–4 (foundation, money, module library, table UI). The f
 | `client/seat.lua` | Seated scenario, stand / choose-game / chips prompts, picker and chips callbacks |
 | `client/view.lua` | Latest table view and feed for this player; dev `/gga` command (`Config.DevGames`) |
 | `client/table.lua` | Table panel bridge: shows the view, takes the mouse on your turn (`GGC.MyTurn`), Esc / G focus, `act` callback |
-| `server/npc.lua` | NPC seats: `Seat`, `Remove`, `ClearTable`, money created/destroyed; dev `/ggbot` (`Config.DevGames`) |
+| `client/anim.lua` | Seated animations: idle loop over the chair scenario for the local player and local NPC peds, one-off cue clips |
+| `server/npc.lua` | NPC players: seating rule, profiles (persona + tier + drunk + tilt), win-cap window, chatter, tells, regulars' memory, cardsharp call-outs; dev `/ggbot` |
+| `lib/npc_brain.lua` | Poker brain (strength, decisions, opponent tracker), PVD bet sizing, think time, cardsharp card swap |
 | `client/admin.lua` | Admin panel, rsg-gizmo placement/move, map table binding, calibration flow |
 | `html/*` | NUI: admin panel, game/tier picker, Chips window (`script.js`) and the table panel (`table.js`), house style |
 | `lib/*` | **Module library**, loaded by game modules (not by the core): `init.lua`, `cards.lua`, `poker.lua`, `betting.lua`, `server.lua` |
@@ -112,7 +114,16 @@ Errors: `no_table`, `table_not_started`, `not_your_table`, `hand_open`, `no_play
 | `TableMessage(tableId, src or nil, text)` | bool | A line for one player's or the whole table's feed (text already translated by the module) |
 | `GetStakes(tableId)` | `{ tier, currency, kind, smallBlind, bigBlind, buyInMin, buyInMax, minBet, maxBet, rake }` | Cents |
 | `StandSeat(tableId, seat)` | bool | e.g. a player who keeps timing out (NPC seats are removed) |
-| `SeatNpc(tableId, seat, { name?, model?, stack? })` | bool | Seats an NPC (phase 5 adds the seating rule and brains). NPCs have `npc = true` and no `src` in `GetSeats` |
+| `SeatNpc(tableId, seat, { name?, model?, outfit?, persona?, stack?, drunk?, sharp? })` | bool | Seats an NPC by hand (the core normally does it). NPCs have `npc = true` and no `src` in `GetSeats` |
+
+### NPCs (phase 5, for game modules; only the game's own resource)
+| Export | Returns | Notes |
+|---|---|---|
+| `GetNpc(tableId, seat)` | profile or nil | Persona numbers with tier/drunk/tilt applied, `think`, `sharp` (cheat chance per hand or nil), `regular`. Server only |
+| `NpcEvent(tableId, seat, event)` | bool | `strong` / `bluff` (maybe a tell), `sleight` (a sharp cheated), or a move id for a chance of chatter |
+| `ResolveCallOut(tableId, seat, caught)` | bool | Answer to a `callOut`: true = the NPC cheated this hand (cancel the hand first) |
+| `SeatCue(tableId, seat, cue)` | bool | Plays a `Config.Anim.Cues` clip on a seat for everyone near the table; an NPC move may also get a chatter line |
+| `GetNpcWindow(cid, tableId?)` | `{ total, cap }` | What a player has won from NPCs in the window, and the cap at that table (cents) |
 
 No client exports.
 
@@ -126,6 +137,9 @@ No client exports.
 | `grumpy-gambling:server:tableStopping` | `tableId, gameId, reason` | The last real player left (reason `empty`); an open hand is cancelled |
 | `grumpy-gambling:server:stackChanged` | `tableId, gameId, seat, src, cents` | A player bought in or topped up |
 | `grumpy-gambling:server:playerAction` | `tableId, gameId, seat, src, actionId, cents?` | A seated player acted (core checked seat, table and rate; the game checks the move) |
+| `grumpy-gambling:server:playerCallOut` | `tableId, gameId, npcSeat, src` | A player accused a back-room NPC of cheating, during a hand. Answer with `ResolveCallOut` within 3 s (no answer = a wrong call) |
+
+`seatTaken` / `seatLeft` also fire for NPCs, with `src = nil`.
 
 Phase 3 adds the hand API and wraps these in the module library (DESIGN.md §11).
 
@@ -140,6 +154,8 @@ Phase 3 adds the hand API and wraps these in the module library (DESIGN.md §11)
 | `grumpy-gambling:server:buyIn` (`dollars`) / `requestChips` | server | Seated player at an active table, not in a hand, within the buy-in range |
 | `grumpy-gambling:client:chips` / `chipsClosed` | client | Chips window (amounts in cents) |
 | `grumpy-gambling:server:action` (`actionId, cents?`) | server | Seated player at an active table; 250 ms rate limit |
+| `grumpy-gambling:server:callOut` (`tableId, seat`) | server | Seated at that bloodmoney table, an NPC seat, a hand in play, not blocked by a wrong call |
+| `grumpy-gambling:client:seatCue` (`tableId, seat, cue`) | client | Plays a clip on that seat: your own ped if it's your seat (synced by the network), else the local NPC ped |
 | `grumpy-gambling:client:view` (`tableId, public, private, seat`) / `message` (`tableId, text`) | client | Table view and feed |
 | NUI `act` (`{ id, amount }`) / `tableBlur` | NUI → client | A move from the action bar (sent as `server:action`); Esc on the table |
 | `grumpy-gambling:server:admin*` | server | Admin only: `Create`, `Move`, `Rename`, `Toggle`, `Delete`, `Teleport`, `Calibrate`, `ResetCalibration` |
@@ -195,8 +211,20 @@ GGLib.RegisterGame({ id = 'blackjack', label = locale('label'), kind = 'pvd', mi
 - **Views** (DESIGN.md §11.4): `public` = { game, phase, pot, board, turn, deadline, seats = { { seat, name, stack,
   bet, cards, label, ... } }, results }, `private[seat]` = { cards, actions = { { id = 'fold' }, { id = 'call',
   amount }, { id = 'raise', min, max, step } } } (cents). Phase 4 draws this in the NUI.
-- **Example:** `grumpy-gambling-test` (dev only) has a full PVP game (`server/showdown.lua`) and PVD game
-  (`server/highcard.lua`) in about 250 and 150 lines.
+- **NPCs:** the core seats and removes them; a module just plays their seats. `GGLib.Seats` marks them `npc = true`.
+  On an NPC's poker turn call `GGLib.NpcTurn(timerKey, tid, seat, ctx, act)` (ctx: `hole, board, legal, pot,
+  currentBet, myBet, stack, bigBlind, step, opponents, position, opp`): it decides at once (a tell plays while it
+  "thinks") and calls `act(action, amount)` after the think time; check the turn is still theirs, then `Round:Act`.
+  (`GGLib.NpcDecide` is the same without the timer.) **Animations:** call `GGLib.Cue(tid, seat, id)` for every move
+  (players and NPCs: `check`, `call`, `bet`, `raise`, `allin`, `fold`, `blind`); the core cues buy-ins and pot wins. Keep a
+  `GGLib.Brain.Tracker()` per table, `:Note(cid, action)` on every move and `:Shown(cid, wasBluff)` at showdown, and pass
+  `tracker:Profile(cid)` of the bettor as `opp`. Dealer games size NPC bets with `GGLib.Brain.PvdBet(profile, min, max,
+  available, step)`; those bets move no house money. **Cardsharps:** if `profile.sharp` and `math.random() <
+  profile.sharp`, `GGLib.Brain.SharpSwap(shoe, hole, board)` swaps in a better card (deck stays whole); remember it, call
+  `GGLib.NpcEvent(tid, seat, 'sleight')`, and in the `callOut` handler cancel the hand and `GGLib.ResolveCallOut(tid,
+  seat, true)` if that NPC cheated, else `false`.
+- **Example:** `grumpy-gambling-test` (dev only) has a full PVP game (`server/showdown.lua`, NPC brain, tracker,
+  sharps and call-outs) and PVD game (`server/highcard.lua`) in about 300 and 150 lines.
 
 ## 7. Persistence and the money model
 Tables (placement, money type, Micro flag, per-table calibration, open/closed) and model calibrations are saved in the
@@ -212,8 +240,14 @@ database. Seats, game and tier are runtime only: a restart empties every table a
 - **Ledger sign:** `amount_c` is the change in money held by the core (stacks + cashboxes): `buyin`/`topup` +,
   `cashout`/`pending`/`refund`/`recovered` -, `rake` - (destroyed), `mint` + (the house paid a dealer-game win),
   `sink` - (the house kept a loss), `npc_mint` + (an NPC's chips created when it sits), `npc_sink` - (an NPC's chips
-  destroyed when it leaves, or its win after leaving), `rake_box`/`paid_pending` 0. With no hand open, the sum of the ledger equals the
+  destroyed when it leaves, or its win after leaving; at dealer tables also an NPC's scenery win or loss, note
+  `pvd scenery`), `rake_box`/`paid_pending` 0. With no hand open, the sum of the ledger equals the
   stacks plus cashboxes.
+- **NPC money:** created when an NPC sits, destroyed when it leaves. At PVP the chips are real in the pot (players can
+  win them, up to the cap). At PVD, NPC bets never reach the house: no rake, no cover, no house result.
+- **NPC win cap:** each hand with NPCs adds rows to `grumpy_gambling_npc_window` inside the settle transaction: what
+  the NPCs lost goes to the real winners in proportion (at most what each won); what they won comes off the real
+  losers (at most what each lost). A player at or over the cap of the tier they're at gets no NPCs.
 - **Rake tuner:** play stats are buffered and flushed every minute; once a day the tuner reads the last
   `WindowDays` and moves each rate toward the target (DESIGN.md §6.3).
 
@@ -231,12 +265,18 @@ database. Seats, game and tier are runtime only: a restart empties every table a
   unknown or repeated seats, payouts above stake × `maxPayout`, and any result where awards + rake don't equal the bets.
 - Only the resource that registered the game can drive hands at its tables (`GetInvokingResource`).
 - Only the game's own resource may push views, send table messages or stand seats for its tables.
+- NPC profiles (personality, sharp flag) never leave the server; clients only get each NPC's model and outfit number.
+  NPC exports answer only the table's game resource. Call-outs are checked like actions (seat, table, bloodmoney, hand
+  in play) and blocked for `Sharp.CallOutCooldownSeconds` after a wrong one.
 - Player actions reach the game only from a seated player at an active table running that game, at most 4 a second;
   the game decides whether the move is legal.
 - Tested in real Lua 5.4 (`tests/`): 2,000 random side-pot hands; 3,000 random betting rounds; an integration run of
   600 poker + 400 dealer hands with buy-ins, top-ups, leavers, drops, a crash and a database failure; and the test
   games (a separate resource) playing 300 poker hands and 200 dealer rounds through the core with random legal
-  moves, time-outs and players coming and going. Money conserved after every hand.
+  moves, time-outs and players coming and going. Money conserved after every hand. Phase 5 adds the brain (every
+  decision legal over 400 random betting rounds; personality and read checks; sharps keep the deck whole) and the NPC
+  system end to end (seating rule, leaving only between hands, cap attribution and the window, scenery bets, regulars'
+  memory, both call-out outcomes), conserved after every step and stable across seeds.
 
 ## 9. Database schema
 ```sql
@@ -248,7 +288,8 @@ grumpy_gambling_models (model PK, data JSON, updated_by, updated_at)   -- model 
 Money tables (cents in `_c` columns): `grumpy_gambling_stacks` (one row per seated character), `grumpy_gambling_pending`
 (owed, paid at login), `grumpy_gambling_hands` (settled hands), `grumpy_gambling_ledger`, `grumpy_gambling_cashboxes`
 (phase 6), `grumpy_gambling_rake_remainder`, `grumpy_gambling_rake_stats` (tuner input), `grumpy_gambling_rake_rates`
-(tuner output).
+(tuner output). NPCs: `grumpy_gambling_npc_window (id, citizenid, ts, amount_c)` (purged after the window) and
+`grumpy_gambling_regular_memory (regular_id, citizenid, hands, net_c, last_seen)` (saved as increments).
 
 ## 10. Server owner how-tos
 - **Add a table model:** add an entry to `Models` in `shared/models.lua` (verify the model in
@@ -260,6 +301,12 @@ Money tables (cents in `_c` columns): `grumpy_gambling_stacks` (one row per seat
   Add that model to `Models` if it's a card table.
 - **Make a calibration permanent in code:** copy the snippet from the panel into the model's entry.
 - **Move a map table's seats:** calibrate that table (bound tables keep their own calibration).
+- **Add a regular:** add an entry to `Config.Npc.Regulars.List` (unique `id`, a model from
+  `data/rdr3_discoveries/peds/peds_list.lua`, an `outfit` number, a persona, `home` coords + radius and/or
+  `roams = true`, optional `tiers`). Regulars are only at one table at a time.
+- **Turn NPCs off:** `Config.Npc.Enabled = false` (or per business table later via settings).
+- **Check a player's NPC winnings:** `exports['grumpy-gambling']:GetNpcWindow(cid)` or
+  `SELECT SUM(amount_c) FROM grumpy_gambling_npc_window WHERE citizenid = ? AND ts > UNIX_TIMESTAMP() - 5400`.
 
 ## 11. Troubleshooting
 | Problem | Fix |
@@ -278,6 +325,11 @@ Money tables (cents in `_c` columns): `grumpy_gambling_stacks` (one row per seat
 | Chip stacks float or sit inside the table | Tune `Config.ChipStacks.Forward` / `Height`, or per model `chipForward` / `chipHeight` in `shared/models.lua` |
 | Can't move a table | Map (bound) tables can't move; spawned tables need nobody seated |
 | Table panel never takes the mouse | `Config.TableUI.AutoFocus`; a window (chips, picker) open takes priority; press G (Your turn) |
+| No NPCs sit down | `Config.Npc.Enabled`; the table needs a started game and a real player; a player at the NPC cap gets none (`GetNpcWindow`); one seat always stays free |
+| NPCs look the same everywhere / invisible | Outfit numbers pick a preset per model; a model with no presets falls back to a random outfit |
+| No tells | `Config.Npc.Tells.Chance` × the persona's `tells`, only when strength ≥ `Tells.Strong` or bluffing; High-tier NPCs and sharks show fewer by design. `Config.Debug` prints each cue in F8 |
+| Seated players look frozen | `Config.Anim.Enabled`; the module must call `GGLib.Cue` for moves; check F8 for anim dict load failures |
+| No "Call out cheat" option | Only at bloodmoney tables, only while seated at that table |
 | No Chips window | The table hasn't started a game (no module installed). Dev: `Config.DevGames = true` |
 | "Owed to you from the card tables" on login | Chips from a disconnect or restart being paid back: expected |
 | How much has the rake removed? | `SELECT currency, -SUM(amount_c)/100 FROM grumpy_gambling_ledger WHERE kind = 'rake' GROUP BY currency` |

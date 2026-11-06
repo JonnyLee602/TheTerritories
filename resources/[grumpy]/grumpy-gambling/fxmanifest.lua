@@ -5,7 +5,7 @@ lua54 'yes'
 
 name 'grumpy-gambling'
 description 'Gambling core: tables, seating, tiers, stacks, rake and NPCs shared by grumpy-gambling game modules'
-version '0.4.0'
+version '0.5.0'
 
 shared_scripts {
     '@rsg-core/shared/locale.lua',
@@ -16,6 +16,7 @@ shared_scripts {
 
 client_scripts {
     'client/main.lua',
+    'client/anim.lua',
     'client/world.lua',
     'client/seat.lua',
     'client/admin.lua',

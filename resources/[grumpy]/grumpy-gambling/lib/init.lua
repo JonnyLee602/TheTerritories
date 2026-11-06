@@ -3,7 +3,7 @@
 -- They run inside the module's own Lua VM: game state stays there, and anything touching money goes through the
 -- core's exports (lib/server.lua). Amounts are integer cents.
 GGLib = GGLib or {}
-GGLib.Version = '0.3.0'
+GGLib.Version = '0.5.0'
 GGLib.CoreResource = 'grumpy-gambling'
 -- IsDuplicityVersion() is truthy on the server but not always the boolean `true` (it can be 1), so test truthiness
 if IsDuplicityVersion then
