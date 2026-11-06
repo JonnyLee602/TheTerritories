@@ -666,17 +666,7 @@ tasks:
     dest: ./resources/[grumpy]/grumpy-trader
     timeoutSeconds: 600
 
-  # ================================================================ Community and map mods
-
-  - action: download_github
-    src: https://github.com/Nubetastic/Nt_Blackjack
-    ref: main
-    dest: ./resources/[community]/Nt_Blackjack
-
-  - action: download_github
-    src: https://github.com/Nubetastic/Nt_Holdem
-    ref: main
-    dest: ./resources/[community]/Nt_Holdem
+  # ================================================================ Map mods
 
   - action: download_github
     src: https://github.com/Rexshack-RedM/rsg-mapping

@@ -82,7 +82,7 @@ Edit the file on `main`, then commit it. That's all: the next update keeps it au
 | Standalone | cfx-server-data, oxmysql, ox_lib, PolyZone and the rest, same sources as RSG's recipe |
 | Framework | 83 resources: stock ones straight from Rexshack-RedM **pinned to the commit in `upstream.lock`**, customized ones from this repo |
 | Grumpy | each `resources/[grumpy]/*` script from this repo |
-| Extras | Nt_Blackjack, Nt_Holdem, rsg-mapping, redm-ymaps (as RSG's recipe) |
+| Extras | rsg-mapping, redm-ymaps (as RSG's recipe; its Nt_Blackjack + Nt_Holdem are left out, grumpy-gambling replaces them) |
 
 **The recipe is generated:** `python tools/build-recipe.py` (don't edit the YAML by hand). `tools/rsg-update.sh` runs it
 after every update. After a hand-made customization, run it yourself so that resource switches to "from this repo".
@@ -106,5 +106,5 @@ bash tools/test-recipe-sql.sh
 
 ## Not in this copy
 
-oxmysql, ox_lib, PolyZone and the other standalone, community and map resources: the recipe downloads them.
+oxmysql, ox_lib, PolyZone and the other standalone and map resources: the recipe downloads them.
 The live database, player data and txAdmin settings.

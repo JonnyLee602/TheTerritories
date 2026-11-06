@@ -26,9 +26,7 @@ STANDALONE = [
     ("https://github.com/Rexshack-RedM/rNotify", "main", "./resources/[standalone]/rNotify"),
     ("https://github.com/Popisek/redm-female-fix", "main", "./resources/[standalone]/redm-female-fix"),
 ]
-EXTRAS = [  # same as RSG's recipe
-    ("https://github.com/Nubetastic/Nt_Blackjack", "main", "./resources/[community]/Nt_Blackjack"),
-    ("https://github.com/Nubetastic/Nt_Holdem", "main", "./resources/[community]/Nt_Holdem"),
+EXTRAS = [  # RSG's recipe also pulls Nt_Blackjack + Nt_Holdem into [community]: dropped, grumpy-gambling replaces them
     ("https://github.com/Rexshack-RedM/rsg-mapping", "main", "./resources/[mapmods]/rsg-mapping"),
     ("https://github.com/Rexshack-RedM/redm-ymaps", "main", "./resources/[mapmods]/redm-ymaps"),
 ]
@@ -154,7 +152,7 @@ w("  # ================================================================ The Terr
 for name in grumpy:
     ours(f"{GR}/{name}", f"./resources/[grumpy]/{name}")
 
-w("  # ================================================================ Community and map mods\n")
+w("  # ================================================================ Map mods\n")
 for src, ref, dest in EXTRAS:
     gh(src, ref, dest)
 
