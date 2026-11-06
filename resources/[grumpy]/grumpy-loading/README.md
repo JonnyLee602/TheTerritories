@@ -29,7 +29,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 
 ## Installation
 1. Copy `grumpy-loading` into your resources (e.g. `resources/[grumpy]/`).
-2. **Stop `rsg-loading`**: remove its `ensure` line, or delete it from `[framework]`. Two loading screens fight each other.
+2. **Stop `rsg-loading`**: move its folder out of `resources/` and remove its `ensure` line. If your `server.cfg` has `ensure [framework]`, removing the line alone is not enough, because the folder still starts. Two loading screens fight each other.
 3. `ensure grumpy-loading` (already covered by `ensure [grumpy]`).
 4. Restart the server. The loading screen is downloaded when players connect, so `restart grumpy-loading` alone won't show changes to players already in game.
 

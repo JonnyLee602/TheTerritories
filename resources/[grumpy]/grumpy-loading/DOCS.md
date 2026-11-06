@@ -80,7 +80,7 @@ None.
 ## 10. Troubleshooting
 | Problem | Fix |
 |---|---|
-| The old RSG screen still shows | `rsg-loading` is still started. Remove its `ensure` or delete it. |
+| The old RSG screen still shows | `rsg-loading` is still started. Move its folder out of `resources/` (`ensure [framework]` starts every folder in it) and remove its `ensure` line. |
 | Blank text | The locale file failed to load. Check that `locale` in `config.js` matches a file in `locales/` and that the JSON is valid. |
 | Plain serif fonts | Google Fonts couldn't load (player offline or blocked). The page falls back to Georgia or Times New Roman. |
 | No music | `music` is blank or the path is wrong, or the player pressed SPACE. |
