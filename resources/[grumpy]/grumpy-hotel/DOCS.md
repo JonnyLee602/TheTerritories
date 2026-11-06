@@ -21,13 +21,14 @@
 | `server/rental.lua` | Rental points, rental menu, rent/extend/renew/checkout, revoke key, expiry sweep, grace clock, `GetRental`/`HasKey` |
 | `server/warrants.lua` | Warrant permission, issue, validation, usable item |
 | `server/admin.lua` | `/hotellist`, create/update/delete, evict, admin teleport |
+| `server/debug.lua` | `/hotelbucket` test command (bucket, room, players in bucket) |
 | `client/main.lua` | Hotel sync, door zones, blips, NUI bridge, door menu, rental menu (`OpenRental`), teleport + animation helpers |
-| `client/room.lua` | Inside-room state, room zone, room menu, knock prompt, voice channel, death watch, spawn signal |
+| `client/room.lua` | Inside-room state, room zone + stash zone, room menu, `/hotelbucket` result (voice channel), knock prompt, voice channel, death watch, spawn signal |
 | `client/admin.lua` | Admin panel bridge and position capture |
 | `html/*` | NUI: door, rental, room, knock prompt, admin list/renters/editor |
 
 ## 2. Data formats
-Hotel (server): `{ id, label, rooms, price, maxDays, door = vector4, interior = vector4, blip }`.
+Hotel (server): `{ id, label, rooms, price, maxDays, door = vector4, interior = vector4, stash = vector4 | nil, blip }`. `stash` is optional; `GH.StashPoint(h)` returns it, or the interior point when it isn't set.
 
 Rental (server, `GH.Rentals[hotelId][room]`): `{ id, hotel, room, citizenid, name ('J. Smith'), keyCid, keyName, expiresAt (unix), graceLoginAt (unix|nil) }`.
 
@@ -57,8 +58,8 @@ Warrant item `info`: `{ hotel, room, rental, expires, hotelLabel, suspect, issue
 | `IsInRoom(src)` | `inside, hotelId, room, role` | |
 | `RemoveFromRoom(src)` | | Puts the player at the door, bucket 0 |
 | `IsReady()` | bool | `true` once hotels and rentals are loaded. Wait for it before creating hotels |
-| `CreateHotel(data)` | `id` or `nil, errKey` | `data = { label, rooms, price, maxDays, door = {x,y,z,w}, interior = {x,y,z,w}, blip }`, validated like the admin form |
-| `UpdateHotel(id, data)` | `ok, errKey` | Same `data`. Refuses (`rooms_in_use`) to drop below a rented room |
+| `CreateHotel(data)` | `id` or `nil, errKey` | `data = { label, rooms, price, maxDays, door = {x,y,z,w}, interior = {x,y,z,w}, stash = {x,y,z,w} | nil, blip }`, validated like the admin form. `stash` must be within `StashMaxDistance` of `interior` |
+| `UpdateHotel(id, data)` | `ok, errKey` | Same `data` (leaving out `stash` clears it). Refuses (`rooms_in_use`) to drop below a rented room |
 | `DeleteHotel(id)` | bool | Ends every rental (stashes wiped), puts everyone out, deletes the hotel |
 
 **Client**
@@ -87,7 +88,8 @@ Server-only events (other resources may listen, clients cannot trigger them):
 - `grumpy-hotel:server:rentPaid(hotelId, src, amount, kind)`: fired after a paid rent (`kind = 'rent'`) or extension (`'extend'`). grumpy-pob uses it to pay hotel businesses.
 
 Client events (sent by the server):
-- `sync`, `entered(data, noTeleport)`, `left(door)`, `role`
+- `sync`, `entered(data, noTeleport)` (`data.stash` = stash point or nil), `left(door)`, `role`, `roomPoints(interior, stash)` (admin moved the points)
+- `bucketInfo(data)` (`/hotelbucket` result)
 - `knock`, `knockClosed`, `roomRefresh`, `rentalRefresh`
 - `openAdmin`, `adminRefresh`, `adminTeleport`
 
@@ -135,7 +137,7 @@ exports['grumpy-hotel']:OpenRental('my-saloon:' .. saloonId)
 
 ## 8. Database schema
 ```
-grumpy_hotels          (id PK, label, rooms, price DECIMAL, max_days, door_x/y/z/h, int_x/y/z/h, blip, created_by, created_at)
+grumpy_hotels          (id PK, label, rooms, price DECIMAL, max_days, door_x/y/z/h, int_x/y/z/h, stash_x/y/z/h NULL, blip, created_by, created_at)
 grumpy_hotel_rentals   (id PK, hotel_id, room, citizenid, renter_name, key_citizenid, key_name, expires_at INT, grace_login_at INT NULL,
                         UNIQUE(hotel_id, room), UNIQUE(hotel_id, citizenid))
 grumpy_hotel_occupants (citizenid PK, hotel_id, room, role, updated_at)
@@ -147,10 +149,14 @@ inventories            (rsg-inventory) rows grumpy_hotel_<hotel>_<room>
   1. `/hotellist` → **New hotel**.
   2. Door point: stand outside the door, facing it.
   3. Interior point: stand where players should appear inside.
-  4. Save, then link it to a bartender in `/bartenders`.
+  4. Stash point (optional): stand at the wardrobe or chest. Leave it unset to open storage from the room menu.
+  5. Save, then link it to a bartender in `/bartenders`.
 - **Several hotels, one interior:** use the same interior point for each. Buckets keep them apart.
 - **Lower the room count:** first evict any rented room above the new count. Save refuses otherwise.
-- **Move a point:** Edit → **Place** (the ghost starts at the current point) → Save. Players already inside are not moved.
+- **Move a point:** Edit → **Place** (the ghost starts at the current point) → Save. Players already inside are not moved, but their room and stash targets move to the new points.
+- **Remove the stash point:** Edit → **Clear** under *Stash point* → Save. Storage goes back to the room menu.
+- **Upgrading from 1.1:** with `AutoDatabase` on, the stash columns are added on start. Otherwise run the `ALTER TABLE` in `install.sql`.
+- **Check instancing alone:** `/hotelbucket` outside (bucket 0) and inside a room (the room's bucket and voice channel). See the README.
 - **Turn off warrants:** `Config.Warrant.Enabled = false`.
 - **Upgrading grumpy-bartender from its built-in hotel:**
   - Old `Config.Hotels` rentals are not migrated.
@@ -164,6 +170,9 @@ inventories            (rsg-inventory) rows grumpy_hotel_<hotel>_<room>
 | Rent option missing on bartender | grumpy-hotel not started, or the bartender has no hotel set |
 | Players in different rooms hear each other | `Config.Voice.Enabled` is off, or your voice resource overrides Mumble channels. Test with two players |
 | Players fall through / invisible in the room | The interior point is outside the interior's bounds or too high/low. Re-capture it standing on the floor |
+| "The stash point must be inside the room" on save | The stash point is more than `StashMaxDistance` from the interior point. Place it inside the room |
+| No **Room storage** target | The hotel has no stash point (use the room menu), or you're a visitor |
+| `/hotelbucket` says WRONG BUCKET / WRONG VOICE CHANNEL | Another script changed your bucket or voice channel while you were inside. Leave and re-enter, then check which script did it |
 | Stash is empty after renewing | Renewal only keeps items during the grace period. After grace the stash is wiped |
 | Warrant doesn't open the room | Expired, issued for a previous tenant (rental id changed), or a different room |
 | Logged out in a room and spawned outside | Access was lost (expired, key taken back, visitor), or you picked a different spawn point |

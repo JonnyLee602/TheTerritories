@@ -119,7 +119,7 @@ end
 function GH.PublicHotels()
     local out = {}
     for _, h in pairs(GH.Hotels) do
-        out[#out + 1] = { id = h.id, label = h.label, rooms = h.rooms, door = h.door, interior = h.interior, blip = h.blip }
+        out[#out + 1] = { id = h.id, label = h.label, rooms = h.rooms, door = h.door, interior = h.interior, stash = h.stash, blip = h.blip }
     end
     table.sort(out, function(a, b) return a.id < b.id end)
     return out
@@ -145,9 +145,14 @@ function GH.RowToHotel(row)
         id = row.id, label = row.label, rooms = row.rooms, price = tonumber(row.price) or 0, maxDays = row.max_days,
         door = vector4(row.door_x, row.door_y, row.door_z, row.door_h),
         interior = vector4(row.int_x, row.int_y, row.int_z, row.int_h),
+        -- optional: without a stash point, storage opens from the room menu at the interior point
+        stash = row.stash_x and vector4(row.stash_x, row.stash_y, row.stash_z, row.stash_h or 0.0) or nil,
         blip = row.blip == 1 or row.blip == true,
     }
 end
+
+-- Where the room storage opens: the stash point, or the interior point when none is set
+function GH.StashPoint(h) return h.stash or h.interior end
 
 function GH.RowToRental(row)
     return {
@@ -176,6 +181,7 @@ local function createTables()
             `max_days` INT NOT NULL DEFAULT 1,
             `door_x` DOUBLE NOT NULL, `door_y` DOUBLE NOT NULL, `door_z` DOUBLE NOT NULL, `door_h` DOUBLE NOT NULL DEFAULT 0,
             `int_x` DOUBLE NOT NULL, `int_y` DOUBLE NOT NULL, `int_z` DOUBLE NOT NULL, `int_h` DOUBLE NOT NULL DEFAULT 0,
+            `stash_x` DOUBLE DEFAULT NULL, `stash_y` DOUBLE DEFAULT NULL, `stash_z` DOUBLE DEFAULT NULL, `stash_h` DOUBLE DEFAULT NULL,
             `blip` TINYINT(1) NOT NULL DEFAULT 1,
             `created_by` VARCHAR(50) DEFAULT NULL,
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -212,8 +218,18 @@ local function createTables()
     ]])
 end
 
+-- v1.2: stash point columns for tables created before it existed (works on MySQL and MariaDB)
+local function migrate()
+    local has = MySQL.query.await("SHOW COLUMNS FROM `grumpy_hotels` LIKE 'stash_x'")
+    if has and #has > 0 then return end
+    MySQL.query.await([[ALTER TABLE `grumpy_hotels`
+        ADD COLUMN `stash_x` DOUBLE DEFAULT NULL AFTER `int_h`, ADD COLUMN `stash_y` DOUBLE DEFAULT NULL AFTER `stash_x`,
+        ADD COLUMN `stash_z` DOUBLE DEFAULT NULL AFTER `stash_y`, ADD COLUMN `stash_h` DOUBLE DEFAULT NULL AFTER `stash_z`]])
+    print('[grumpy-hotel] added stash point columns to grumpy_hotels')
+end
+
 MySQL.ready(function()
-    if Config.AutoDatabase then createTables() end
+    if Config.AutoDatabase then createTables() migrate() end
 
     for _, row in ipairs(MySQL.query.await('SELECT * FROM grumpy_hotels') or {}) do
         local h = GH.RowToHotel(row)

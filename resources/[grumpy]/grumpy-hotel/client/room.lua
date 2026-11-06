@@ -1,16 +1,34 @@
 -- Inside a room: interior zone, room menu, knock prompts, voice channel, death watch, spawn restore.
 local RSGCore = exports['rsg-core']:GetCoreObject()
 
-local roomZone = nil
+local roomZone, stashZone = nil, nil
 local currentKnock = nil
+
+-- renter, key holder and law with a warrant (the server re-checks on open)
+local STASH_ROLES = { renter = true, key = true, law = true }
 
 local function removeRoomZone()
     if roomZone then pcall(function() exports['rsg-target']:removeZone(roomZone) end) end
-    roomZone = nil
+    if stashZone then pcall(function() exports['rsg-target']:removeZone(stashZone) end) end
+    roomZone, stashZone = nil, nil
 end
 
-local function addRoomZone(pos)
+-- pos = interior point (room menu + leave); stash = optional stash point (its own Storage target)
+local function addRoomZone(pos, stash)
     removeRoomZone()
+    if stash then
+        stashZone = exports['rsg-target']:addSphereZone({
+            coords = vector3(stash.x, stash.y, stash.z),
+            radius = Config.StashRadius,
+            debug = Config.Debug,
+            options = {
+                { name = 'grumpy-hotel:stash', icon = 'fa-solid fa-box-archive', label = locale('opt_stash'),
+                  distance = Config.StashRadius + 1.0,
+                  canInteract = function() return InRoom ~= nil and STASH_ROLES[InRoom.role] == true end,
+                  onSelect = function() TriggerServerEvent('grumpy-hotel:server:openStash') end },
+            },
+        })
+    end
     roomZone = exports['rsg-target']:addSphereZone({
         coords = vector3(pos.x, pos.y, pos.z),
         radius = Config.RoomRadius,
@@ -57,7 +75,7 @@ RegisterNetEvent('grumpy-hotel:client:entered', function(data, noTeleport)
     InRoom = data
     CloseUI()
     setVoice(data.voice)
-    addRoomZone(data.interior)
+    addRoomZone(data.interior, data.stash)
     watchDeath()
     if noTeleport then
         if IsScreenFadedOut() then DoScreenFadeIn(500) end
@@ -87,6 +105,13 @@ end)
 
 RegisterNetEvent('grumpy-hotel:client:role', function(role)
     if InRoom then InRoom.role = role end
+end)
+
+-- An admin moved this hotel's interior / stash point while we're inside
+RegisterNetEvent('grumpy-hotel:client:roomPoints', function(interior, stash)
+    if not InRoom then return end
+    InRoom.interior, InRoom.stash = interior, stash
+    addRoomZone(interior, stash)
 end)
 
 ---------------------------------------------------------------------
@@ -186,6 +211,38 @@ RegisterNetEvent('RSGCore:Client:OnPlayerUnload', function()
     removeRoomZone()
     if currentKnock then HideKnock(currentKnock) currentKnock = nil end
     CloseUI()
+end)
+
+---------------------------------------------------------------------
+-- /hotelbucket result (server sends the bucket; the voice channel is read here)
+-- MUMBLE_GET_VOICE_CHANNEL_FROM_SERVER_ID 0x221C09F1 (natives/db/INDEX.tsv, CFX)
+---------------------------------------------------------------------
+RegisterNetEvent('grumpy-hotel:client:bucketInfo', function(d)
+    if type(d) ~= 'table' then return end
+    local voice = MumbleGetVoiceChannelFromServerId(GetPlayerServerId(PlayerId()))
+    local lines = {}
+    if d.inside then
+        lines[#lines + 1] = locale('bucket_inside', d.bucket, d.label, d.room, locale('ui_role_' .. tostring(d.role)))
+    elseif d.bucket == 0 then
+        lines[#lines + 1] = locale('bucket_world')
+    elseif d.bucketLabel then
+        lines[#lines + 1] = locale('bucket_stray_room', d.bucket, d.bucketLabel, d.bucketRoom)
+    else
+        lines[#lines + 1] = locale('bucket_other', d.bucket)
+    end
+    lines[#lines + 1] = locale('bucket_players', d.players)
+    if d.inside and d.bucket ~= d.expected then lines[#lines + 1] = locale('bucket_mismatch', d.expected) end
+    -- in a room the channel must be the room's; outside it's whatever rsg-voice uses, so just show it
+    local voiceOk = not d.voice or voice == d.voice
+    if d.voice then
+        lines[#lines + 1] = locale(voiceOk and 'bucket_voice_ok' or 'bucket_voice_bad', voice, d.voice)
+    else
+        lines[#lines + 1] = locale('bucket_voice', voice)
+    end
+    local ok = (not d.inside or d.bucket == d.expected) and voiceOk
+    local msg = table.concat(lines, ' · ')
+    print('[grumpy-hotel] ' .. msg)
+    RSGCore.Functions.Notify({ title = locale('title'), description = msg, type = ok and 'inform' or 'error', duration = 12000 })
 end)
 
 ---------------------------------------------------------------------

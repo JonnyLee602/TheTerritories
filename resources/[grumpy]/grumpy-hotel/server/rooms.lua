@@ -55,7 +55,7 @@ end
 
 local function roomPayload(h, room, role)
     return {
-        hotel = h.id, room = room, role = role, label = h.label, interior = h.interior,
+        hotel = h.id, room = room, role = role, label = h.label, interior = h.interior, stash = h.stash,
         voice = Config.Voice.Enabled and (Config.Voice.VoiceChannelBase + GH.Bucket(h.id, room)) or nil,
     }
 end
@@ -63,6 +63,15 @@ end
 ---------------------------------------------------------------------
 -- Moving players in and out
 ---------------------------------------------------------------------
+-- An admin moved the interior / stash point: players already inside get the new target zones
+function GH.RefreshInside(hotelId)
+    local h = GH.Hotels[hotelId]
+    if not h then return end
+    for src, info in pairs(GH.Inside) do
+        if info.hotel == hotelId then TriggerClientEvent('grumpy-hotel:client:roomPoints', src, h.interior, h.stash) end
+    end
+end
+
 function GH.PutInRoom(src, hotelId, room, role, noTeleport)
     local Player = RSGCore.Functions.GetPlayer(src)
     local h = GH.Hotels[hotelId]
@@ -295,6 +304,7 @@ RSGCore.Functions.CreateCallback('grumpy-hotel:server:roomMenu', function(source
         keyName = r and r.keyName or nil,
         hasKeyHolder = r and r.keyCid ~= nil or false,
         canStash = STASH_ROLES[info.role] == true,
+        stashPoint = h.stash ~= nil, -- true: storage is opened at its own spot, not from this menu
         occupants = occupants,
     })
 end)
@@ -317,7 +327,8 @@ RegisterNetEvent('grumpy-hotel:server:openStash', function()
     if GH.AccessRole(src, Player, info.hotel, info.room) ~= info.role then
         return GH.Notify(src, locale('no_access'), 'error')
     end
-    if not GH.NearInterior(src, h, 10.0) then return GH.Notify(src, locale('too_far'), 'error') end
+    local radius = h.stash and (Config.StashRadius + Config.ServerDistance) or (Config.RoomRadius + Config.ServerDistance + 10.0)
+    if not GH.Near(src, GH.StashPoint(h), radius) then return GH.Notify(src, locale('too_far'), 'error') end
     exports['rsg-inventory']:OpenInventory(src, GH.StashId(info.hotel, info.room), {
         label = locale('stash_label', h.label, info.room),
         maxweight = Config.Stash.maxweight,

@@ -11,7 +11,9 @@ Config.AdminCommand    = 'hotellist'
 Config.MaxRooms        = 50         -- most rooms one hotel can have
 Config.MaxDaysLimit    = 30         -- highest "max days" an admin can set
 Config.MaxDailyRate    = 5          -- highest daily rate an admin can set ($). Doctrine: a night is $0.25-1.00
-Config.PlaceModel      = 'u_m_m_valhotelowner_01' -- ghost ped for placing the door / interior points (data/rdr3_discoveries/peds/peds_list.lua 0xB66F12F2)
+Config.BucketCommand   = 'hotelbucket' -- test command: shows your routing bucket + voice channel (false = off)
+Config.BucketPermission = 'admin'
+Config.PlaceModel     = 'u_m_m_valhotelowner_01' -- ghost ped for placing the door / interior points (data/rdr3_discoveries/peds/peds_list.lua 0xB66F12F2)
 Config.PlaceDistance   = 30.0       -- rsg-gizmo: how far the ghost may be from you (you can walk while placing)
 
 ---------------------------------------------------------------------
@@ -19,6 +21,8 @@ Config.PlaceDistance   = 30.0       -- rsg-gizmo: how far the ghost may be from 
 ---------------------------------------------------------------------
 Config.DoorRadius      = 1.5        -- rsg-target zone at the door (outside) interaction point
 Config.RoomRadius      = 1.5        -- rsg-target zone at the interior (inside) interaction point
+Config.StashRadius     = 1.2        -- rsg-target zone at the stash point (wardrobe / chest / dresser)
+Config.StashMaxDistance = 25.0      -- admin check: the stash point must be this close to the interior point
 Config.ServerDistance  = 4.0        -- server tolerance: player must be this close to the door / interior point
 Config.RentalDistance  = 5.0        -- server tolerance: player must be this close to a rental point (bartender)
 Config.RestoreDistance = 40.0       -- on login, a player this close to the interior point counts as "still in the room"

@@ -2,7 +2,7 @@
 
 Saloon rooms for rent. Admins create hotels in game. Players rent rooms from a bartender (grumpy-bartender, or any script that calls the exports) and enter their own instanced copy of a shared interior. Each room has a shared stash, one spare key, knocking for visitors and law warrants.
 
-Version 1.1.0 · for RSG Framework (rsg-core 3.x) · see [DOCS.md](DOCS.md) for developer and server owner details.
+Version 1.2.0 · for RSG Framework (rsg-core 3.x) · see [DOCS.md](DOCS.md) for developer and server owner details.
 
 This is a community script. It is **not** made or supported by the RSG authors.
 
@@ -11,7 +11,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 
 ## Features
 - **`/hotellist` admin panel**: create, edit and delete hotels, teleport to the door or interior point, list renters and evict them. One command does everything.
-- Each hotel has a **name, room count, daily rate, max days paid ahead, a door point and an interior point**. Admins place both points with **rsg-gizmo**: a ghost person shows where players stand and which way they face, and you can walk while placing. Optional map blip (`blip_hotel_bed`).
+- Each hotel has a **name, room count, daily rate, max days paid ahead, a door point, an interior point and an optional stash point**. Admins place the points with **rsg-gizmo**: a ghost person shows where players stand and which way they face, and you can walk while placing. Optional map blip (`blip_hotel_bed`).
 - **Renting happens at a rental point** (a grumpy-bartender bartender, or a future saloon NPC) through exports. Rooms are paid in cash, per real day, up to *max days* in advance. Players can rent **one room per hotel**. The rental menu shows how many rooms are free.
 - **Door point (outside)**: lists every room.
   - Available rooms show **Available**.
@@ -20,7 +20,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
   - Entering plays a key-unlock animation, fades, and puts the player in the room's **own routing bucket** at the shared interior coords.
   - Anyone else can **Knock** (knock animation). Only the renter or key holder **while inside the room** gets the prompt to **Let in** or **Ignore**. If nobody is home, or nobody answers within 20 s, the visitor gets "No answer". Knocking has a cooldown.
 - **Room point (inside)**: room menu and **Leave room**.
-  - **Storage**: one rsg-inventory stash per room, shared by the renter, the key holder and law with a warrant. Visitors can't open it.
+  - **Storage**: one rsg-inventory stash per room, shared by the renter, the key holder and law with a warrant. Visitors can't open it. If the hotel has a **stash point** (a wardrobe or chest in the room), storage opens there as **Room storage**. Without one, it opens from the room menu.
   - **Spare key**: the renter can give the one spare key to a visitor in the room, and take it back. The key holder can then enter from the door and use the stash.
   - **Show out**: the renter can show out visitors and the key holder. The key holder can show out visitors.
   - Visitors leave automatically when the last renter or key holder leaves.
@@ -51,7 +51,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
    ensure grumpy-bartender
    ```
 4. Database: the tables are created automatically. To install them by hand, set `Config.AutoDatabase = false` and import `install.sql`.
-5. In game: `/hotellist` → **New hotel**. Click **Place** under *Door point* and put the ghost outside the door, facing it. Click **Place** under *Interior point* and put the ghost inside the room where players should appear (walk there while placing, or stand in the room first). Fill in the rest and **Save**.
+5. In game: `/hotellist` → **New hotel**. Click **Place** under *Door point* and put the ghost outside the door, facing it. Click **Place** under *Interior point* and put the ghost inside the room where players should appear (walk there while placing, or stand in the room first). Optionally click **Place** under *Stash point* and put the ghost standing at the wardrobe or chest (it must be within `StashMaxDistance` of the interior point). Fill in the rest and **Save**.
 6. In `/bartenders`, edit the bartender and set **Hotel** to the new hotel.
 
 ## Configuration (`shared/config.lua`)
@@ -59,8 +59,10 @@ This is a community script. It is **not** made or supported by the RSG authors.
 |---|---|---|
 | `AdminPermission` / `AdminCommand` | `'admin'` / `hotellist` | Permission and command for the admin panel |
 | `MaxRooms` / `MaxDaysLimit` / `MaxDailyRate` | `50` / `30` / `5` | Upper limits admins can enter |
+| `BucketCommand` / `BucketPermission` | `hotelbucket` / `'admin'` | Test command that shows your routing bucket and voice channel. `false` turns it off |
 | `PlaceModel` / `PlaceDistance` | `u_m_m_valhotelowner_01` / `30.0` | Ghost ped and range for placing points with rsg-gizmo |
 | `DoorRadius` / `RoomRadius` | `1.5` | rsg-target zone sizes at the door and interior point |
+| `StashRadius` / `StashMaxDistance` | `1.2` / `25.0` | rsg-target zone at the stash point / how far it may be from the interior point |
 | `ServerDistance` / `RentalDistance` | `4.0` / `5.0` | Server-side distance tolerance at the points / rental point |
 | `RestoreDistance` | `40.0` | On login, how close to the interior counts as "still in the room" |
 | `DaySeconds` | `86400` | Length of one rental day |
@@ -82,10 +84,11 @@ This is a community script. It is **not** made or supported by the RSG authors.
   - Rent at the bartender (**Rent a room**): pick a room and the number of days, then **Rent**.
   - In the same menu: **Extend**, **Renew** (during grace), **Take back** the spare key, or **Check out** (click twice; this clears the room).
   - Go to the hotel door and target **Hotel rooms**.
-  - Inside, target the room point for **Room** (storage, key, visitors) or **Leave room**.
+  - Inside, target the room point for **Room** (key, visitors, and storage when there is no stash point) or **Leave room**. Target the wardrobe or chest for **Room storage** when the hotel has a stash point.
 - **Visitors**: target the door, then **Knock** on a rented room.
 - **Law**: target the door, then **Issue warrant** on a rented room. Then **Enter (warrant)**.
 - **Admins**: `/hotellist` (permission `Config.AdminPermission`).
+- **Testing**: `/hotelbucket` (permission `Config.BucketPermission`) shows your routing bucket, which hotel room it belongs to, how many players share it and your Mumble voice channel. Run it outside (expect bucket 0) and inside a room (expect `BucketBase + hotelId * BucketsPerHotel + room` and the matching voice channel). Anything wrong shows as a red notification and is also printed to the F8 console and the server console.
 
 ## Developer examples
 ```lua

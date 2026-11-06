@@ -38,6 +38,8 @@ local function loadModel(name)
     return hash
 end
 
+local PLACE_TITLES = { door = 'gizmo_door', interior = 'gizmo_interior', stash = 'gizmo_stash' }
+
 RegisterNUICallback('adminPlace', function(body, cb)
     if GetResourceState('rsg-gizmo') ~= 'started' or exports['rsg-gizmo']:IsActive() then
         NotifyLocal(locale('gizmo_busy'), 'error')
@@ -62,7 +64,7 @@ RegisterNUICallback('adminPlace', function(body, cb)
             SetBlockingOfNonTemporaryEvents(ghost, true)
             FreezeEntityPosition(ghost, true)
             res = exports['rsg-gizmo']:Edit(ghost, {
-                title = locale(body.which == 'interior' and 'gizmo_interior' or 'gizmo_door'),
+                title = locale(PLACE_TITLES[body.which] or 'gizmo_door'),
                 maxDistance = Config.PlaceDistance, rotation = 'z', startMode = 'free',
             })
             if DoesEntityExist(ghost) then DeleteEntity(ghost) end
@@ -81,6 +83,7 @@ RegisterNUICallback('adminSave', function(body, cb)
     TriggerServerEvent('grumpy-hotel:server:adminSave', tonumber(body.id), {
         label = tostring(f.label or ''), rooms = tonumber(f.rooms), price = tonumber(f.price), maxDays = tonumber(f.maxDays),
         blip = f.blip == true, door = f.door, interior = f.interior,
+        stash = type(f.stash) == 'table' and f.stash or nil, -- nil = no stash point (storage from the room menu)
     })
 end)
 

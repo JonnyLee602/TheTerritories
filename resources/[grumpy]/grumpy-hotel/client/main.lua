@@ -32,6 +32,7 @@ local UI_KEYS = {
     'ui_inside', 'ui_editor_new', 'ui_editor_edit', 'ui_name', 'ui_room_count', 'ui_daily_rate', 'ui_max_days_label',
     'ui_blip', 'ui_door_point', 'ui_interior_point', 'ui_place', 'ui_not_set', 'ui_save', 'ui_cash',
     'ui_state_active', 'ui_state_grace', 'ui_key', 'ui_door_hint', 'ui_interior_hint',
+    'ui_stash_point', 'ui_stash_hint', 'ui_stash_none', 'ui_clear',
 }
 local uiStrings
 local function strings()

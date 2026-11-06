@@ -196,7 +196,7 @@ function renderRoom() {
         row.appendChild(actions);
         list.appendChild(row);
     });
-    $('btn-stash').classList.toggle('hidden', !r.canStash);
+    $('btn-stash').classList.toggle('hidden', !r.canStash || r.stashPoint);
 }
 $('btn-stash').onclick = () => post('roomStash');
 $('btn-leave').onclick = () => post('roomLeave');
@@ -293,14 +293,16 @@ function renderAdmin() {
         $('admin-title').textContent = adminHotel ? t('ui_editor_edit') : t('ui_editor_new');
         $('f-door').textContent = pt(draft.door);
         $('f-interior').textContent = pt(draft.interior);
+        $('f-stash').textContent = draft.stash ? pt(draft.stash) : t('ui_stash_none');
+        $('btn-clear-stash').classList.toggle('hidden', !draft.stash);
     }
 }
 
 function openEditor(h) {
     adminHotel = h ? h.id : null;
     draft = h
-        ? { label: h.label, rooms: h.rooms, price: h.price, maxDays: h.maxDays, blip: h.blip, door: h.door, interior: h.interior }
-        : { label: '', rooms: 4, price: 2, maxDays: 7, blip: true, door: null, interior: null };
+        ? { label: h.label, rooms: h.rooms, price: h.price, maxDays: h.maxDays, blip: h.blip, door: h.door, interior: h.interior, stash: h.stash || null }
+        : { label: '', rooms: 4, price: 2, maxDays: 7, blip: true, door: null, interior: null, stash: null };
     $('f-label').value = draft.label;
     $('f-rooms').value = draft.rooms;
     $('f-rooms').max = admin.limits.maxRooms;
@@ -318,12 +320,19 @@ $('btn-new-hotel').onclick = () => openEditor(null);
 $('admin-back').onclick = () => { adminView = 'list'; armed = null; renderAdmin(); };
 $('btn-cap-door').onclick = async () => { const p = await post('adminPlace', { which: 'door', current: draft.door }); if (p) { draft.door = p; renderAdmin(); } };
 $('btn-cap-interior').onclick = async () => { const p = await post('adminPlace', { which: 'interior', current: draft.interior }); if (p) { draft.interior = p; renderAdmin(); } };
+$('btn-cap-stash').onclick = async () => {
+    // start the ghost at the current stash, else at the interior point so it spawns inside the room
+    const p = await post('adminPlace', { which: 'stash', current: draft.stash || draft.interior });
+    if (p) { draft.stash = p; renderAdmin(); }
+};
+$('btn-clear-stash').onclick = () => { draft.stash = null; renderAdmin(); };
 $('btn-save').onclick = () => {
     post('adminSave', {
         id: adminHotel,
         form: {
             label: $('f-label').value.trim(), rooms: Number($('f-rooms').value), price: Number($('f-price').value),
             maxDays: Number($('f-days').value), blip: $('f-blip').checked, door: draft.door, interior: draft.interior,
+            stash: draft.stash,
         },
     });
 };

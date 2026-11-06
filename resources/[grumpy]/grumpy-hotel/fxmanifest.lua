@@ -6,7 +6,7 @@ lua54 'yes'
 author 'Grumpy'
 name 'grumpy-hotel'
 description 'Saloon rooms for rent: instanced rooms, shared stash, keys, knocking, law warrants. Rented through grumpy-bartender (or any script) via exports.'
-version '1.1.0'
+version '1.2.0'
 
 shared_scripts {
     '@rsg-core/shared/locale.lua',
@@ -26,6 +26,7 @@ server_scripts {
     'server/rental.lua',
     'server/warrants.lua',
     'server/admin.lua',
+    'server/debug.lua',
 }
 
 ui_page 'html/index.html'

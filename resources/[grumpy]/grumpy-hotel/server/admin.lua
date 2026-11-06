@@ -29,6 +29,7 @@ local function adminHotels()
             id = h.id, label = h.label, rooms = h.rooms, price = h.price, maxDays = h.maxDays, blip = h.blip,
             door = { x = h.door.x, y = h.door.y, z = h.door.z, w = h.door.w },
             interior = { x = h.interior.x, y = h.interior.y, z = h.interior.z, w = h.interior.w },
+            stash = h.stash and { x = h.stash.x, y = h.stash.y, z = h.stash.z, w = h.stash.w } or nil,
             free = GH.FreeRooms(h.id), rentals = rentals,
         }
     end
@@ -68,7 +69,15 @@ local function sanitise(data)
     local door, interior = point(data.door), point(data.interior)
     if not door then return nil, 'invalid_door' end
     if not interior then return nil, 'invalid_interior' end
-    return { label = label, rooms = rooms, price = price, maxDays = maxDays, door = door, interior = interior, blip = data.blip == true }
+    -- stash point is optional (nil = storage opens from the room menu), but must be inside the room
+    local stash = nil
+    if data.stash ~= nil then
+        stash = point(data.stash)
+        if not stash or #(vector3(stash.x, stash.y, stash.z) - vector3(interior.x, interior.y, interior.z)) > Config.StashMaxDistance then
+            return nil, 'invalid_stash'
+        end
+    end
+    return { label = label, rooms = rooms, price = price, maxDays = maxDays, door = door, interior = interior, stash = stash, blip = data.blip == true }
 end
 
 ---------------------------------------------------------------------
@@ -76,28 +85,43 @@ end
 ---------------------------------------------------------------------
 -- f = sanitised form. Returns ok, errKey, hotelId
 function GH.SaveHotel(id, f, createdBy)
+    -- the stash point is optional: write literal NULLs instead of nil params (nil leaves holes in oxmysql's array)
+    local s = f.stash
+    local stashSet = s and 'stash_x = ?, stash_y = ?, stash_z = ?, stash_h = ?'
+        or 'stash_x = NULL, stash_y = NULL, stash_z = NULL, stash_h = NULL'
+    local stashIns = s and '?, ?, ?, ?' or 'NULL, NULL, NULL, NULL'
+    local function params(list, tail)
+        if s then list[#list + 1], list[#list + 2], list[#list + 3], list[#list + 4] = s.x, s.y, s.z, s.w end
+        for _, v in ipairs(tail) do list[#list + 1] = v end
+        return list
+    end
+
     if id then
         local h = GH.Hotels[id]
         if not h then return false, 'hotel_unavailable' end
         for room in pairs(GH.Rentals[id] or {}) do
             if room > f.rooms then return false, 'rooms_in_use', room end
         end
-        MySQL.update.await([[UPDATE grumpy_hotels SET label = ?, rooms = ?, price = ?, max_days = ?,
-            door_x = ?, door_y = ?, door_z = ?, door_h = ?, int_x = ?, int_y = ?, int_z = ?, int_h = ?, blip = ? WHERE id = ?]],
-            { f.label, f.rooms, f.price, f.maxDays, f.door.x, f.door.y, f.door.z, f.door.w,
-              f.interior.x, f.interior.y, f.interior.z, f.interior.w, f.blip and 1 or 0, id })
-        h.label, h.rooms, h.price, h.maxDays, h.door, h.interior, h.blip = f.label, f.rooms, f.price, f.maxDays, f.door, f.interior, f.blip
+        MySQL.update.await(([[UPDATE grumpy_hotels SET label = ?, rooms = ?, price = ?, max_days = ?,
+            door_x = ?, door_y = ?, door_z = ?, door_h = ?, int_x = ?, int_y = ?, int_z = ?, int_h = ?,
+            %s, blip = ? WHERE id = ?]]):format(stashSet),
+            params({ f.label, f.rooms, f.price, f.maxDays, f.door.x, f.door.y, f.door.z, f.door.w,
+                f.interior.x, f.interior.y, f.interior.z, f.interior.w }, { f.blip and 1 or 0, id }))
+        h.label, h.rooms, h.price, h.maxDays, h.door, h.interior, h.stash, h.blip =
+            f.label, f.rooms, f.price, f.maxDays, f.door, f.interior, f.stash, f.blip
         GH.SetBucketDefaults(id, f.rooms)
         GH.Broadcast()
+        GH.RefreshInside(id) -- people already in a room get the moved points
         return true, nil, id
     end
-    local newId = MySQL.insert.await([[INSERT INTO grumpy_hotels (label, rooms, price, max_days,
-        door_x, door_y, door_z, door_h, int_x, int_y, int_z, int_h, blip, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)]],
-        { f.label, f.rooms, f.price, f.maxDays, f.door.x, f.door.y, f.door.z, f.door.w,
-          f.interior.x, f.interior.y, f.interior.z, f.interior.w, f.blip and 1 or 0, createdBy })
+    local newId = MySQL.insert.await(([[INSERT INTO grumpy_hotels (label, rooms, price, max_days,
+        door_x, door_y, door_z, door_h, int_x, int_y, int_z, int_h, stash_x, stash_y, stash_z, stash_h, blip, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, %s, ?, ?)]]):format(stashIns),
+        params({ f.label, f.rooms, f.price, f.maxDays, f.door.x, f.door.y, f.door.z, f.door.w,
+            f.interior.x, f.interior.y, f.interior.z, f.interior.w }, { f.blip and 1 or 0, createdBy or 'unknown' }))
     if not newId then return false, 'db_error' end
     GH.Hotels[newId] = { id = newId, label = f.label, rooms = f.rooms, price = f.price, maxDays = f.maxDays,
-        door = f.door, interior = f.interior, blip = f.blip }
+        door = f.door, interior = f.interior, stash = f.stash, blip = f.blip }
     GH.Rentals[newId] = {}
     GH.SetBucketDefaults(newId, f.rooms)
     GH.Broadcast()
@@ -152,7 +176,8 @@ end)
 
 ---------------------------------------------------------------------
 -- Exports for other resources (grumpy-pob hotel businesses)
--- data = { label, rooms, price, maxDays, door = {x,y,z,w}, interior = {x,y,z,w}, blip = bool }
+-- data = { label, rooms, price, maxDays, door = {x,y,z,w}, interior = {x,y,z,w}, stash = {x,y,z,w} | nil, blip = bool }
+-- stash is optional; leaving it out (also on UpdateHotel) means storage opens from the room menu
 ---------------------------------------------------------------------
 exports('CreateHotel', function(data)
     local f, err = sanitise(data)
