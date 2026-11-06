@@ -46,6 +46,7 @@ The commit message on `upstream` lists what RSG changed in each resource. To und
 | rsg-stores | Access points, `OpenShop`, `CreateShop` / `ShopExists` / `DeleteShop`, `'none'` model | grumpy-bartender + grumpy-pob shops |
 | rsg-stores | `blockJob`, `externalSale` event, `IsReady`, `SetShopData`, image URLs | grumpy-pob business shops |
 | rsg-stores | Honor/infamy buy and sell multipliers, sell-back arbitrage cap | grumpy-reputation |
+| rsg-stores | Shop templates: `rsg_shops_templates` / `rsg_shops_template_items` + `template_name` column, `Config.ShopTemplates` seed, Templates tab, template picker and Push to Shops in `/createshop` (marked `[grumpy shop templates]`) | Default item lists for NPC shops; one push updates every shop of a type |
 | rsg-consume | `RegisterAlias` export, alias refunds | grumpy-pob custom food/drink |
 | rsg-core | `SaveJobDefinition` / `DeleteJobDefinition` exports (`server/multijob/server.lua`) | grumpy-pob business jobs |
 | rsg-inventory | Core refresh on new items, `stashClosed` event, image URLs | grumpy-pob custom items, stock box |

@@ -57,6 +57,8 @@ An owned store without an owner is closed: customers see *(Closed)* and buy/sell
 }
 ```
 
+**Shop templates:** an NPC shop entry has `template = '<template name>'` while it follows one (nil otherwise; never set on player stores). `saveNPC` / `updateNPC` take `data.template`; an unknown name is dropped. Template items use the same shape as shop items (`{ name, label, price, amount }`) and go through the same `sanitizeItems`. Sync works on the server cache and the database row by row: *add* inserts missing rows, *prices* updates `price` only, *remove* deletes rows not in the template. Stock already on a shelf is never changed. Each changed shop gets a light `updateShop` broadcast, then `checkArbitrage` runs.
+
 **Admin save payload (`adminSaveNpc` → server):** as above plus, for player stores,
 `owner = { assign = <server id or nil>, clear = <bool> }`. `assign` must be an online player; the server resolves citizenid and character name itself. Items sent for a player store are ignored.
 
@@ -76,6 +78,10 @@ An owned store without an owner is closed: customers see *(Closed)* and buy/sell
 | `rsg-stores:server:getOnlinePlayers` | — | admin | `{ {id, name, citizenid} }` for the owner dropdown |
 | `rsg-blipmenu:server:saveNPC` | `data` | admin | new id or nil |
 | `rsg-stores:server:getPresets` / `savePreset` / `deletePreset` | see code | admin | presets |
+| `rsg-stores:server:getTemplates` | — | admin | `{ {id, name, label, items, shops} }` |
+| `rsg-stores:server:saveTemplate` | `id or nil, { name?, label, items }` | admin | `{ ok, id, templates, err }` (a rename moves linked shops to the new name) |
+| `rsg-stores:server:deleteTemplate` | `id` | admin | `{ ok, templates }` (linked shops keep their items, `template_name` cleared) |
+| `rsg-stores:server:syncTemplate` | `id, { add, prices, remove }` | admin | `{ ok, shops, added, priced, removed, templates }` |
 | `rsg-stores:server:ownerGetState` | `npcId` | owner or any staff at store | owner state |
 | `rsg-stores:server:ownerAddStock` | `npcId, item, qty, price?` | owner / `restock` | owner state (price required for a new listing) |
 | `rsg-stores:server:ownerTakeStock` | `npcId, item, qty` | owner / `takestock` | owner state |
@@ -160,7 +166,9 @@ Created automatically (or `install/rsg-stores.sql`):
 
 `rsg_shops_blips`: `id`, `name`, `sprite`, `color`, `x`, `y`, `z`, `associated_npc_id`.
 
-`rsg_shops_presets`: `id`, `kind` (`model|blip`), `label`, `value`.
+`rsg_shops_presets`: `id`, `kind` (`model|blip`), `label`, `value`. One `kind = 'meta'` row (`templates_seeded`) marks that `Config.ShopTemplates` was seeded; the preset loader ignores it.
+
+`rsg_shops_templates`: `id`, `name` (unique template id), `label`. `rsg_shops_template_items`: `id`, `template_id`, `item_name`, `label`, `price`, `stock` (NULL = unlimited). `rsg_shops_npcs.template_name` (nullable) is the template an NPC shop follows.
 
 `rsg_shops_npcs` also has `upkeep_owed` decimal(10,2) default 0 and `upkeep_next` int (unix time the next upkeep is due; sign stores only). `packed_at` int is set while a sign store is picked up (moving) and NULL otherwise.
 
@@ -169,6 +177,8 @@ Created automatically (or `install/rsg-stores.sql`):
 `rsg_shops_ledger`: `id`, `npc_id`, `ts` (unix), `kind`, `item`, `qty`, `amount`, `who`. Index `idx_ledger_npc`. Trimmed to `Config.Ledger.Keep` rows per store every 5 minutes; deleted with the store.
 
 ## Server owner how-tos
+- **Add an item to every shop of a type:** `/createshop` → **Templates** → the template → **Add Item** → **Push to Shops** with *Add items* ticked. See README *Shop templates*.
+- **Re-run the starter templates:** delete the `rsg_shops_presets` row with `kind = 'meta'` and `value = 'templates_seeded'`, empty `rsg_shops_templates`, and restart. Only an empty table is seeded.
 - **Sell a store to a player:** take payment however your server does it, then `/createshop` → store → pick them in **Assign Owner** → Save.
 - **Evict an owner:** open the store and press **Evict Owner** twice. Stock, till and sign go back to the owner (they must be online, unless you tick *Forfeit*). To keep the stock and till for the next owner instead, tick **Remove current owner** and Save.
 - **Charge rent for sign stores:** set `Config.ShopSign.Upkeep`. The upkeep check runs every 5 minutes on the server's real clock (`os.time()`), so periods keep counting while the server is offline and are charged on the next start.

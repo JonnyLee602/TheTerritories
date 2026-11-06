@@ -31,6 +31,7 @@ local function normalize(r)
     r.launder = r.launder == 1 or r.launder == true
     r.kind = Config.Kinds[r.kind] and r.kind or 'legal'
     r.launder_cut = tonumber(r.launder_cut)
+    if type(r.template) ~= 'string' or r.template == '' then r.template = nil end
     return r
 end
 
@@ -435,6 +436,51 @@ callback('grumpy-trader:server:launder', function(source, traderid, amount)
 end)
 
 ---------------------------------------------
+-- trader templates: a named default stock list (item, stock, low/high, base price, mode).
+-- Picking one on a trader copies the items it doesn't have yet, and the trader keeps following it
+-- (grumpy_trader_npcs.template), so admins can push template changes to every linked trader at once.
+---------------------------------------------
+local Templates = {} -- name -> { name, label }
+
+local function loadTemplates()
+    Templates = {}
+    for _, r in ipairs(MySQL.query.await('SELECT name, label FROM grumpy_trader_templates') or {}) do
+        Templates[r.name] = { name = r.name, label = r.label }
+    end
+end
+
+local function templateId(label)
+    local base = label:lower():gsub('[^%w]+', '_'):gsub('^_+', ''):gsub('_+$', ''):sub(1, 40)
+    if base == '' then base = 'template' end
+    local id, n = base, 1
+    while Templates[id] do
+        n = n + 1
+        id = base .. '_' .. n
+    end
+    return id
+end
+
+-- copy template items a trader doesn't stock yet; returns rows added
+local function addMissingFromTemplate(traderid, template)
+    return MySQL.update.await([[
+        INSERT IGNORE INTO grumpy_trader (traderid, item, stock, lowstock, highstock, baseprice, mode)
+        SELECT ?, item, stock, lowstock, highstock, baseprice, mode FROM grumpy_trader_template_items WHERE template = ?
+    ]], { traderid, template }) or 0
+end
+
+-- Item lists are edited the same way for a trader or a template. Returns table, key column, key, label.
+local function itemTarget(traderid, template)
+    if type(template) == 'string' and Templates[template] then
+        return 'grumpy_trader_template_items', 'template', template, ('%s (template `%s`)'):format(Templates[template].label, template)
+    end
+    if type(traderid) == 'string' and Traders[traderid] then
+        return 'grumpy_trader', 'traderid', traderid, traderLabel(traderid)
+    end
+end
+
+AddEventHandler('grumpy-trader:server:databaseReady', loadTemplates)
+
+---------------------------------------------
 -- admin panel
 ---------------------------------------------
 RSGCore.Commands.Add(Config.AdminCommand, locale('sv_cmd_admin'), {}, false, function(source)
@@ -500,6 +546,13 @@ callback('grumpy-trader:server:admin:saveTrader', function(source, data)
     trader.launder = launder
     trader.launder_cut = cut
 
+    -- template: '' / nil = none. A new or changed template copies the items the trader doesn't stock yet.
+    local template = trim(data.template)
+    if template == '' then template = nil end
+    if template and not Templates[template] then return result(false, locale('sv_template_missing')) end
+    local templateChanged = template ~= (existing and existing.template or nil)
+    trader.template = template
+
     -- position from the admin's rsg-gizmo placement (new trader, or "Move trader" ticked), checked here
     if not existing or data.move then
         local p = type(data.pos) == 'table' and data.pos or {}
@@ -513,13 +566,14 @@ callback('grumpy-trader:server:admin:saveTrader', function(source, data)
     end
 
     MySQL.query.await([[
-        INSERT INTO grumpy_trader_npcs (traderid, tradername, npcmodel, x, y, z, heading, showblip, kind, launder, launder_cut)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO grumpy_trader_npcs (traderid, tradername, npcmodel, x, y, z, heading, showblip, kind, launder, launder_cut, template)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE tradername = VALUES(tradername), npcmodel = VALUES(npcmodel), x = VALUES(x), y = VALUES(y),
         z = VALUES(z), heading = VALUES(heading), showblip = VALUES(showblip), kind = VALUES(kind), launder = VALUES(launder),
-        launder_cut = VALUES(launder_cut)
+        launder_cut = VALUES(launder_cut), template = VALUES(template)
     ]], { trader.traderid, trader.tradername, trader.npcmodel, trader.x, trader.y, trader.z, trader.heading,
-          trader.showblip and 1 or 0, trader.kind, trader.launder and 1 or 0, trader.launder_cut })
+          trader.showblip and 1 or 0, trader.kind, trader.launder and 1 or 0, trader.launder_cut, trader.template })
+    local fromTemplate = (template and templateChanged) and addMissingFromTemplate(trader.traderid, template) or 0
 
     Traders[trader.traderid] = trader
     syncTraders()
@@ -528,9 +582,13 @@ callback('grumpy-trader:server:admin:saveTrader', function(source, data)
         { name = locale('wh_model'), value = trader.npcmodel },
         { name = locale('wh_blip'), value = locale(trader.showblip and 'wh_yes' or 'wh_no') },
         { name = locale('wh_launder'), value = trader.launder and ('%s%%'):format(trader.launder_cut or L.DefaultCut) or locale('wh_no') },
+        { name = locale('wh_template'), value = template and ('%s (+%d)'):format(Templates[template].label, fromTemplate) or locale('wh_no') },
         { name = locale('wh_position'), value = ('%.2f, %.2f, %.2f (h %.1f)'):format(trader.x, trader.y, trader.z, trader.heading), inline = false },
         existing and existing.tradername ~= name and { name = locale('wh_renamed_from'), value = existing.tradername } or nil,
     }, ('%s %s trader %s'):format(GetPlayerName(src), existing and 'updated' or 'created', trader.traderid))
+    if fromTemplate > 0 then
+        return result(true, locale('sv_trader_saved_template', name, fromTemplate, Templates[template].label))
+    end
     return result(true, locale(existing and 'sv_trader_updated' or 'sv_trader_added', name))
 end)
 
@@ -555,9 +613,11 @@ callback('grumpy-trader:server:admin:deleteTrader', function(source, traderid, r
     return result(true, locale('sv_trader_removed', trader.tradername))
 end)
 
-callback('grumpy-trader:server:admin:items', function(source, traderid)
-    if not isAdmin(source) or not Traders[traderid] then return nil end
-    return MySQL.query.await('SELECT item, stock, lowstock, highstock, baseprice, mode FROM grumpy_trader WHERE traderid = ? ORDER BY item', { traderid }) or {}
+callback('grumpy-trader:server:admin:items', function(source, traderid, template)
+    if not isAdmin(source) then return nil end
+    local tbl, col, key = itemTarget(traderid, template)
+    if not tbl then return nil end
+    return MySQL.query.await(('SELECT item, stock, lowstock, highstock, baseprice, mode FROM %s WHERE %s = ? ORDER BY item'):format(tbl, col), { key }) or {}
 end)
 
 -- add or update an item on a trader
@@ -565,7 +625,8 @@ callback('grumpy-trader:server:admin:saveItem', function(source, data)
     local src = source
     if not isAdmin(src) then adminDenied(src, 'saveItem'); return result(false, locale('sv_no_permission')) end
     if type(data) ~= 'table' then return result(false, locale('sv_invalid_trade')) end
-    if type(data.traderid) ~= 'string' or not Traders[data.traderid] then return result(false, locale('sv_not_found')) end
+    local tbl, col, key, targetLabel = itemTarget(data.traderid, data.template)
+    if not tbl then return result(false, locale('sv_not_found')) end
 
     local item = trim(data.item)
     item = item and item:lower()
@@ -583,37 +644,149 @@ callback('grumpy-trader:server:admin:saveItem', function(source, data)
     baseprice = round2(baseprice)
 
     if data.isNew then
-        local exists = MySQL.scalar.await('SELECT COUNT(*) FROM grumpy_trader WHERE traderid = ? AND item = ?', { data.traderid, item })
+        local exists = MySQL.scalar.await(('SELECT COUNT(*) FROM %s WHERE %s = ? AND item = ?'):format(tbl, col), { key, item })
         if exists and exists > 0 then return result(false, locale('sv_already_exists')) end
-        MySQL.insert.await('INSERT INTO grumpy_trader (traderid, item, stock, lowstock, highstock, baseprice, mode) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            { data.traderid, item, stock, lowstock, highstock, baseprice, mode })
+        MySQL.insert.await(('INSERT INTO %s (%s, item, stock, lowstock, highstock, baseprice, mode) VALUES (?, ?, ?, ?, ?, ?, ?)'):format(tbl, col),
+            { key, item, stock, lowstock, highstock, baseprice, mode })
     else
-        local affected = MySQL.update.await('UPDATE grumpy_trader SET stock = ?, lowstock = ?, highstock = ?, baseprice = ?, mode = ? WHERE traderid = ? AND item = ?',
-            { stock, lowstock, highstock, baseprice, mode, data.traderid, item })
+        local affected = MySQL.update.await(('UPDATE %s SET stock = ?, lowstock = ?, highstock = ?, baseprice = ?, mode = ? WHERE %s = ? AND item = ?'):format(tbl, col),
+            { stock, lowstock, highstock, baseprice, mode, key, item })
         if not affected or affected < 1 then return result(false, locale('sv_invalid_trade')) end
     end
     log(data.isNew and 'item_added' or 'item_updated', src, locale(data.isNew and 'wh_title_item_added' or 'wh_title_item_updated'), {
-        { name = locale('wh_trader'), value = traderLabel(data.traderid) },
+        { name = locale('wh_trader'), value = targetLabel },
         { name = locale('wh_item'), value = ('%s (`%s`)'):format(RSGCore.Shared.Items[item].label, item) },
         { name = locale('wh_stock'), value = tostring(stock) },
         { name = locale('wh_low_high'), value = ('%d / %d'):format(lowstock, highstock) },
         { name = locale('wh_baseprice'), value = money(baseprice) },
         { name = locale('wh_mode'), value = mode },
-    }, ('%s %s item %s on %s'):format(GetPlayerName(src), data.isNew and 'added' or 'updated', item, data.traderid))
+    }, ('%s %s item %s on %s'):format(GetPlayerName(src), data.isNew and 'added' or 'updated', item, key))
     return result(true, locale(data.isNew and 'sv_added' or 'sv_item_updated'))
 end)
 
-callback('grumpy-trader:server:admin:deleteItem', function(source, traderid, item)
+callback('grumpy-trader:server:admin:deleteItem', function(source, traderid, item, template)
     local src = source
     if not isAdmin(src) then adminDenied(src, 'deleteItem'); return result(false, locale('sv_no_permission')) end
-    if type(traderid) ~= 'string' or not Traders[traderid] or type(item) ~= 'string' then return result(false, locale('sv_invalid_trade')) end
-    local affected = MySQL.update.await('DELETE FROM grumpy_trader WHERE traderid = ? AND item = ?', { traderid, item })
+    local tbl, col, key, targetLabel = itemTarget(traderid, template)
+    if not tbl or type(item) ~= 'string' then return result(false, locale('sv_invalid_trade')) end
+    local affected = MySQL.update.await(('DELETE FROM %s WHERE %s = ? AND item = ?'):format(tbl, col), { key, item })
     if not affected or affected < 1 then return result(false, locale('sv_not_found')) end
     log('item_removed', src, locale('wh_title_item_removed'), {
-        { name = locale('wh_trader'), value = traderLabel(traderid) },
+        { name = locale('wh_trader'), value = targetLabel },
         { name = locale('wh_item'), value = ('`%s`'):format(item) },
-    }, ('%s removed item %s from %s'):format(GetPlayerName(src), item, traderid))
+    }, ('%s removed item %s from %s'):format(GetPlayerName(src), item, key))
     return result(true, locale('sv_item_removed'))
+end)
+
+-- templates: list / create or rename / delete / copy from a trader / push to linked traders
+local function linkedTraders(name)
+    local ids = {}
+    for id, t in pairs(Traders) do
+        if t.template == name then ids[#ids + 1] = id end
+    end
+    return ids
+end
+
+callback('grumpy-trader:server:admin:templates', function(source)
+    if not isAdmin(source) then return nil end
+    local counts = {}
+    for _, r in ipairs(MySQL.query.await('SELECT template, COUNT(*) AS c FROM grumpy_trader_template_items GROUP BY template') or {}) do
+        counts[r.template] = r.c
+    end
+    local list = {}
+    for name, t in pairs(Templates) do
+        list[#list + 1] = { name = name, label = t.label, itemcount = counts[name] or 0, tradercount = #linkedTraders(name) }
+    end
+    table.sort(list, function(a, b) return a.label:lower() < b.label:lower() end)
+    return list
+end)
+
+-- data = { name = existing name or nil, label, fromTrader = traderid to copy items from (new templates only) }
+callback('grumpy-trader:server:admin:saveTemplate', function(source, data)
+    local src = source
+    if not isAdmin(src) then adminDenied(src, 'saveTemplate'); return result(false, locale('sv_no_permission')) end
+    if type(data) ~= 'table' then return result(false, locale('sv_invalid_trade')) end
+    local label = trim(data.label)
+    if not label or #label < 2 or #label > 50 then return result(false, locale('sv_invalid_name')) end
+    local existing = type(data.name) == 'string' and Templates[data.name] or nil
+    if data.name and not existing then return result(false, locale('sv_template_missing')) end
+
+    local copied = 0
+    if existing then
+        MySQL.update.await('UPDATE grumpy_trader_templates SET label = ? WHERE name = ?', { label, existing.name })
+        existing.label = label
+    else
+        local name = templateId(label)
+        MySQL.insert.await('INSERT INTO grumpy_trader_templates (name, label) VALUES (?, ?)', { name, label })
+        Templates[name] = { name = name, label = label }
+        if type(data.fromTrader) == 'string' and Traders[data.fromTrader] then
+            copied = MySQL.update.await([[
+                INSERT IGNORE INTO grumpy_trader_template_items (template, item, stock, lowstock, highstock, baseprice, mode)
+                SELECT ?, item, stock, lowstock, highstock, baseprice, mode FROM grumpy_trader WHERE traderid = ?
+            ]], { name, data.fromTrader }) or 0
+        end
+        existing = Templates[name]
+    end
+    log('template_saved', src, locale('wh_title_template_saved'), {
+        { name = locale('wh_template'), value = ('%s (`%s`)'):format(existing.label, existing.name) },
+        data.fromTrader and { name = locale('wh_copied_from'), value = ('%s (%d)'):format(traderLabel(data.fromTrader), copied) } or nil,
+    }, ('%s saved template %s'):format(GetPlayerName(src), existing.name))
+    return result(true, locale('sv_template_saved', existing.label), { name = existing.name })
+end)
+
+-- Traders keep their items; they just stop following the template.
+callback('grumpy-trader:server:admin:deleteTemplate', function(source, name)
+    local src = source
+    if not isAdmin(src) then adminDenied(src, 'deleteTemplate'); return result(false, locale('sv_no_permission')) end
+    local t = type(name) == 'string' and Templates[name]
+    if not t then return result(false, locale('sv_template_missing')) end
+    MySQL.query.await('DELETE FROM grumpy_trader_template_items WHERE template = ?', { name })
+    MySQL.query.await('DELETE FROM grumpy_trader_templates WHERE name = ?', { name })
+    MySQL.update.await('UPDATE grumpy_trader_npcs SET template = NULL WHERE template = ?', { name })
+    for _, tr in pairs(Traders) do
+        if tr.template == name then tr.template = nil end
+    end
+    Templates[name] = nil
+    log('template_deleted', src, locale('wh_title_template_deleted'), {
+        { name = locale('wh_template'), value = ('%s (`%s`)'):format(t.label, name) },
+    }, ('%s deleted template %s'):format(GetPlayerName(src), name))
+    return result(true, locale('sv_template_deleted', t.label))
+end)
+
+-- Push a template to every trader that follows it.
+--   opts.add    add template items a trader doesn't list yet (template stock, low/high, price, mode)
+--   opts.prices set the template base price, low/high stock and mode on items they already list (stock untouched)
+--   opts.remove remove items that aren't in the template
+callback('grumpy-trader:server:admin:syncTemplate', function(source, name, opts)
+    local src = source
+    if not isAdmin(src) then adminDenied(src, 'syncTemplate'); return result(false, locale('sv_no_permission')) end
+    local t = type(name) == 'string' and Templates[name]
+    if not t then return result(false, locale('sv_template_missing')) end
+    opts = type(opts) == 'table' and opts or {}
+    local ids = linkedTraders(name)
+    local added, priced, removed = 0, 0, 0
+    for _, id in ipairs(ids) do
+        if opts.add == true then added = added + addMissingFromTemplate(id, name) end
+        if opts.prices == true then
+            priced = priced + (MySQL.update.await([[
+                UPDATE grumpy_trader g JOIN grumpy_trader_template_items ti ON ti.template = ? AND ti.item = g.item
+                SET g.baseprice = ti.baseprice, g.lowstock = ti.lowstock, g.highstock = ti.highstock, g.mode = ti.mode
+                WHERE g.traderid = ?
+            ]], { name, id }) or 0)
+        end
+        if opts.remove == true then
+            removed = removed + (MySQL.update.await([[
+                DELETE g FROM grumpy_trader g
+                LEFT JOIN grumpy_trader_template_items ti ON ti.template = ? AND ti.item = g.item
+                WHERE g.traderid = ? AND ti.item IS NULL
+            ]], { name, id }) or 0)
+        end
+    end
+    log('template_synced', src, locale('wh_title_template_synced'), {
+        { name = locale('wh_template'), value = ('%s (`%s`)'):format(t.label, name) },
+        { name = locale('wh_result'), value = locale('sv_template_synced', #ids, added, priced, removed) },
+    }, ('%s pushed template %s to %d traders'):format(GetPlayerName(src), name, #ids))
+    return result(true, locale('sv_template_synced', #ids, added, priced, removed))
 end)
 
 ---------------------------------------------

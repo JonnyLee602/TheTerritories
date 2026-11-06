@@ -15,6 +15,7 @@ var AdminUI = {
     catalogMap: {},
     models: [],
     blipTypes: [],
+    templates: [],         // shop templates (default item lists for NPC shops)
     colors: [],
     editId: null,          // id of NPC/blip being edited (null = new)
     draftItems: [],
@@ -49,6 +50,7 @@ var AdminUI = {
         this.catalog.forEach(function(it) { self.catalogMap[it.name] = it; });
         this.colors = data.colors || [];
         this.setPresets(data);
+        this.setTemplates(data.templates);
         this.fillSelect('npc-blip-color', this.colors, true);
         this.fillSelect('blip-color', this.colors, true);
         this.setData(data);
@@ -85,6 +87,19 @@ var AdminUI = {
         this.fillTypeFilter();
         this.$('adm-preset-count').textContent = this.models.length + this.blipTypes.length;
     },
+
+    setTemplates: function(list) {
+        this.templates = (list || []).slice().sort(function(a, b) { return a.label.localeCompare(b.label); });
+        this.fillSelect('npc-template', this.templates.map(function(t) { return { label: t.label, value: t.name }; }), true);
+        this.$('adm-template-count').textContent = this.templates.length;
+    },
+
+    findTemplate: function(id) { return this.templates.find(function(t) { return t.id === id; }) || null; },
+    // NPC shops (not player stores) that follow a template.
+    templateShopCount: function(name) {
+        return this.npcs.filter(function(n) { return n.kind !== 'player' && n.shop && n.template === name; }).length;
+    },
+    findTemplateByName: function(name) { return this.templates.find(function(t) { return t.name === name; }) || null; },
 
     findPreset: function(id) {
         var all = this.models.map(function(p) { return { kind: 'model', p: p }; })
@@ -252,6 +267,7 @@ var AdminUI = {
         this.$('adm-npc-view').classList.toggle('hidden', view !== 'npc');
         this.$('adm-blip-view').classList.toggle('hidden', view !== 'blip');
         this.$('adm-preset-view').classList.toggle('hidden', view !== 'preset');
+        this.$('adm-template-view').classList.toggle('hidden', view !== 'template');
         document.querySelector('.adm-panel').classList.toggle('editing', view !== 'list');
     },
 
@@ -273,9 +289,11 @@ var AdminUI = {
         this.$('adm-tab-npcs').classList.toggle('active', tab === 'npcs');
         this.$('adm-tab-blips').classList.toggle('active', tab === 'blips');
         this.$('adm-tab-presets').classList.toggle('active', tab === 'presets');
+        this.$('adm-tab-templates').classList.toggle('active', tab === 'templates');
         this.$('adm-type-filter-wrap').classList.toggle('hidden', tab !== 'npcs');
         this.$('adm-new-label').textContent = this.T(
-            tab === 'npcs' ? 'ui_adm_new_npc' : tab === 'blips' ? 'ui_adm_new_blip' : 'ui_adm_new_preset');
+            tab === 'npcs' ? 'ui_adm_new_npc' : tab === 'blips' ? 'ui_adm_new_blip'
+                : tab === 'templates' ? 'ui_adm_new_template' : 'ui_adm_new_preset');
         this.renderList();
     },
 
@@ -298,9 +316,20 @@ var AdminUI = {
                     : self.T('ui_adm_no_shop'));
                 if (n.kind === 'player') {
                     sub = (n.owner ? self.T('ui_adm_owned_by', n.owner.name) : self.T('ui_adm_no_owner')) + ' • ' + sub;
+                } else if (n.template) {
+                    var tpl = self.findTemplateByName(n.template);
+                    sub += ' • ' + self.T('ui_adm_follows', tpl ? tpl.label : n.template);
                 }
                 rows.push({ id: n.id, icon: n.kind === 'player' ? 'fa-user-tie' : (shop ? 'fa-store' : 'fa-user'),
                     title: n.name || n.model || (shop && shop.label) || ('#' + n.id), sub: sub, pill: '#' + n.id, off: !shop || (n.kind === 'player' && !n.owner) });
+            });
+        } else if (this.tab === 'templates') {
+            this.templates.forEach(function(t) {
+                var hay = (t.label + ' ' + t.name).toLowerCase();
+                if (q && hay.indexOf(q) === -1) return;
+                rows.push({ id: t.id, icon: 'fa-clipboard-list', title: t.label,
+                    sub: self.T('ui_adm_items_count', t.items.length) + ' • ' + self.T('ui_adm_template_shops', self.templateShopCount(t.name)),
+                    pill: t.name });
             });
         } else if (this.tab === 'presets') {
             [['model', this.models, 'fa-user', 'ui_adm_kind_model'], ['blip', this.blipTypes, 'fa-map-pin', 'ui_adm_kind_blip']].forEach(function(g) {
@@ -334,6 +363,7 @@ var AdminUI = {
             el.addEventListener('click', function() {
                 if (self.tab === 'npcs') self.openNpc(r.id);
                 else if (self.tab === 'presets') self.openPreset(r.id);
+                else if (self.tab === 'templates') self.openTemplate(r.id);
                 else self.openBlip(r.id);
             });
             box.appendChild(el);
@@ -343,7 +373,8 @@ var AdminUI = {
         this.$('adm-list-empty').classList.toggle('hidden', !empty);
         this.$('adm-list-empty-text').textContent = (q || (this.tab === 'npcs' && this.typeFilter))
             ? this.T('cl_no_results')
-            : this.T(this.tab === 'npcs' ? 'ui_adm_no_npcs' : this.tab === 'blips' ? 'ui_adm_no_blips' : 'ui_adm_no_presets');
+            : this.T(this.tab === 'npcs' ? 'ui_adm_no_npcs' : this.tab === 'blips' ? 'ui_adm_no_blips'
+                : this.tab === 'templates' ? 'ui_adm_no_templates' : 'ui_adm_no_presets');
     },
 
     // ---------- NPC editor ----------
@@ -365,6 +396,7 @@ var AdminUI = {
         this.draftItems = shop ? (shop.items || []).map(function(it) {
             return { name: it.name, label: it.label, price: it.price, amount: it.amount };
         }) : [];
+        this.selectValue('npc-template', npc && npc.template ? npc.template : '');
 
         // blip creation only offered for new shops; existing ones show their linked blip
         this.$('npc-blip-block').classList.toggle('hidden', !!npc);
@@ -426,6 +458,7 @@ var AdminUI = {
         this.$('npc-model-field').classList.toggle('hidden', owned);
         this.$('npc-is-shop-wrap').classList.toggle('hidden', owned);
         this.$('npc-items-block').classList.toggle('hidden', owned);
+        this.$('npc-template-field').classList.toggle('hidden', owned);
         this.$('npc-owner-block').classList.toggle('hidden', !owned);
         this.$('npc-kind-warn').classList.toggle('hidden', !this.editKind || this.editKind === this.kind);
         if (owned) this.$('npc-is-shop').checked = true;
@@ -445,8 +478,31 @@ var AdminUI = {
         if (b) el.textContent = this.T('ui_adm_linked_blip', b.name);
     },
 
+    // The NPC editor and the template editor share draftItems; only one is open at a time.
+    itemIds: function() {
+        return this.view === 'template'
+            ? { box: 'tpl-items', count: 'tpl-item-count', empty: 'tpl-items-empty' }
+            : { box: 'adm-items', count: 'adm-item-count', empty: 'adm-items-empty' };
+    },
+
+    // Adds template items the draft doesn't have yet (existing rows keep their price and stock).
+    mergeTemplate: function(name) {
+        var t = this.findTemplateByName(name);
+        if (!t) return;
+        var have = {}, added = 0, self = this;
+        this.draftItems.forEach(function(it) { have[it.name] = true; });
+        t.items.forEach(function(it) {
+            if (have[it.name]) return;
+            self.draftItems.push({ name: it.name, label: it.label, price: it.price, amount: it.amount });
+            added++;
+        });
+        this.renderItems();
+        if (added) this.notify('success', this.T('ui_adm_template_added', added, t.label));
+    },
+
     renderItems: function() {
-        var box = this.$('adm-items'), self = this;
+        var ids = this.itemIds();
+        var box = this.$(ids.box), self = this;
         box.innerHTML = '';
         this.draftItems.forEach(function(it, idx) {
             var cat = self.catalogMap[it.name];
@@ -468,8 +524,8 @@ var AdminUI = {
             });
             box.appendChild(row);
         });
-        this.$('adm-item-count').textContent = this.draftItems.length;
-        this.$('adm-items-empty').classList.toggle('hidden', this.draftItems.length > 0);
+        this.$(ids.count).textContent = this.draftItems.length;
+        this.$(ids.empty).classList.toggle('hidden', this.draftItems.length > 0);
     },
 
     clearInvalid: function() {
@@ -508,15 +564,9 @@ var AdminUI = {
                 name: this.$('adm-shop-name').value.trim(),
                 label: this.$('adm-shop-label').value.trim(),
                 type: this.$('adm-shop-type').value,
-                items: this.draftItems.map(function(it) {
-                    var stock = String(it.amount == null ? '' : it.amount).trim();
-                    return {
-                        name: it.name, label: it.label,
-                        price: Math.max(0, parseFloat(it.price) || 0),
-                        amount: stock === '' ? null : Math.max(0, parseInt(stock, 10) || 0)
-                    };
-                })
+                items: this.cleanItems()
             };
+            if (!owned) npc.template = this.$('npc-template').value || null;
         }
         if (owned) {
             var assign = parseInt(this.$('npc-owner-id').value, 10);
@@ -532,6 +582,17 @@ var AdminUI = {
         this.post('adminSaveNpc', { id: this.editId, npc: npc, blip: blip }).then(function(res) {
             btn.disabled = false;
             if (res && res.ok) self.showList();
+        });
+    },
+
+    cleanItems: function() {
+        return this.draftItems.map(function(it) {
+            var stock = String(it.amount == null ? '' : it.amount).trim();
+            return {
+                name: it.name, label: it.label,
+                price: Math.max(0, parseFloat(it.price) || 0),
+                amount: stock === '' ? null : Math.max(0, parseInt(stock, 10) || 0)
+            };
         });
     },
 
@@ -573,7 +634,7 @@ var AdminUI = {
         this.draftItems.push({ name: it.name, label: it.label, price: 0, amount: null });
         this.closeModals();
         this.renderItems();
-        var rows = this.$('adm-items').querySelectorAll('.it-price');
+        var rows = this.$(this.itemIds().box).querySelectorAll('.it-price');
         if (rows.length) { rows[rows.length - 1].focus(); rows[rows.length - 1].select(); }
     },
 
@@ -662,10 +723,81 @@ var AdminUI = {
         });
     },
 
+    // ---------- template editor ----------
+    // seedItems: start a new template from a shop's items ("Save Items as Template").
+    openTemplate: function(id, seedItems, seedLabel) {
+        var t = id ? this.findTemplate(id) : null;
+        this.editId = t ? t.id : null;
+        this.setView('template');
+        this.setHeader(t ? 'ui_adm_edit_template_title' : 'ui_adm_new_template_title', t ? t.label : null);
+        this.clearInvalid();
+        this.$('tpl-label').value = t ? t.label : (seedLabel || '');
+        this.$('tpl-name').value = t ? t.name : '';
+        this.draftItems = (t ? t.items : (seedItems || [])).map(function(it) {
+            return { name: it.name, label: it.label, price: it.price, amount: it.amount };
+        });
+        this.$('tpl-shops').textContent = this.T('ui_adm_template_shops', t ? this.templateShopCount(t.name) : 0);
+        this.$('tpl-sync-block').classList.toggle('hidden', !t);
+        this.$('tpl-tools').classList.toggle('hidden', !t);
+        this.$('tpl-save-label').textContent = this.T(t ? 'ui_adm_save' : 'ui_adm_create');
+        this.$('tpl-sync-add').checked = true;
+        this.$('tpl-sync-prices').checked = false;
+        this.$('tpl-sync-remove').checked = false;
+        this.renderItems();
+        this.$('tpl-label').focus();
+    },
+
+    templatePayload: function() {
+        return { label: this.$('tpl-label').value.trim(), name: this.$('tpl-name').value.trim().toLowerCase(), items: this.cleanItems() };
+    },
+
+    // Saves the template; resolves to the server result (or null on failure).
+    saveTemplate: function(stay) {
+        this.clearInvalid();
+        if (!this.requireFields(['tpl-label'])) return Promise.resolve(null);
+        var name = this.$('tpl-name').value.trim();
+        if (name && !/^[A-Za-z0-9_]+$/.test(name)) {
+            this.$('tpl-name').classList.add('invalid');
+            this.notify('error', this.T('ui_adm_template_id_hint'));
+            return Promise.resolve(null);
+        }
+        var btn = this.$('tpl-save'), self = this;
+        btn.disabled = true;
+        return this.post('adminSaveTemplate', { id: this.editId, template: this.templatePayload() }).then(function(res) {
+            btn.disabled = false;
+            if (!res || !res.ok) return null;
+            self.setTemplates(res.templates);
+            if (stay) self.editId = res.id; else self.showList();
+            return res;
+        });
+    },
+
+    syncTemplate: function() {
+        var opts = { add: this.$('tpl-sync-add').checked, prices: this.$('tpl-sync-prices').checked, remove: this.$('tpl-sync-remove').checked };
+        if (!opts.add && !opts.prices && !opts.remove) return this.notify('error', this.T('ui_adm_sync_none'));
+        var t = this.findTemplate(this.editId), self = this;
+        if (!t) return;
+        var text = this.T('ui_adm_sync_c', this.$('tpl-label').value.trim() || t.label, this.templateShopCount(t.name)) +
+            (opts.remove ? ' ' + this.T('ui_adm_sync_remove_warn') : '');
+        this.confirm(this.T('ui_adm_sync'), text, function() {
+            self.saveTemplate(true).then(function(res) {
+                if (!res) return;
+                return self.post('adminSyncTemplate', { id: res.id, opts: opts }).then(function(r) {
+                    if (r && r.ok) { self.setTemplates(r.templates); self.showList(); }
+                });
+            });
+        }, { label: this.T('ui_adm_sync'), icon: 'fa-arrows-rotate', safe: !opts.remove });
+    },
+
     // ---------- confirm ----------
-    confirm: function(title, text, action) {
+    // ok (optional): { label, icon, safe } for the confirm button; defaults to a red Delete button.
+    confirm: function(title, text, action, ok) {
         this.$('adm-confirm-title').textContent = title;
         this.$('adm-confirm-text').textContent = text;
+        var btn = this.$('adm-confirm-ok');
+        btn.querySelector('i').className = 'fa-solid ' + ((ok && ok.icon) || 'fa-trash');
+        this.$('adm-confirm-ok-label').textContent = (ok && ok.label) || this.T('ui_adm_delete');
+        btn.classList.toggle('adm-danger-btn', !(ok && ok.safe));
         this.confirmAction = action;
         this.$('adm-confirm').classList.remove('hidden');
     },
@@ -690,11 +822,13 @@ var AdminUI = {
         $('adm-tab-npcs').addEventListener('click', function() { self.setTab('npcs'); });
         $('adm-tab-blips').addEventListener('click', function() { self.setTab('blips'); });
         $('adm-tab-presets').addEventListener('click', function() { self.setTab('presets'); });
+        $('adm-tab-templates').addEventListener('click', function() { self.setTab('templates'); });
         $('adm-type-filter').addEventListener('change', function(e) { self.typeFilter = e.target.value; self.renderList(); });
         $('adm-search').addEventListener('input', function(e) { self.search = e.target.value.toLowerCase(); self.renderList(); });
         $('adm-new').addEventListener('click', function() {
             if (self.tab === 'npcs') self.openNpc(null);
             else if (self.tab === 'presets') self.openPreset(null);
+            else if (self.tab === 'templates') self.openTemplate(null);
             else self.openBlip(null);
         });
 
@@ -709,7 +843,26 @@ var AdminUI = {
             });
         });
 
+        // Template editor
+        $('tpl-add-item').addEventListener('click', function() { self.openPicker(); });
+        $('tpl-save').addEventListener('click', function() { self.saveTemplate(false); });
+        $('tpl-sync').addEventListener('click', function() { self.syncTemplate(); });
+        $('tpl-delete').addEventListener('click', function() {
+            var t = self.findTemplate(self.editId);
+            if (!t) return;
+            self.confirm(self.T('ui_adm_delete_template_h'), self.T('ui_adm_delete_template_c', t.label), function() {
+                self.post('adminDeleteTemplate', { id: t.id, label: t.label }).then(function(res) {
+                    if (res && res.ok) { self.setTemplates(res.templates); self.showList(); }
+                });
+            });
+        });
+
         // NPC editor
+        $('npc-template').addEventListener('change', function(e) { if (e.target.value) self.mergeTemplate(e.target.value); });
+        $('adm-save-as-template').addEventListener('click', function() {
+            if (!self.draftItems.length) return self.notify('error', self.T('ui_adm_no_items'));
+            self.openTemplate(null, self.cleanItems(), self.$('adm-shop-label').value.trim());
+        });
         $('npc-is-shop').addEventListener('change', function() { self.toggleShopFields(); });
         $('npc-kind-npc').addEventListener('click', function() { self.setKind('npc'); });
         $('npc-kind-player').addEventListener('click', function() { self.setKind('player'); });

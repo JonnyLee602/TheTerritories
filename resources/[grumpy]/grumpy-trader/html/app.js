@@ -4,10 +4,13 @@ const $ = (id) => document.getElementById(id);
 
 let S = {};            // locale strings
 let shop = null;       // { trader, mode, items, maxBuy, maxSell, money, payWith, payOut, launder }
-let admin = { traders: [], itemList: [], defaultModel: '', imagePath: '', trader: null, items: [], blipDefaults: {}, launder: { default: 30, min: 5, max: 90 } };
+let admin = { traders: [], templates: [], itemList: [], defaultModel: '', imagePath: '', trader: null, items: [], blipDefaults: {}, launder: { default: 30, min: 5, max: 90 } };
+// admin.trader is the item list being edited: a trader row, or a template as { template, traderid, tradername }
 let trade = null;      // item currently in the trade modal
 let editingTrader = null;
 let editingItem = null;
+let editingTemplate = null; // { name, label } when renaming, { fromTrader } when saving a trader's items
+let syncingTemplate = null;
 let confirmAction = null;
 
 /* ---------------- helpers ---------------- */
@@ -201,13 +204,95 @@ function renderLaunder() {
 }
 
 /* ================= ADMIN ================= */
+let adminView = 'traders';
+
 function setAdminView(view) {
+    adminView = view;
     const items = view === 'items';
-    $('view-traders').classList.toggle('hidden', items);
+    $('view-traders').classList.toggle('hidden', view !== 'traders');
+    $('view-templates').classList.toggle('hidden', view !== 'templates');
     $('view-items').classList.toggle('hidden', !items);
-    $('admin-back').classList.toggle('invisible', !items);
-    $('admin-title').textContent = items ? admin.trader.tradername : t('ui_admin_title');
-    $('admin-sub').textContent = items ? `${t('ui_items')} · ${admin.trader.traderid}` : t('ui_admin_sub');
+    $('admin-back').classList.toggle('invisible', view === 'traders');
+    if (items) {
+        $('admin-title').textContent = admin.trader.tradername;
+        $('admin-sub').textContent = admin.trader.template && !admin.trader.npcmodel
+            ? `${t('ui_template')} · ${admin.trader.traderid}` : `${t('ui_items')} · ${admin.trader.traderid}`;
+    } else if (view === 'templates') {
+        $('admin-title').textContent = t('ui_templates');
+        $('admin-sub').textContent = t('ui_templates_sub');
+    } else {
+        $('admin-title').textContent = t('ui_admin_title');
+        $('admin-sub').textContent = t('ui_admin_sub');
+    }
+}
+
+// back one step: items -> (templates | traders) -> traders
+function adminBack() {
+    if (adminView === 'items' && isTemplateTarget()) { setAdminView('templates'); renderTemplates(); }
+    else setAdminView('traders');
+}
+
+const isTemplateTarget = () => !!(admin.trader && admin.trader.template && !admin.trader.npcmodel);
+const templateLabel = (name) => { const tp = admin.templates.find((x) => x.name === name); return tp ? tp.label : name; };
+
+// item calls name either the trader or the template being edited
+function itemTargetData() {
+    return isTemplateTarget() ? { template: admin.trader.template } : { traderid: admin.trader.traderid };
+}
+
+async function refreshTemplates() {
+    const res = await post('admin:templates');
+    admin.templates = (res && res.templates) || [];
+    renderTemplates();
+}
+
+function renderTemplates() {
+    const q = $('template-search').value.trim().toLowerCase();
+    const rows = admin.templates.filter((tp) => !q || tp.label.toLowerCase().includes(q) || tp.name.includes(q));
+    const list = $('template-list');
+    if (!rows.length) {
+        list.innerHTML = `<div class="empty">${esc(t('ui_no_templates'))}</div>`;
+        return;
+    }
+    list.innerHTML = rows.map((tp) => `
+        <div class="row" data-name="${esc(tp.name)}">
+            <div class="badge">&#9776;</div>
+            <div class="row-main">
+                <div class="row-title">${esc(tp.label)}<span class="pill">${tp.itemcount} ${esc(t('ui_itemcount'))}</span><span class="pill">${tp.tradercount} ${esc(t('ui_traders_following'))}</span></div>
+                <div class="row-desc">${esc(tp.name)}</div>
+            </div>
+            <div class="row-actions">
+                <button class="wood-btn small" data-act="items">${esc(t('ui_items'))}</button>
+                <button class="wood-btn small muted" data-act="push">${esc(t('ui_push'))}</button>
+                <button class="wood-btn small muted" data-act="edit">${esc(t('ui_edit'))}</button>
+                <button class="wood-btn small muted danger" data-act="delete">${esc(t('ui_delete'))}</button>
+            </div>
+        </div>`).join('');
+}
+
+function fillTemplateSelect(current) {
+    const sel = $('f-template');
+    sel.innerHTML = `<option value="">${esc(t('ui_template_none'))}</option>` +
+        admin.templates.map((tp) => `<option value="${esc(tp.name)}">${esc(tp.label)}</option>`).join('');
+    sel.value = current || '';
+}
+
+function openTemplateForm(tp, fromTrader) {
+    editingTemplate = tp ? { name: tp.name } : { fromTrader: fromTrader ? fromTrader.traderid : null };
+    $('template-form-title').textContent = tp ? t('ui_edit_template') : (fromTrader ? t('ui_save_as_template') : t('ui_add_template'));
+    $('f-template-label').value = tp ? tp.label : (fromTrader ? fromTrader.tradername : '');
+    $('f-template-from').classList.toggle('hidden', !fromTrader);
+    $('f-template-from').textContent = fromTrader ? (S.ui_template_from || '%s').replace('%s', fromTrader.tradername) : '';
+    openModal('modal-template');
+}
+
+function openSync(tp) {
+    syncingTemplate = tp;
+    $('sync-text').textContent = `${tp.label} → ${tp.tradercount} ${t('ui_traders_following')}`;
+    $('f-sync-add').checked = true;
+    $('f-sync-prices').checked = false;
+    $('f-sync-remove').checked = false;
+    openModal('modal-sync');
 }
 
 function renderTraders() {
@@ -223,12 +308,13 @@ function renderTraders() {
             <div class="badge">&#9878;</div>
             <div class="row-main">
                 <div class="row-title">${esc(tr.tradername)}<span class="pill ${tr.kind === 'illegal' ? 'dirty' : 'legal'}">${esc(t(tr.kind === 'illegal' ? 'ui_fence' : 'ui_kind_legal'))}</span>${tr.launder ? `<span class="pill dirty">${esc(t('ui_launder'))} ${tr.launder_cut != null ? tr.launder_cut : admin.launder.default}%</span>` : ''}<span class="pill">${tr.itemcount} ${esc(t('ui_itemcount'))}</span>${tr.showblip ? '' : `<span class="pill">${esc(t('ui_no_blip'))}</span>`}</div>
-                <div class="row-desc">${esc(tr.traderid)} · ${esc(tr.npcmodel)} · ${Number(tr.x).toFixed(1)}, ${Number(tr.y).toFixed(1)}, ${Number(tr.z).toFixed(1)}</div>
+                <div class="row-desc">${esc(tr.traderid)} · ${esc(tr.npcmodel)} · ${Number(tr.x).toFixed(1)}, ${Number(tr.y).toFixed(1)}, ${Number(tr.z).toFixed(1)}${tr.template ? ` · ${esc(t('ui_template'))}: ${esc(templateLabel(tr.template))}` : ''}</div>
             </div>
             <div class="row-actions">
                 <button class="wood-btn small" data-act="items">${esc(t('ui_items'))}</button>
                 <button class="wood-btn small muted" data-act="edit">${esc(t('ui_edit'))}</button>
                 <button class="wood-btn small muted" data-act="tp">${esc(t('ui_teleport'))}</button>
+                <button class="wood-btn small muted" data-act="totemplate">${esc(t('ui_save_as_template'))}</button>
                 <button class="wood-btn small muted danger" data-act="delete">${esc(t('ui_delete'))}</button>
             </div>
         </div>`).join('');
@@ -272,7 +358,7 @@ function renderItems() {
 }
 
 async function loadItems() {
-    const res = await post('admin:items', { traderid: admin.trader.traderid });
+    const res = await post('admin:items', itemTargetData());
     admin.items = (res && res.items) || [];
     renderItems();
 }
@@ -290,6 +376,7 @@ function openTraderForm(tr) {
     $('f-launder-cut').min = admin.launder.min;
     $('f-launder-cut').max = admin.launder.max;
     $('f-launder-hint').textContent = (S.ui_launder_cut_hint || '').replace('%s', admin.launder.default).replace('%s', admin.launder.min).replace('%s', admin.launder.max);
+    fillTemplateSelect(tr ? tr.template : '');
     syncKindFields();
     $('f-movehere').checked = false;
     $('f-movehere-wrap').classList.toggle('hidden', !tr);
@@ -384,6 +471,7 @@ window.addEventListener('message', (e) => {
         case 'openAdmin':
             hideAll();
             admin.traders = d.traders || [];
+            admin.templates = d.templates || [];
             admin.itemList = d.itemList || [];
             admin.defaultModel = d.defaultModel || '';
             admin.imagePath = d.imagePath || '';
@@ -399,7 +487,7 @@ window.addEventListener('message', (e) => {
 
         case 'adminTraders':
             admin.traders = d.traders || [];
-            if (admin.trader) admin.trader = admin.traders.find((x) => x.traderid === admin.trader.traderid) || admin.trader;
+            if (admin.trader && !isTemplateTarget()) admin.trader = admin.traders.find((x) => x.traderid === admin.trader.traderid) || admin.trader;
             renderTraders();
             break;
 
@@ -423,7 +511,7 @@ document.addEventListener('keydown', (e) => {
     if ($('app').classList.contains('hidden')) return;
     if (e.key === 'Escape') {
         if (modalOpen()) closeModal();
-        else if (!$('view-items').classList.contains('hidden') && !$('admin').classList.contains('hidden')) setAdminView('traders');
+        else if (adminView !== 'traders' && !$('admin').classList.contains('hidden')) adminBack();
         else closeUI();
     } else if (e.key === 'Enter' && modalOpen()) {
         const primary = document.querySelector('.modal:not(.hidden) .actions .wood-btn:not(.muted)');
@@ -477,7 +565,12 @@ $('f-kind').addEventListener('change', () => {
 });
 $('f-launder').addEventListener('change', syncKindFields);
 $('btn-add-trader').addEventListener('click', () => openTraderForm(null));
-$('admin-back').addEventListener('click', () => setAdminView('traders'));
+$('admin-back').addEventListener('click', adminBack);
+$('btn-templates').addEventListener('click', () => {
+    $('template-search').value = '';
+    setAdminView('templates');
+    refreshTemplates();
+});
 
 $('trader-list').addEventListener('click', (e) => {
     const btn = e.target.closest('[data-act]');
@@ -498,6 +591,9 @@ $('trader-list').addEventListener('click', (e) => {
         case 'tp':
             post('admin:teleport', { traderid: tr.traderid });
             break;
+        case 'totemplate':
+            openTemplateForm(null, tr);
+            break;
         case 'delete':
             openConfirm(`${t('ui_delete_trader_q')} (${tr.tradername})`, t('ui_delete_items_too'), async () => {
                 const res = await post('admin:deleteTrader', { traderid: tr.traderid, removeItems: $('confirm-check').checked });
@@ -515,6 +611,7 @@ $('trader-save').addEventListener('click', async () => {
         kind: $('f-kind').value,
         launder: $('f-kind').value === 'illegal' && $('f-launder').checked,
         launderCut: $('f-launder-cut').value,
+        template: $('f-template').value,
     };
     if (editingTrader) {
         data.traderid = editingTrader.traderid;
@@ -546,7 +643,7 @@ $('item-list').addEventListener('click', (e) => {
     if (btn.dataset.act === 'edit') openItemForm(item);
     if (btn.dataset.act === 'delete') {
         openConfirm(`${t('ui_delete_item_q')} (${itemLabel(item.item)})`, null, async () => {
-            const res = await post('admin:deleteItem', { traderid: admin.trader.traderid, item: item.item });
+            const res = await post('admin:deleteItem', Object.assign(itemTargetData(), { item: item.item }));
             showResult(res);
             if (res && res.ok) { loadItems(); post('admin:refresh'); }
         });
@@ -554,8 +651,7 @@ $('item-list').addEventListener('click', (e) => {
 });
 
 $('item-save').addEventListener('click', async () => {
-    const data = {
-        traderid: admin.trader.traderid,
+    const data = Object.assign(itemTargetData(), {
         item: $('f-item').value.trim().toLowerCase(),
         stock: $('f-stock').value,
         lowstock: $('f-lowstock').value,
@@ -563,13 +659,68 @@ $('item-save').addEventListener('click', async () => {
         baseprice: $('f-baseprice').value,
         mode: $('f-mode').value,
         isNew: !editingItem,
-    };
+    });
     if (!data.item) { toast('error', t('ui_pick_item')); return; }
     $('item-save').disabled = true;
     const res = await post('admin:saveItem', data);
     $('item-save').disabled = false;
     showResult(res);
     if (res && res.ok) { closeModal(); loadItems(); post('admin:refresh'); }
+});
+
+/* admin: templates */
+$('template-search').addEventListener('input', renderTemplates);
+$('btn-add-template').addEventListener('click', () => openTemplateForm(null, null));
+
+$('template-list').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    const tp = admin.templates.find((x) => x.name === btn.closest('.row').dataset.name);
+    if (!tp) return;
+
+    switch (btn.dataset.act) {
+        case 'items':
+            admin.trader = { template: tp.name, traderid: tp.name, tradername: tp.label };
+            $('item-search').value = '';
+            setAdminView('items');
+            loadItems();
+            break;
+        case 'push':
+            openSync(tp);
+            break;
+        case 'edit':
+            openTemplateForm(tp, null);
+            break;
+        case 'delete':
+            openConfirm(`${t('ui_delete_template_q')} (${tp.label})`, null, async () => {
+                const res = await post('admin:deleteTemplate', { name: tp.name });
+                showResult(res);
+                if (res && res.ok) { refreshTemplates(); post('admin:refresh'); }
+            });
+            break;
+    }
+});
+
+$('template-save').addEventListener('click', async () => {
+    const data = { label: $('f-template-label').value.trim() };
+    if (editingTemplate && editingTemplate.name) data.name = editingTemplate.name;
+    if (editingTemplate && editingTemplate.fromTrader) data.fromTrader = editingTemplate.fromTrader;
+    $('template-save').disabled = true;
+    const res = await post('admin:saveTemplate', data);
+    $('template-save').disabled = false;
+    showResult(res);
+    if (res && res.ok) { closeModal(); refreshTemplates(); }
+});
+
+$('sync-ok').addEventListener('click', async () => {
+    const opts = { add: $('f-sync-add').checked, prices: $('f-sync-prices').checked, remove: $('f-sync-remove').checked };
+    if (!opts.add && !opts.prices && !opts.remove) { toast('error', t('ui_push_none')); return; }
+    if (!syncingTemplate) return;
+    $('sync-ok').disabled = true;
+    const res = await post('admin:syncTemplate', { name: syncingTemplate.name, opts });
+    $('sync-ok').disabled = false;
+    showResult(res);
+    if (res && res.ok) { closeModal(); refreshTemplates(); post('admin:refresh'); }
 });
 
 $('confirm-ok').addEventListener('click', async () => {

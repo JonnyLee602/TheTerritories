@@ -64,10 +64,21 @@
         <div id="view-traders">
             <div class="toolbar">
                 <input type="text" id="trader-search" class="input" data-i18n-ph="ui_search" placeholder="Search...">
+                <button class="wood-btn muted" id="btn-templates" data-i18n="ui_templates">Templates</button>
                 <button class="wood-btn" id="btn-add-trader" data-i18n="ui_add_trader">Add Trader</button>
             </div>
             <div class="divider"><span>&#10022;</span></div>
             <div class="list" id="trader-list"></div>
+        </div>
+
+        <!-- templates view -->
+        <div id="view-templates" class="hidden">
+            <div class="toolbar">
+                <input type="text" id="template-search" class="input" data-i18n-ph="ui_search" placeholder="Search...">
+                <button class="wood-btn" id="btn-add-template" data-i18n="ui_add_template">Add Template</button>
+            </div>
+            <div class="divider"><span>&#10022;</span></div>
+            <div class="list" id="template-list"></div>
         </div>
 
         <!-- items view -->
@@ -125,6 +136,9 @@
                     <input type="number" id="f-launder-cut" class="input" step="0.5"></label>
                 <p class="note" id="f-launder-hint"></p>
             </div>
+            <label class="field"><span data-i18n="ui_template">Template</span>
+                <select id="f-template" class="input"></select></label>
+            <p class="note" data-i18n="ui_template_hint"></p>
             <label class="check"><input type="checkbox" id="f-showblip" checked><span data-i18n="ui_blip">Show map blip</span></label>
             <label class="check" id="f-movehere-wrap"><input type="checkbox" id="f-movehere"><span data-i18n="ui_move_here">Move trader (place it with rsg-gizmo after Save)</span></label>
             <p class="note" id="f-pos-note" data-i18n="ui_pos_note"></p>
@@ -169,6 +183,33 @@
             <div class="actions">
                 <button class="wood-btn muted" data-modal-cancel data-i18n="ui_cancel">Cancel</button>
                 <button class="wood-btn" id="item-save" data-i18n="ui_save">Save</button>
+            </div>
+        </div>
+
+        <!-- template form (new / rename / save a trader's items as a template) -->
+        <div class="modal hidden" id="modal-template">
+            <h2 id="template-form-title">Add Template</h2>
+            <div class="ink-divider"></div>
+            <label class="field"><span data-i18n="ui_template_name">Template name</span><input type="text" id="f-template-label" class="input" maxlength="50"></label>
+            <p class="note hidden" id="f-template-from"></p>
+            <div class="actions">
+                <button class="wood-btn muted" data-modal-cancel data-i18n="ui_cancel">Cancel</button>
+                <button class="wood-btn" id="template-save" data-i18n="ui_save">Save</button>
+            </div>
+        </div>
+
+        <!-- push a template to its traders -->
+        <div class="modal hidden" id="modal-sync">
+            <h2 data-i18n="ui_push_title">Push to Traders</h2>
+            <div class="ink-divider"></div>
+            <p class="confirm-text" id="sync-text"></p>
+            <label class="check"><input type="checkbox" id="f-sync-add" checked><span data-i18n="ui_push_add">Add items the traders don't list yet</span></label>
+            <label class="check"><input type="checkbox" id="f-sync-prices"><span data-i18n="ui_push_prices">Set the template's prices on items they already list</span></label>
+            <label class="check"><input type="checkbox" id="f-sync-remove"><span data-i18n="ui_push_remove">Remove items that aren't in the template</span></label>
+            <p class="note" data-i18n="ui_push_note"></p>
+            <div class="actions">
+                <button class="wood-btn muted" data-modal-cancel data-i18n="ui_cancel">Cancel</button>
+                <button class="wood-btn" id="sync-ok" data-i18n="ui_push">Push</button>
             </div>
         </div>
 

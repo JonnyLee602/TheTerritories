@@ -1002,6 +1002,7 @@ local function OpenAdmin()
     local presets = RSGCore.Functions.AwaitCallback('rsg-stores:server:getPresets', nil)
         or { model = Config.NpcModels, blip = Config.BlipTypes }
     local opts = presetPayload(presets)
+    local templates = RSGCore.Functions.AwaitCallback('rsg-stores:server:getTemplates', nil) or {}
     adminOpen = true
     SetNuiFocus(true, true)
     local code, strings = GetUiStrings()
@@ -1013,6 +1014,7 @@ local function OpenAdmin()
         items     = getItemCatalog(),
         models    = opts.models,
         blipTypes = opts.blipTypes,
+        templates = templates,
         colors    = localizedOptions(Config.BlipColors),
         locale    = code,
         uiStrings = strings,
@@ -1176,6 +1178,44 @@ RegisterNUICallback('adminDeletePreset', function(data, cb)
     if not adminOpen or type(data) ~= 'table' then return cb({ ok = false }) end
     local res = RSGCore.Functions.AwaitCallback('rsg-stores:server:deletePreset', nil, tonumber(data.id))
     presetResult(res, cb, locale('t_deleted'), locale('cl_preset_deleted'):format(data.label or ''))
+end)
+
+-- ============================================
+-- SHOP TEMPLATES (admin) [grumpy shop templates] — the server validates and does all the work
+-- ============================================
+RegisterNUICallback('adminSaveTemplate', function(data, cb)
+    if not adminOpen or type(data) ~= 'table' or type(data.template) ~= 'table' then return cb({ ok = false }) end
+    local res = RSGCore.Functions.AwaitCallback('rsg-stores:server:saveTemplate', nil, tonumber(data.id), data.template)
+    if not res or not res.ok then
+        adminNotify(locale('t_error'), locale(res and res.err or 'sv_update_fail'), 'error')
+        return cb({ ok = false })
+    end
+    adminNotify(locale('t_template_saved'), locale('cl_template_saved'):format(data.template.label or ''), 'success')
+    cb(res)
+end)
+
+RegisterNUICallback('adminDeleteTemplate', function(data, cb)
+    if not adminOpen or type(data) ~= 'table' then return cb({ ok = false }) end
+    local res = RSGCore.Functions.AwaitCallback('rsg-stores:server:deleteTemplate', nil, tonumber(data.id))
+    if not res or not res.ok then
+        adminNotify(locale('t_error'), locale(res and res.err or 'sv_update_fail'), 'error')
+        return cb({ ok = false })
+    end
+    adminNotify(locale('t_deleted'), locale('cl_template_deleted'):format(data.label or ''), 'error')
+    cb(res)
+end)
+
+RegisterNUICallback('adminSyncTemplate', function(data, cb)
+    if not adminOpen or type(data) ~= 'table' then return cb({ ok = false }) end
+    local opts = type(data.opts) == 'table' and data.opts or {}
+    local res = RSGCore.Functions.AwaitCallback('rsg-stores:server:syncTemplate', nil, tonumber(data.id),
+        { add = opts.add == true, prices = opts.prices == true, remove = opts.remove == true })
+    if not res or not res.ok then
+        adminNotify(locale('t_error'), locale(res and res.err or 'sv_update_fail'), 'error')
+        return cb({ ok = false })
+    end
+    adminNotify(locale('t_template_synced'), locale('cl_template_synced'):format(res.shops, res.added, res.priced, res.removed), 'success')
+    cb(res)
 end)
 
 -- ============================================

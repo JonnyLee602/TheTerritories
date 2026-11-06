@@ -133,6 +133,38 @@ Config.Ledger = {
     Show    = 50,    -- entries shown in the panel
 }
 
+-- [grumpy shop templates] Default item lists for NPC shops, managed in /npcshops > Templates.
+-- Seeded into the database ONCE, on the first start with an empty rsg_shops_templates table;
+-- after that, edit templates in game (this list is not read again).
+--   name     template id (letters, numbers, _)      label  shown in the admin menu
+--   copyFrom shop id (shop_name) whose current items and prices become the template
+--   items    or an explicit list: { name = 'bread', price = 0.05, amount = nil }  (amount nil = unlimited)
+--   link     shop ids that follow the template (their own items are left as they are)
+-- Prices come from the shops copied, so they carry the bands set in recipe/territories_stores.sql
+-- (doctrine/pricing.md). Check every template against the bands before pushing it to shops.
+Config.ShopTemplates = {
+    {
+        name = 'general_store', label = 'General Store', copyFrom = 'valgenstore',
+        link = { 'valgenstore', 'strawgenstore', 'vanhorngenstore', 'stdnsgenstore', 'rhodesgenstore', 'blkwtrgenstore', 'tmblwdgenstore' },
+    },
+    {
+        name = 'gunsmith', label = 'Gunsmith', copyFrom = 'VALGUN', -- M1899 $45 / Rolling Block $55 sit above the heavy-rifle band (owner's call, compliance.md gap 7)
+        link = { 'VALGUN', 'STDNGUN', 'RHDGUN', 'TBLWGUN', 'ANNESGUN' },
+    },
+    {
+        name = 'fishing_supply', label = 'Fishing Supply', copyFrom = 'blackwater_fish',
+        link = { 'blackwater_fish', 'stdenis_fish', 'desert_fish' },
+    },
+    {
+        name = 'farmers_supply', label = "Farmer's Supply", copyFrom = 'valfarm',
+        link = { 'valfarm', 'blkwtrfarm' },
+    },
+    {
+        name = 'produce_vendor', label = 'Produce Vendor', copyFrom = 'valproduce',
+        link = { 'valproduce', 'blkwtrproduce', 'wallaceproduce' },
+    },
+}
+
 -- Labels are locale keys (locales/*.json), translated when the admin menu opens.
 Config.BlipTypes = {
     { label = 'cfg_blip_general_store', value = 1475879922 },   -- blip_shop_store

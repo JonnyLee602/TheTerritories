@@ -29,6 +29,7 @@ local SCHEMA = {
               `upkeep_owed` decimal(10,2) NOT NULL DEFAULT 0.00,
               `upkeep_next` int(11) DEFAULT NULL,
               `packed_at` int(11) DEFAULT NULL,
+              `template_name` varchar(50) DEFAULT NULL,
               PRIMARY KEY (`id`),
               KEY `idx_shop_name` (`shop_name`),
               KEY `idx_owner` (`owner_citizenid`)
@@ -47,6 +48,7 @@ local SCHEMA = {
             upkeep_owed     = 'decimal(10,2) NOT NULL DEFAULT 0.00',      -- unpaid sign store upkeep
             upkeep_next     = 'int(11) DEFAULT NULL',                     -- unix time the next upkeep is due
             packed_at       = 'int(11) DEFAULT NULL',                     -- set while a sign store is picked up (moving)
+            template_name   = 'varchar(50) DEFAULT NULL',                 -- shop template this NPC shop follows (rsg_shops_templates.name)
         },
         indexes = { idx_shop_name = '`shop_name`', idx_owner = '`owner_citizenid`' },
     },
@@ -150,6 +152,39 @@ local SCHEMA = {
               `value` varchar(100) NOT NULL,
               PRIMARY KEY (`id`),
               UNIQUE KEY `uq_kind_value` (`kind`, `value`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ]],
+        columns = {},
+        indexes = {},
+    },
+    {
+        -- [grumpy shop templates] Shop templates: a named default item list (e.g. Gunsmith) copied into new NPC shops
+        -- and pushed to every shop that follows it. Seeded from Config.ShopTemplates on first install.
+        name = 'rsg_shops_templates',
+        create = [[
+            CREATE TABLE IF NOT EXISTS `rsg_shops_templates` (
+              `id` int(11) NOT NULL AUTO_INCREMENT,
+              `name` varchar(50) NOT NULL,
+              `label` varchar(100) NOT NULL,
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `uq_template_name` (`name`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+        ]],
+        columns = {},
+        indexes = {},
+    },
+    {
+        name = 'rsg_shops_template_items',
+        create = [[
+            CREATE TABLE IF NOT EXISTS `rsg_shops_template_items` (
+              `id` int(11) NOT NULL AUTO_INCREMENT,
+              `template_id` int(11) NOT NULL,
+              `item_name` varchar(100) NOT NULL,
+              `label` varchar(100) DEFAULT NULL,
+              `price` decimal(10,2) NOT NULL DEFAULT 0.00,
+              `stock` int(11) DEFAULT NULL,
+              PRIMARY KEY (`id`),
+              KEY `idx_template_id` (`template_id`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
         ]],
         columns = {},

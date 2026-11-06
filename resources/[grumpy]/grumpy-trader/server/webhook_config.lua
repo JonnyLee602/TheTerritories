@@ -30,6 +30,9 @@ WebhookConfig.Events = {
     item_added     = { channel = 'admin',    color = 5763719,  enabled = true },
     item_updated   = { channel = 'admin',    color = 16705372, enabled = true },
     item_removed   = { channel = 'admin',    color = 15548997, enabled = true },
+    template_saved   = { channel = 'admin',  color = 5763719,  enabled = true },
+    template_deleted = { channel = 'admin',  color = 15548997, enabled = true },
+    template_synced  = { channel = 'admin',  color = 16705372, enabled = true },
     launder        = { channel = 'trade',    color = 10181046, enabled = true }, -- purple
     suspicious     = { channel = 'security', color = 15548997, enabled = true },
 }

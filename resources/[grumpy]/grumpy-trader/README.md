@@ -4,7 +4,7 @@ Dynamic-price NPC traders where the admin picks, per trader, whether it is a **l
 fence**. Fences pay in dirty money, trade with outlaws on better terms, keep away from on-duty lawmen, and can
 **launder** dirty money into clean cash for a cut. One resource replaces both rsg-trader and a separate fence script.
 
-Version 1.1.0 · for RSG Framework (rsg-core 3.x) · see [DOCS.md](DOCS.md) for developer and server owner details.
+Version 1.2.0 · for RSG Framework (rsg-core 3.x) · see [DOCS.md](DOCS.md) for developer and server owner details.
 
 Based on **rsg-trader by RexShack** (Rexshack-RedM): NPC spawning, stock-based pricing, the trade UI and the admin
 panel are his work. This is a community modification. It is **not** made or supported by the RSG authors, so please
@@ -39,6 +39,11 @@ don't ask them for help with it.
   - One ask per trader per character every 30 minutes. Fences won't talk to on-duty lawmen.
 - **No money loops.** With honor discounts, selling something back could pay more than buying it. A sale never pays more per unit than the cheapest discounted price that item can be bought for at any trader.
 - **First start imports rsg-trader**: traders and stock come over automatically as legal traders.
+- **Templates** *(1.2.0)*: a template is a default stock list (items with stock, low/high stock, base price and trade mode).
+  - Pick a template on a trader and the items it doesn't list yet are copied in. The trader keeps following the template.
+  - **Save as Template** on a trader copies its current items into a new template.
+  - **Push** a template to every trader that follows it: add new items, set the template's base price / low-high / mode
+    on items they already list, and/or remove items that aren't in the template. Current stock is never changed.
 
 ## Installation
 1. Put `grumpy-trader` in your resources folder.
@@ -77,6 +82,7 @@ don't ask them for help with it.
 | Players | Target a trader → **Speak with the Trader** / **Talk business** → Buy, Sell or Launder |
 | Players | Target a trader → **Ask what's new** (legal) / **Slip him $… for a tip** (fence) → a rumor note, if they have one for you |
 | Admins | `/traderadmin` → Add Trader (pick **Kind**; for fences tick **Launders dirty money** and set the cut) → Items → Add Item (pick the **Trade** mode) |
+| Admins | `/traderadmin` → **Templates** → Add Template (or **Save as Template** on a trader) → Items → Add Item. Then in the trader form pick the **Template**, or **Push** the template to every trader that follows it |
 | Admins | `/traderwebhooktest` sends a test message to every webhook channel |
 
 ## Commands

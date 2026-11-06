@@ -26,6 +26,7 @@ Full developer and server-owner reference: **[DOCS.md](DOCS.md)**.
 - **Shop types:** Buy & Sell, Buy only, Sell only, or a plain NPC with no shop.
 - **Blips:** create, recolour, duplicate, show or hide, and delete. Shop blips are linked to their NPC and move with it.
 - **Presets:** add, edit or remove the NPC models and blip types offered in the dropdowns, in-game. They are saved to the database, so no config editing or restart is needed.
+- **Shop templates** *(Territories addition)*: a template is a default item list (e.g. *Gunsmith*). Pick one on a new shop and its items are filled in; the shop keeps following it. Add an item to the template once and **Push to Shops** adds it to every shop that follows it. Pushing can also set the template's prices or remove items that aren't in the template.
 - Everything saves to MySQL immediately and syncs live to every player.
 
 ### Player-owned stores (new in 2.2.0)
@@ -146,6 +147,7 @@ Replace the files and restart. 3.0.0 adds `upkeep_owed` and `upkeep_next` to `rs
 | Option | Default | Description |
 |---|---|---|
 | `Config.AdminPermission` | `'admin'` | RSG permission required for `/createshop` and every admin event |
+| `Config.ShopTemplates` | 5 starter templates | Shop templates created on the first start (`name`, `label`, `copyFrom` shop id or `items`, `link` shop ids). Read once; edit templates in game afterwards |
 | `Config.AutoInstallDatabase` | `true` | Create and upgrade tables on start |
 | `Config.DefaultScenario` | `'WORLD_HUMAN_STAND_IMPATIENT'` | Scenario the shopkeepers play |
 | `Config.DistanceSpawn` | `20.0` | Distance at which NPCs spawn and despawn |
@@ -241,7 +243,7 @@ Available: `en`, `de`, `el`, `es`, `fr`, `ja`, `nl`, `pl`, `pt-br`, `ro`.
 ## Usage
 
 ### The Shop Manager panel
-`/createshop` opens the **Shop Manager**, a panel docked on the right of the screen so you can still see the world. It has three tabs, **Shops**, **Blips** and **Presets**, each with a search box and a list. Click any row to edit it. Press **Esc** to go back one step or close the panel.
+`/createshop` opens the **Shop Manager**, a panel docked on the right of the screen so you can still see the world. It has four tabs, **Shops**, **Blips**, **Presets** and **Templates**, each with a search box and a list. Click any row to edit it. Press **Esc** to go back one step or close the panel.
 
 ### Creating a shop
 1. Stand where the shopkeeper should be, facing the way they should face.
@@ -251,6 +253,27 @@ Available: `en`, `de`, `el`, `es`, `fr`, `ja`, `nl`, `pl`, `pt-br`, `ro`.
 5. **Add Item** opens a searchable list of every shared item (items already in the shop are greyed out). Pick one, then set its **price** and **stock** in the table. Leave stock empty for unlimited.
 6. *(Optional)* Tick **Create a blip for this shop?** and choose the name, icon and colour. The name follows the shop label unless you change it.
 7. Click **Create**. The NPC appears for everyone straight away.
+
+### Shop templates (default item lists)
+Templates save you from adding the same items to every shop one by one. They only apply to NPC shops; player-owned stores are always stocked by their owner.
+
+**Make a template**
+- Open a shop that already has the right items and click **Save Items as Template** (under the item list). The template editor opens with that shop's items and prices; give it a name and click **Create**. *Or*
+- **Templates** tab → **New Template**, then **Add Item** and set each price and stock.
+
+**Use it on a shop**: in the shop form, pick the template in **Template**. Its items are added to the list (items the shop already has keep their own price and stock). Edit anything you like, then save. The shop now *follows* the template (the Shops list shows *follows Gunsmith*). Pick **—** to stop following.
+
+**Change every shop at once** (e.g. add a revolver to every gunsmith):
+1. **Templates** → open *Gunsmith* → **Add Item** → pick the revolver and set its price.
+2. Under **Push to Shops**, choose what to push:
+   - **Add items the shops don't stock yet** (on by default): adds new template items, with the template's price and stock.
+   - **Set template prices on items they already stock**: overwrites each shop's price for those items. Stock is never changed.
+   - **Remove items that aren't in the template**: removes extra items from those shops.
+3. Click **Push to Shops** and confirm. The template is saved first, then every shop that follows it is updated live (no NPC respawn) and the change is logged to the admin webhook.
+
+Deleting a template keeps every shop's items; the shops just stop following it.
+
+On the first start with this version, `Config.ShopTemplates` creates the starter templates (General Store, Gunsmith, Fishing Supply, Farmer's Supply, Produce Vendor). Each one copies the items and prices of an existing shop (`copyFrom`) and links the shops listed in `link`. This runs once; after that templates are managed in game only.
 
 ### Creating a player-owned store
 1. Stand at the store counter. `/createshop` → **New Shop**.

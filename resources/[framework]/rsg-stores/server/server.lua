@@ -21,6 +21,7 @@ local lastTx = {}
 local getBalance, addBalance, takeBalance, broadcastShop, notifyOwner -- defined in OWNED STORE HELPERS
 local ownerUpkeepInfo, wholesaleList, ownerLedger                      -- defined in OWNER MANAGEMENT
 local relocateStore                                                -- defined in PICK UP / MOVE
+local checkArbitrage                                               -- defined after DATABASE / CACHE
 local SIGN_MOVE_ON = (Config.ShopSign or {}).AllowMove ~= false
 local OS = Config.OwnedStores or {}
 local OWNED_ENABLED = OS.Enabled ~= false
@@ -495,6 +496,8 @@ local function sanitizeNpc(data)
     end
     -- an owned store is always a shop
     if npc.kind == 'player' and not npc.shop then return nil end
+    -- [grumpy shop templates] NPC shops may follow a template (validated against the cache by the caller)
+    if npc.kind == 'npc' and npc.shop then npc.template = str(data.template, 50) end
     return npc
 end
 
@@ -629,6 +632,241 @@ registerCallback('rsg-stores:server:deletePreset', function(source, id)
 end)
 
 -- ============================================
+-- SHOP TEMPLATES (default item lists for NPC shops) [grumpy shop templates]
+-- A template is copied into a shop when an admin picks it, and the shop remembers it
+-- (npc.template = template name). Sync pushes template changes to every linked shop.
+-- Player-owned stores never use templates: owners stock their own shelves.
+-- ============================================
+local CachedTemplates = {} -- { { id, name, label, items = { { name, label, price, amount } } } }
+
+local function findTemplate(id)
+    id = tonumber(id)
+    for i, t in ipairs(CachedTemplates) do
+        if t.id == id then return t, i end
+    end
+end
+
+local function findTemplateByName(name)
+    for _, t in ipairs(CachedTemplates) do
+        if t.name == name then return t end
+    end
+end
+
+-- Validates + normalises a template. Returns template or nil, errorLocaleKey.
+local function sanitizeTemplate(data)
+    if type(data) ~= 'table' then return nil, 'sv_template_invalid' end
+    local label = str(data.label, 100)
+    local name = str(data.name, 50)
+    if not name and label then
+        name = label:lower():gsub('[^%w]+', '_'):gsub('^_+', ''):gsub('_+$', ''):sub(1, 50)
+    end
+    if not label or not name or name == '' or not name:match('^[%w_]+$') then return nil, 'sv_template_invalid' end
+    return { name = name:lower(), label = label, items = sanitizeItems(data.items) }
+end
+
+local function insertTemplateItems(templateId, items)
+    for _, it in ipairs(items) do
+        MySQL.insert.await(
+            'INSERT INTO rsg_shops_template_items (template_id, item_name, label, price, stock) VALUES (?, ?, ?, ?, ?)',
+            { templateId, it.name, it.label, it.price, it.amount })
+    end
+end
+
+local function npcShopByName(shopName)
+    for _, npc in ipairs(CachedNPCs) do
+        if npc.kind == 'npc' and npc.shop and npc.shop.name == shopName then return npc end
+    end
+end
+
+-- First install only (empty table): copy Config.ShopTemplates into the database.
+--   items    = explicit list (unknown items are skipped)
+--   copyFrom = shop id (shop_name) whose current items and prices become the template
+--   link     = shop ids that follow the template from now on (their items are not changed)
+-- Runs after the shop cache is loaded, so copyFrom / link see the live shops.
+-- A marker row in rsg_shops_presets (kind 'meta', ignored by the preset loader) makes sure the
+-- seed runs once, so deleting every template in game doesn't bring them back on restart.
+local TEMPLATE_SEED_MARK = 'templates_seeded'
+local function seedTemplates()
+    if MySQL.scalar.await('SELECT id FROM rsg_shops_presets WHERE kind = ? AND value = ?', { 'meta', TEMPLATE_SEED_MARK }) then return end
+    MySQL.insert.await('INSERT IGNORE INTO rsg_shops_presets (kind, label, value) VALUES (?, ?, ?)', { 'meta', 'Shop templates seeded', TEMPLATE_SEED_MARK })
+    if (MySQL.scalar.await('SELECT COUNT(*) FROM rsg_shops_templates') or 0) > 0 then return end
+    local seeded = 0
+    for _, def in ipairs(Config.ShopTemplates or {}) do
+        local src = type(def) == 'table' and type(def.copyFrom) == 'string' and npcShopByName(def.copyFrom)
+        local t = sanitizeTemplate(type(def) == 'table' and {
+            name = def.name, label = def.label, items = src and src.shop.items or def.items,
+        })
+        if t then
+            local id = MySQL.insert.await('INSERT IGNORE INTO rsg_shops_templates (name, label) VALUES (?, ?)', { t.name, t.label })
+            if id and id > 0 then
+                insertTemplateItems(id, t.items)
+                seeded = seeded + 1
+                for _, shopName in ipairs(def.link or {}) do
+                    local npc = npcShopByName(shopName)
+                    if npc then
+                        MySQL.update.await('UPDATE rsg_shops_npcs SET template_name = ? WHERE id = ?', { t.name, npc.id })
+                        npc.template = t.name
+                    end
+                end
+            end
+        end
+    end
+    if seeded > 0 then print(('[rsg-stores] ' .. locale('sv_templates_seeded')):format(seeded)) end
+end
+
+local function LoadTemplates()
+    seedTemplates()
+    local byId = {}
+    CachedTemplates = {}
+    for _, row in ipairs(MySQL.query.await('SELECT * FROM rsg_shops_templates ORDER BY label ASC') or {}) do
+        local t = { id = tonumber(row.id), name = row.name, label = row.label, items = {} }
+        CachedTemplates[#CachedTemplates + 1] = t
+        byId[t.id] = t
+    end
+    for _, row in ipairs(MySQL.query.await('SELECT * FROM rsg_shops_template_items ORDER BY id ASC') or {}) do
+        local t = byId[tonumber(row.template_id)]
+        if t then
+            t.items[#t.items + 1] = {
+                name = row.item_name, label = row.label or row.item_name,
+                price = tonumber(row.price) or 0, amount = row.stock ~= nil and tonumber(row.stock) or nil,
+            }
+        end
+    end
+end
+
+-- NPC shops (not player stores) that follow a template.
+local function templateShops(name)
+    local out = {}
+    for _, npc in ipairs(CachedNPCs) do
+        if npc.kind == 'npc' and npc.shop and npc.template == name then out[#out + 1] = npc end
+    end
+    return out
+end
+
+local function templatesForClient()
+    local out = {}
+    for i, t in ipairs(CachedTemplates) do
+        out[i] = { id = t.id, name = t.name, label = t.label, items = t.items, shops = #templateShops(t.name) }
+    end
+    return out
+end
+
+registerCallback('rsg-stores:server:getTemplates', function(source)
+    if not isAdmin(source) then return nil end
+    return templatesForClient()
+end)
+
+-- Create (no id) or update (id) a template. Returns { ok, id, templates, err }.
+registerCallback('rsg-stores:server:saveTemplate', function(source, id, data)
+    if denyIfNotAdmin(source, 'saveTemplate') then return { ok = false } end
+    local t, err = sanitizeTemplate(data)
+    if not t then return { ok = false, err = err } end
+    local existing = id and findTemplate(id)
+    if id and not existing then return { ok = false, err = 'sv_template_invalid' } end
+    local dupe = findTemplateByName(t.name)
+    if dupe and dupe ~= existing then return { ok = false, err = 'sv_template_exists' } end
+
+    local tid
+    if existing then
+        tid = existing.id
+        MySQL.update.await('UPDATE rsg_shops_templates SET name = ?, label = ? WHERE id = ?', { t.name, t.label, tid })
+        MySQL.query.await('DELETE FROM rsg_shops_template_items WHERE template_id = ?', { tid })
+        if existing.name ~= t.name then -- renamed: linked shops follow the new name
+            MySQL.update.await('UPDATE rsg_shops_npcs SET template_name = ? WHERE template_name = ?', { t.name, existing.name })
+            for _, npc in ipairs(CachedNPCs) do
+                if npc.template == existing.name then npc.template = t.name end
+            end
+        end
+    else
+        tid = MySQL.insert.await('INSERT INTO rsg_shops_templates (name, label) VALUES (?, ?)', { t.name, t.label })
+        if not tid then return { ok = false, err = 'sv_template_invalid' } end
+    end
+    insertTemplateItems(tid, t.items)
+    LoadTemplates()
+    Webhook.Send('admin', locale(existing and 'wh_t_template_updated' or 'wh_t_template_created'), nil, source, {
+        { name = locale('wh_f_name'), value = ('%s (`%s`)'):format(t.label, t.name) },
+        { name = locale('wh_f_items'), value = tostring(#t.items) },
+    })
+    if existing and existing.name ~= t.name then broadcastNPCs() end
+    return { ok = true, id = tid, templates = templatesForClient() }
+end)
+
+-- Deleting a template keeps every shop's items; the shops just stop following it.
+registerCallback('rsg-stores:server:deleteTemplate', function(source, id)
+    if denyIfNotAdmin(source, 'deleteTemplate') then return { ok = false } end
+    local t = findTemplate(id)
+    if not t then return { ok = false, err = 'sv_template_invalid' } end
+    MySQL.query.await('DELETE FROM rsg_shops_template_items WHERE template_id = ?', { t.id })
+    MySQL.query.await('DELETE FROM rsg_shops_templates WHERE id = ?', { t.id })
+    MySQL.update.await('UPDATE rsg_shops_npcs SET template_name = NULL WHERE template_name = ?', { t.name })
+    for _, npc in ipairs(CachedNPCs) do
+        if npc.template == t.name then npc.template = nil end
+    end
+    LoadTemplates()
+    broadcastNPCs()
+    Webhook.Send('admin', locale('wh_t_template_deleted'), nil, source, {
+        { name = locale('wh_f_name'), value = ('%s (`%s`)'):format(t.label, t.name) },
+    })
+    return { ok = true, templates = templatesForClient() }
+end)
+
+-- Push a template to every NPC shop that follows it.
+--   opts.add    add template items a shop doesn't stock yet (template price and stock)
+--   opts.prices set the template price on items a shop already stocks (stock is never touched)
+--   opts.remove remove items that aren't in the template
+-- Returns { ok, shops, added, priced, removed, templates }.
+registerCallback('rsg-stores:server:syncTemplate', function(source, id, opts)
+    if denyIfNotAdmin(source, 'syncTemplate') then return { ok = false } end
+    local t = findTemplate(id)
+    if not t then return { ok = false, err = 'sv_template_invalid' } end
+    opts = type(opts) == 'table' and opts or {}
+    local doAdd, doPrices, doRemove = opts.add == true, opts.prices == true, opts.remove == true
+    local inTemplate = {}
+    for _, ti in ipairs(t.items) do inTemplate[ti.name] = true end
+
+    local res = { ok = true, shops = 0, added = 0, priced = 0, removed = 0 }
+    for _, npc in ipairs(templateShops(t.name)) do
+        local changed = false
+        local have = {}
+        for _, si in ipairs(npc.shop.items) do have[si.name] = si end
+        for _, ti in ipairs(t.items) do
+            local si = have[ti.name]
+            if not si and doAdd then
+                MySQL.insert.await('INSERT INTO rsg_shops_items (npc_id, item_name, label, price, stock) VALUES (?, ?, ?, ?, ?)',
+                    { npc.id, ti.name, ti.label, ti.price, ti.amount })
+                npc.shop.items[#npc.shop.items + 1] = { name = ti.name, label = ti.label, price = ti.price, amount = ti.amount }
+                res.added, changed = res.added + 1, true
+            elseif si and doPrices and si.price ~= ti.price then
+                MySQL.update.await('UPDATE rsg_shops_items SET price = ? WHERE npc_id = ? AND item_name = ?', { ti.price, npc.id, ti.name })
+                si.price = ti.price
+                res.priced, changed = res.priced + 1, true
+            end
+        end
+        if doRemove then
+            for i = #npc.shop.items, 1, -1 do
+                local si = npc.shop.items[i]
+                if not inTemplate[si.name] then
+                    MySQL.query.await('DELETE FROM rsg_shops_items WHERE npc_id = ? AND item_name = ?', { npc.id, si.name })
+                    table.remove(npc.shop.items, i)
+                    res.removed, changed = res.removed + 1, true
+                end
+            end
+        end
+        if changed then
+            res.shops = res.shops + 1
+            broadcastShop(npc) -- light update, no NPC respawn
+        end
+    end
+    if res.shops > 0 then checkArbitrage() end -- report sell-backs now held to the cap
+    Webhook.Send('admin', locale('wh_t_template_synced'),
+        locale('wh_d_template_synced'):format(res.shops, res.added, res.priced, res.removed), source, {
+        { name = locale('wh_f_name'), value = ('%s (`%s`)'):format(t.label, t.name) },
+    })
+    res.templates = templatesForClient()
+    return res
+end)
+
+-- ============================================
 -- DATABASE / CACHE
 -- ============================================
 local function LoadCacheFromDB()
@@ -657,6 +895,7 @@ local function LoadCacheFromDB()
             kind = row.store_kind == 'player' and 'player' or 'npc',
             x = tonumber(row.x) or 0, y = tonumber(row.y) or 0, z = tonumber(row.z) or 0, h = tonumber(row.h) or 0,
         }
+        if entry.kind == 'npc' and row.template_name and row.template_name ~= '' then entry.template = row.template_name end
         if entry.kind == 'player' and row.owner_citizenid and row.owner_citizenid ~= '' then
             entry.owner = { citizenid = row.owner_citizenid, name = row.owner_name or row.owner_citizenid }
         end
@@ -707,13 +946,14 @@ local function LoadCacheFromDB()
     end
 
     LoadPresets()
+    LoadTemplates()
     print(('[rsg-stores] ' .. locale('sv_loaded')):format(#CachedNPCs, #CachedBlips))
 end
 
 -- Count NPC shop sell-backs capped because the item is sold cheaper somewhere else (NPC shop or
 -- wholesale). sellItem caps those payouts (Config.SellCapFactor), so this is one info line,
 -- not a warning per item. Set Config.SellCapLog = true to list each capped item.
-local function checkArbitrage()
+function checkArbitrage() -- assigns the forward-declared local
     local cheapest = {}
     local function seen(name, cost, where)
         if cost > 0 and (not cheapest[name] or cost < cheapest[name].cost) then cheapest[name] = { cost = cost, where = where } end
@@ -1126,6 +1366,7 @@ local function diffNpc(old, new)
     cmp(locale('wh_f_shop_id'), os_.name, ns.name)
     cmp(locale('wh_f_shop_label'), os_.label, ns.label)
     cmp(locale('wh_f_shop_type'), os_.type, ns.type)
+    cmp(locale('wh_f_template'), old.template or '—', new.template or '—')
 
     local oldItems, newItems = {}, {}
     for _, i in ipairs(os_.items or {}) do oldItems[i.name] = i end
@@ -1157,6 +1398,7 @@ registerCallback('rsg-blipmenu:server:saveNPC', function(source, data)
     if denyIfNotAdmin(source, 'saveNPC') then return nil end
     local npc = sanitizeNpc(data)
     if not npc then return nil end
+    if npc.template and not findTemplateByName(npc.template) then npc.template = nil end
     if npc.kind == 'player' then
         local assign = type(data.owner) == 'table' and data.owner.assign
         if assign and tostring(assign) ~= '' then
@@ -1166,8 +1408,8 @@ registerCallback('rsg-blipmenu:server:saveNPC', function(source, data)
     end
     local s, o = npc.shop, npc.owner
     npc.id = tonumber(MySQL.insert.await(
-        'INSERT INTO rsg_shops_npcs (name, model, x, y, z, h, shop_name, shop_label, shop_type, store_kind, owner_citizenid, owner_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        { npc.name, npc.model, npc.x, npc.y, npc.z, npc.h, s and s.name, s and s.label, s and s.type or 'both', npc.kind, o and o.citizenid, o and o.name }))
+        'INSERT INTO rsg_shops_npcs (name, model, x, y, z, h, shop_name, shop_label, shop_type, store_kind, owner_citizenid, owner_name, template_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        { npc.name, npc.model, npc.x, npc.y, npc.z, npc.h, s and s.name, s and s.label, s and s.type or 'both', npc.kind, o and o.citizenid, o and o.name, npc.template }))
     if not npc.id then return nil end
     if s then insertShopItems(npc.id, s.items) end
     CachedNPCs[#CachedNPCs + 1] = npc
@@ -1193,6 +1435,7 @@ RegisterNetEvent('rsg-blipmenu:server:updateNPC', function(npcId, data)
         return notify(src, locale('t_error'), locale('sv_update_fail'))
     end
     npc.id = existing.id
+    if npc.template and not findTemplateByName(npc.template) then npc.template = nil end
     local s = npc.shop
     local kindChanged = existing.kind ~= npc.kind
 
@@ -1217,9 +1460,9 @@ RegisterNetEvent('rsg-blipmenu:server:updateNPC', function(npcId, data)
     local lostBalance = kindChanged and existing.kind == 'player' and getBalance(npc.id) or 0
 
     MySQL.update.await(
-        'UPDATE rsg_shops_npcs SET name = ?, model = ?, x = ?, y = ?, z = ?, h = ?, shop_name = ?, shop_label = ?, shop_type = ?, store_kind = ?, owner_citizenid = ?, owner_name = ?, prop_model = ?, balance = IF(?, 0, balance) WHERE id = ?',
+        'UPDATE rsg_shops_npcs SET name = ?, model = ?, x = ?, y = ?, z = ?, h = ?, shop_name = ?, shop_label = ?, shop_type = ?, store_kind = ?, owner_citizenid = ?, owner_name = ?, prop_model = ?, template_name = ?, balance = IF(?, 0, balance) WHERE id = ?',
         { npc.name, npc.model, npc.x, npc.y, npc.z, npc.h, s and s.name, s and s.label, s and s.type or 'both',
-          npc.kind, owner and owner.citizenid, owner and owner.name, npc.prop, kindChanged, npc.id })
+          npc.kind, owner and owner.citizenid, owner and owner.name, npc.prop, npc.template, kindChanged, npc.id })
     if not keepItems then
         MySQL.query.await('DELETE FROM rsg_shops_items WHERE npc_id = ?', { npc.id })
         if s then insertShopItems(npc.id, s.items) end

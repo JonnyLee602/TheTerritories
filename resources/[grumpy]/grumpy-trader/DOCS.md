@@ -64,6 +64,11 @@ Item row: `{ traderid, item, stock, lowstock, highstock, baseprice, mode = 'both
 | `grumpy-trader:server:buy` / `:sell` | callback | `traderid, item, amount` → `{ ok, msg }` |
 | `grumpy-trader:server:launder` *(new)* | callback | `traderid, amount` → `{ ok, msg }` |
 | `grumpy-trader:server:admin:*` | callbacks | admin only: `isAdmin`, `traders`, `saveTrader`, `deleteTrader`, `items`, `saveItem`, `deleteItem` |
+| `grumpy-trader:server:admin:items` / `saveItem` / `deleteItem` *(1.2.0)* | callbacks | also take a template: `items(traderid, template)`, `saveItem({ template = name, ... })`, `deleteItem(traderid, item, template)`. A known template wins over the traderid |
+| `grumpy-trader:server:admin:templates` *(1.2.0)* | callback | → `{ {name, label, itemcount, tradercount} }` |
+| `grumpy-trader:server:admin:saveTemplate` *(1.2.0)* | callback | `{ name? (rename), label, fromTrader? }` → `{ ok, msg, name }`. New template ids come from the label |
+| `grumpy-trader:server:admin:deleteTemplate` *(1.2.0)* | callback | `name` → `{ ok, msg }`. Traders keep their items, their `template` is cleared |
+| `grumpy-trader:server:admin:syncTemplate` *(1.2.0)* | callback | `name, { add, prices, remove }` → `{ ok, msg }` (msg has the counts) |
 | `grumpy-trader:server:askRumor` *(new)* | net event | `traderid`. Checks the trader, distance and lawman rule, works out the bribe, then calls `exports['grumpy-rumors']:Ask` |
 | `grumpy-trader:client:openAdmin` | client event | opened by `/traderadmin` |
 | `grumpy-trader:server:databaseReady` | server event | tables ready, traders load |
@@ -97,6 +102,14 @@ Money reasons (for `RSGCore:Server:OnMoneyChange` listeners):
 | `grumpy_trader` | Item listings per trader (unique `traderid + item`, indexed by `item` for the loop cap) |
 | `grumpy_trader_npcs` | Traders, with `kind`, `launder`, `launder_cut` |
 | `grumpy_trader_laundering` | Dirty dollars washed per trader, character and day |
+| `grumpy_trader_templates` *(1.2.0)* | Templates: `name` (id), `label` |
+| `grumpy_trader_template_items` *(1.2.0)* | Template items, same columns as `grumpy_trader` with `template` instead of `traderid` (unique `template + item`) |
+
+`grumpy_trader_npcs.template` *(1.2.0, nullable)* is the template a trader follows. Picking a new template on a trader
+runs `INSERT IGNORE ... SELECT` from the template, so items the trader already lists keep their stock and price.
+Push runs per linked trader: *add* = the same insert, *prices* = `UPDATE ... JOIN` setting `baseprice`, `lowstock`,
+`highstock`, `mode` (never `stock`), *remove* = `DELETE ... LEFT JOIN ... IS NULL`. Template rows are never read by trades
+or the money-loop cap.
 
 rsg-trader's tables (`rsg_trader`, `rsg_trader_npcs`) are only read, once, for the import. They are never changed.
 
@@ -111,6 +124,9 @@ rsg-trader's tables (`rsg_trader`, `rsg_trader_npcs`) are only read, once, for t
 - Players never see base prices or other traders' laundering settings.
 
 ## 9. Server owner how-tos
+- **Add an item to every trader of a kind:** `/traderadmin` → **Templates** → the template → **Items** → Add Item, then **Push**
+  with *Add items* ticked. Traders only get pushes if their form has that **Template** picked.
+- **Start a template from an existing trader:** **Save as Template** on the trader row, then pick that template on the other traders.
 - **Turn an imported trader into a fence:** `/traderadmin` → Edit → Kind: Illegal. Untick the blip if it shouldn't be on the map.
 - **Set up laundering:** on an illegal trader tick **Launders dirty money**; leave the cut blank for the default or enter 5–90.
 - **Stolen goods only the fence buys:** add the item to the fence with **Players sell only** and a base price.

@@ -279,6 +279,7 @@
                     <button class="sort-btn mode-tab active" id="adm-tab-npcs"><i class="fa-solid fa-users"></i> <span data-i18n="ui_adm_tab_npcs">Shops</span> <span class="qty-pill" id="adm-npc-count">0</span></button>
                     <button class="sort-btn mode-tab" id="adm-tab-blips"><i class="fa-solid fa-map-location-dot"></i> <span data-i18n="ui_adm_tab_blips">Blips</span> <span class="qty-pill" id="adm-blip-count">0</span></button>
                     <button class="sort-btn mode-tab" id="adm-tab-presets"><i class="fa-solid fa-list-check"></i> <span data-i18n="ui_adm_tab_presets">Presets</span> <span class="qty-pill" id="adm-preset-count">0</span></button>
+                    <button class="sort-btn mode-tab" id="adm-tab-templates"><i class="fa-solid fa-clipboard-list"></i> <span data-i18n="ui_adm_tab_templates">Templates</span> <span class="qty-pill" id="adm-template-count">0</span></button>
                 </div>
                 <div class="adm-toolbar">
                     <div class="search-box">
@@ -338,6 +339,11 @@
                                 <option value="buy" data-i18n="cl_shop_buy">Buy only</option>
                                 <option value="sell" data-i18n="cl_shop_sell">Sell only</option>
                             </select></label>
+                        <div id="npc-template-field">
+                            <label class="adm-field"><span data-i18n="ui_adm_template">Template</span>
+                                <select id="npc-template"></select></label>
+                            <p class="adm-hint" data-i18n="ui_adm_template_hint">Picking a template adds its items here. The shop keeps following it, so items you push from the Templates tab reach it too.</p>
+                        </div>
 
                         <div id="npc-owner-block" class="hidden">
                             <div class="adm-section-title"><i class="fa-solid fa-key"></i> <span data-i18n="ui_adm_sec_owner">Store Owner</span></div>
@@ -361,6 +367,7 @@
                         <p class="adm-hint hidden" id="adm-items-empty" data-i18n="ui_adm_no_items">No items yet</p>
                         <p class="adm-hint" data-i18n="ui_adm_stock_hint">Leave stock empty for unlimited.</p>
                         <button class="wood-btn muted adm-wide" id="adm-add-item"><i class="fa-solid fa-plus"></i> <span data-i18n="ui_adm_add_item">Add Item</span></button>
+                        <button class="wood-btn muted adm-wide" id="adm-save-as-template"><i class="fa-solid fa-clipboard-list"></i> <span data-i18n="ui_adm_save_as_template">Save Items as Template</span></button>
                         </div>
 
                         <div id="npc-blip-block">
@@ -438,6 +445,44 @@
                     <button class="wood-btn" id="preset-save"><i class="fa-solid fa-floppy-disk"></i> <span id="preset-save-label" data-i18n="ui_adm_save">Save</span></button>
                 </div>
             </div>
+
+            <!-- TEMPLATE EDITOR (default item list for NPC shops) -->
+            <div class="adm-view hidden" id="adm-template-view">
+                <div class="adm-scroll adm-form">
+                    <div class="adm-section-title"><i class="fa-solid fa-clipboard-list"></i> <span data-i18n="ui_adm_sec_template">Shop Template</span></div>
+                    <div class="adm-grid2">
+                        <label class="adm-field"><span data-i18n="ui_adm_template_label" class="req">Template Name</span>
+                            <input type="text" id="tpl-label" maxlength="100"></label>
+                        <label class="adm-field"><span data-i18n="ui_adm_template_id">Template ID</span>
+                            <input type="text" id="tpl-name" maxlength="50" autocomplete="off"></label>
+                    </div>
+                    <p class="adm-hint" id="tpl-shops"></p>
+
+                    <div class="adm-section-title"><i class="fa-solid fa-boxes-stacked"></i> <span data-i18n="ui_adm_sec_items">Shop Items</span> <span class="qty-pill" id="tpl-item-count">0</span></div>
+                    <div class="adm-items-head">
+                        <span data-i18n="cl_field_item">Item</span><span data-i18n="cl_field_price">Price</span><span data-i18n="ui_adm_stock">Stock</span><span></span>
+                    </div>
+                    <div id="tpl-items"></div>
+                    <p class="adm-hint hidden" id="tpl-items-empty" data-i18n="ui_adm_no_items">No items yet</p>
+                    <p class="adm-hint" data-i18n="ui_adm_template_price_hint">Default prices for new shops. Keep them inside the doctrine price bands.</p>
+                    <button class="wood-btn muted adm-wide" id="tpl-add-item"><i class="fa-solid fa-plus"></i> <span data-i18n="ui_adm_add_item">Add Item</span></button>
+
+                    <div id="tpl-sync-block">
+                        <div class="adm-section-title"><i class="fa-solid fa-arrows-rotate"></i> <span data-i18n="ui_adm_sec_sync">Push to Shops</span></div>
+                        <label class="adm-check"><input type="checkbox" id="tpl-sync-add" checked> <span data-i18n="ui_adm_sync_add">Add items the shops don't stock yet</span></label>
+                        <label class="adm-check"><input type="checkbox" id="tpl-sync-prices"> <span data-i18n="ui_adm_sync_prices">Set template prices on items they already stock</span></label>
+                        <label class="adm-check"><input type="checkbox" id="tpl-sync-remove"> <span data-i18n="ui_adm_sync_remove">Remove items that aren't in the template</span></label>
+                        <p class="adm-hint" data-i18n="ui_adm_sync_hint">Saves the template, then updates every NPC shop that follows it. Stock already on the shelves is never changed. Player-owned stores are never touched.</p>
+                        <button class="wood-btn muted adm-wide" id="tpl-sync"><i class="fa-solid fa-arrows-rotate"></i> <span id="tpl-sync-label" data-i18n="ui_adm_sync">Push to Shops</span></button>
+                    </div>
+                </div>
+                <div class="adm-footer">
+                    <div class="adm-footer-tools" id="tpl-tools">
+                        <button class="circle-btn adm-danger" id="tpl-delete" data-i18n-title="ui_adm_delete" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                    <button class="wood-btn" id="tpl-save"><i class="fa-solid fa-floppy-disk"></i> <span id="tpl-save-label" data-i18n="ui_adm_save">Save</span></button>
+                </div>
+            </div>
         </div>
 
         <!-- Item picker -->
@@ -466,7 +511,7 @@
                 <div class="modal-body"><p class="adm-confirm-text" id="adm-confirm-text"></p></div>
                 <div class="modal-footer">
                     <button class="wood-btn muted" data-adm-dismiss><span data-i18n="ui_adm_cancel">Cancel</span></button>
-                    <button class="wood-btn adm-danger-btn" id="adm-confirm-ok"><i class="fa-solid fa-trash"></i> <span data-i18n="ui_adm_delete">Delete</span></button>
+                    <button class="wood-btn adm-danger-btn" id="adm-confirm-ok"><i class="fa-solid fa-trash"></i> <span id="adm-confirm-ok-label" data-i18n="ui_adm_delete">Delete</span></button>
                 </div>
             </div>
         </div>

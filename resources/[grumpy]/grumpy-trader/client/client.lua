@@ -21,6 +21,27 @@ local UI_KEYS = {
     'ui_mode', 'ui_mode_both', 'ui_mode_buy', 'ui_mode_sell', 'ui_dirty', 'ui_pays_dirty', 'ui_takes_dirty',
     'ui_launder_amount', 'ui_launder_receive', 'ui_launder_fee', 'ui_launder_left', 'ui_launder_nolimit',
     'ui_launder_btn', 'ui_launder_note', 'ui_no_dirty', 'ui_fence', 'ui_launder_none_left',
+    -- templates
+    'ui_templates',
+    'ui_templates_sub',
+    'ui_add_template',
+    'ui_edit_template',
+    'ui_template',
+    'ui_template_none',
+    'ui_template_name',
+    'ui_template_hint',
+    'ui_save_as_template',
+    'ui_template_from',
+    'ui_no_templates',
+    'ui_traders_following',
+    'ui_push',
+    'ui_push_title',
+    'ui_push_add',
+    'ui_push_prices',
+    'ui_push_remove',
+    'ui_push_note',
+    'ui_push_none',
+    'ui_delete_template_q',
 }
 
 local function uiStrings()
@@ -222,10 +243,11 @@ end
 RegisterNetEvent('grumpy-trader:client:openAdmin', function()
     if not await('grumpy-trader:server:admin:isAdmin') then return end
     local traders = await('grumpy-trader:server:admin:traders') or {}
+    local templates = await('grumpy-trader:server:admin:templates') or {}
     local blipDefaults = {}
     for k, v in pairs(Config.Kinds) do blipDefaults[k] = v.defaultBlip and true or false end
     openUI({
-        action = 'openAdmin', traders = traders, itemList = adminItemList(), defaultModel = Config.DefaultModel,
+        action = 'openAdmin', traders = traders, templates = templates, itemList = adminItemList(), defaultModel = Config.DefaultModel,
         imagePath = 'nui://' .. Config.Image, blipDefaults = blipDefaults,
         launder = { default = Config.Laundering.DefaultCut, min = Config.Laundering.MinCut, max = Config.Laundering.MaxCut },
     })
@@ -295,7 +317,7 @@ adminAction('admin:deleteTrader', function(data)
 end)
 
 adminAction('admin:items', function(data)
-    return { ok = true, items = await('grumpy-trader:server:admin:items', data.traderid) or {} }
+    return { ok = true, items = await('grumpy-trader:server:admin:items', data.traderid, data.template) or {} }
 end)
 
 adminAction('admin:saveItem', function(data)
@@ -303,7 +325,26 @@ adminAction('admin:saveItem', function(data)
 end)
 
 adminAction('admin:deleteItem', function(data)
-    return await('grumpy-trader:server:admin:deleteItem', data.traderid, data.item)
+    return await('grumpy-trader:server:admin:deleteItem', data.traderid, data.item, data.template)
+end)
+
+-- templates (the server validates everything)
+adminAction('admin:templates', function()
+    return { ok = true, templates = await('grumpy-trader:server:admin:templates') or {} }
+end)
+
+adminAction('admin:saveTemplate', function(data)
+    return await('grumpy-trader:server:admin:saveTemplate', data)
+end)
+
+adminAction('admin:deleteTemplate', function(data)
+    return await('grumpy-trader:server:admin:deleteTemplate', data.name)
+end)
+
+adminAction('admin:syncTemplate', function(data)
+    local opts = type(data.opts) == 'table' and data.opts or {}
+    return await('grumpy-trader:server:admin:syncTemplate', data.name,
+        { add = opts.add == true, prices = opts.prices == true, remove = opts.remove == true })
 end)
 
 adminAction('admin:refresh', function()

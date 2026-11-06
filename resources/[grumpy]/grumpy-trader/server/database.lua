@@ -70,11 +70,34 @@ MySQL.ready(function()
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ]])
 
+        MySQL.query.await([[
+            CREATE TABLE IF NOT EXISTS `grumpy_trader_templates` (
+              `name` varchar(50) NOT NULL,
+              `label` varchar(50) NOT NULL,
+              PRIMARY KEY (`name`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ]])
+        MySQL.query.await([[
+            CREATE TABLE IF NOT EXISTS `grumpy_trader_template_items` (
+              `id` int(11) NOT NULL AUTO_INCREMENT,
+              `template` varchar(50) NOT NULL,
+              `item` varchar(50) NOT NULL,
+              `stock` int(11) NOT NULL DEFAULT 0,
+              `lowstock` int(11) NOT NULL DEFAULT 0,
+              `highstock` int(11) NOT NULL DEFAULT 0,
+              `baseprice` decimal(11,2) NOT NULL DEFAULT 0.00,
+              `mode` varchar(4) NOT NULL DEFAULT 'both',
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `template_item` (`template`, `item`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ]])
+
         -- upgrades for tables made by an earlier version
         if not columnExists('grumpy_trader', 'mode') then
             MySQL.query.await("ALTER TABLE `grumpy_trader` ADD COLUMN `mode` varchar(4) NOT NULL DEFAULT 'both'")
         end
-        for col, def in pairs({ kind = "varchar(10) NOT NULL DEFAULT 'legal'", launder = 'tinyint(1) NOT NULL DEFAULT 0', launder_cut = 'decimal(5,2) DEFAULT NULL' }) do
+        for col, def in pairs({ kind = "varchar(10) NOT NULL DEFAULT 'legal'", launder = 'tinyint(1) NOT NULL DEFAULT 0', launder_cut = 'decimal(5,2) DEFAULT NULL',
+                                template = 'varchar(50) DEFAULT NULL' }) do
             if not columnExists('grumpy_trader_npcs', col) then
                 MySQL.query.await(('ALTER TABLE `grumpy_trader_npcs` ADD COLUMN `%s` %s'):format(col, def))
             end

@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS `grumpy_trader_npcs` (
   `kind` varchar(10) NOT NULL DEFAULT 'legal',
   `launder` tinyint(1) NOT NULL DEFAULT 0,
   `launder_cut` decimal(5,2) DEFAULT NULL,
+  `template` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`traderid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -35,6 +36,26 @@ CREATE TABLE IF NOT EXISTS `grumpy_trader_laundering` (
   `amount` decimal(11,2) NOT NULL DEFAULT 0.00,
   PRIMARY KEY (`traderid`, `citizenid`, `day`),
   KEY `trader_day` (`traderid`, `day`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- trader templates: default stock lists copied into traders and pushed to the traders that follow them
+CREATE TABLE IF NOT EXISTS `grumpy_trader_templates` (
+  `name` varchar(50) NOT NULL,
+  `label` varchar(50) NOT NULL,
+  PRIMARY KEY (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `grumpy_trader_template_items` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `template` varchar(50) NOT NULL,
+  `item` varchar(50) NOT NULL,
+  `stock` int(11) NOT NULL DEFAULT 0,
+  `lowstock` int(11) NOT NULL DEFAULT 0,
+  `highstock` int(11) NOT NULL DEFAULT 0,
+  `baseprice` decimal(11,2) NOT NULL DEFAULT 0.00,
+  `mode` varchar(4) NOT NULL DEFAULT 'both',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `template_item` (`template`, `item`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- optional: copy rsg-trader's traders and stock (all become legal traders)
