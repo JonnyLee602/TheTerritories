@@ -8,11 +8,17 @@ CREATE TABLE IF NOT EXISTS `grumpy_hotels` (
     `max_days` INT NOT NULL DEFAULT 1,
     `door_x` DOUBLE NOT NULL, `door_y` DOUBLE NOT NULL, `door_z` DOUBLE NOT NULL, `door_h` DOUBLE NOT NULL DEFAULT 0,
     `int_x` DOUBLE NOT NULL, `int_y` DOUBLE NOT NULL, `int_z` DOUBLE NOT NULL, `int_h` DOUBLE NOT NULL DEFAULT 0,
+    `stash_x` DOUBLE DEFAULT NULL, `stash_y` DOUBLE DEFAULT NULL, `stash_z` DOUBLE DEFAULT NULL, `stash_h` DOUBLE DEFAULT NULL,
     `blip` TINYINT(1) NOT NULL DEFAULT 1,
     `created_by` VARCHAR(50) DEFAULT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Upgrading from v1.1 (table already exists without the stash point)? Run this once:
+-- ALTER TABLE `grumpy_hotels`
+--     ADD COLUMN `stash_x` DOUBLE DEFAULT NULL AFTER `int_h`, ADD COLUMN `stash_y` DOUBLE DEFAULT NULL AFTER `stash_x`,
+--     ADD COLUMN `stash_z` DOUBLE DEFAULT NULL AFTER `stash_y`, ADD COLUMN `stash_h` DOUBLE DEFAULT NULL AFTER `stash_z`;
 
 CREATE TABLE IF NOT EXISTS `grumpy_hotel_rentals` (
     `id` INT NOT NULL AUTO_INCREMENT,
