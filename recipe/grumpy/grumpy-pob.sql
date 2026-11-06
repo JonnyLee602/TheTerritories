@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS `grumpy_pob_launder` (
   `ts` INT NOT NULL,
   `dirty` DECIMAL(14,2) NOT NULL,
   `clean` DECIMAL(14,2) NOT NULL,
+  `business_cut` DECIMAL(14,2) NOT NULL DEFAULT 0,
   `citizenid` VARCHAR(50) NOT NULL,
   `name` VARCHAR(100) NOT NULL,
   `seized` TINYINT(1) NOT NULL DEFAULT 0,
