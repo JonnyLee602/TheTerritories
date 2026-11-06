@@ -16,7 +16,7 @@
 | File | Purpose |
 |---|---|
 | `fxmanifest.lua` | Client-only resource, rsg-core locale loader |
-| `shared/config.lua` | Seat types, seatable models, stand key, native prompt toggle |
+| `shared/config.lua` | Seat types, seatable models, claiming resources, stand key, native prompt toggle |
 | `client/client.lua` | Registers the rsg-target model option, seats/stands the player, hides the native sit prompt |
 | `locales/en.json` | Target label, stand hint, seat taken message |
 
@@ -63,8 +63,20 @@ if GetResourceState('grumpy-sit') == 'started' and exports['grumpy-sit']:IsSeate
     exports['grumpy-sit']:Stand()
 end
 ```
-Props a resource seats players on itself (barber, theatre, gambling tables) are left out of `Config.Models` so the two
+Props a resource seats players on itself (barber, theatre, poker chairs) are left out of `Config.Models` so the two
 don't fight. Remove a model from the list if another script starts using it.
+
+**Claiming chairs.** Ordinary chair models also stand at other resources' furniture (grumpy-gambling card tables use
+`p_windsorchair03x`, map chairs and so on). Such a resource adds a client export `(entity) -> boolean` and an entry in
+`Config.ClaimedBy`. grumpy-sit calls it from `canInteract` (one answer per entity cached for `Config.ClaimCacheMs`) and
+again on select, and hides **Sit down** when it returns true. Resources that aren't started are skipped.
+
+```lua
+-- in the other resource (client)
+exports('IsTableChair', function(entity) return myChairs[entity] == true end)
+-- in grumpy-sit shared/config.lua
+Config.ClaimedBy = { { resource = 'grumpy-gambling', export = 'IsTableChair' } }
+```
 
 ## 6. Persistence
 None. Seated state is client memory only and is cleared on unload and resource stop.
@@ -85,7 +97,7 @@ None.
 |---|---|
 | Player floats or sinks into the seat | Tune that model's `z` offset (debug mode) |
 | Player faces the wrong way | Set that model's `heading` (try `0.0` instead of `180.0`) |
-| No Sit down option on a chair | Model isn't in `Config.Models`; check its name with rsg-target debug |
+| No Sit down option on a chair | Model isn't in `Config.Models` (check its name with rsg-target debug), or a resource in `Config.ClaimedBy` claims it (card table seats) |
 | "Somebody is already sitting there" on an empty bench | Lower `Config.SeatTakenRadius` or fix the spot offsets |
 | Other base-game prompts disappeared | Prompt type 8 covers them too; set `Config.DisableNativeSitPrompt = false` |
 | R does nothing while seated | Change `Config.StandControl` to another control hash from `data/rdr3_discoveries/Controls` |

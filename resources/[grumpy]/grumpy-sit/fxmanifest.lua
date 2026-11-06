@@ -6,7 +6,7 @@ lua54 'yes'
 author 'Grumpy'
 name 'grumpy-sit'
 description 'Sit on chairs, stools and benches anywhere with rsg-target. Replaces the base game sit prompt.'
-version '1.0.0'
+version '1.1.0'
 
 shared_scripts {
     '@rsg-core/shared/locale.lua',

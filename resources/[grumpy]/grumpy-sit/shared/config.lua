@@ -18,6 +18,13 @@ Config.SeatTakenRadius = 0.45     -- any ped this close to a seat spot means the
 -- Source: data/rdr3_discoveries/Controls/README.md (0xE3BF959B)
 Config.StandControl = 0xE3BF959B
 
+-- Chairs other resources own. grumpy-sit asks each started resource's export (entity -> bool) and
+-- hides Sit down when one says yes. grumpy-gambling claims the chairs at its card tables.
+Config.ClaimedBy = {
+    { resource = 'grumpy-gambling', export = 'IsTableChair' },
+}
+Config.ClaimCacheMs = 3000        -- how long one answer per chair is reused
+
 -- Seat types. Each spot is an offset from the prop's origin in the prop's own space
 -- (x = right, y = forward, z = up). heading is added to the prop's heading.
 -- Scenarios from data/rdr3_discoveries/animations/scenarios (PROP_HUMAN_SEAT_*).

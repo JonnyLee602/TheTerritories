@@ -69,6 +69,40 @@ local function freeSpots(entity, def, ped)
     return list
 end
 
+-- Chairs owned by another resource (card tables) are left to that resource.
+-- canInteract runs every frame while aiming, so each entity's answer is cached for a few seconds.
+local claimCache = {} -- entity -> { claimed = bool, at = ms }
+
+local function isClaimed(entity)
+    if not entity or entity == 0 then return false end
+    local now = GetGameTimer()
+    local hit = claimCache[entity]
+    if hit and now - hit.at < Config.ClaimCacheMs then return hit.claimed end
+    local claimed = false
+    for _, check in ipairs(Config.ClaimedBy) do
+        if GetResourceState(check.resource) == 'started' then
+            local ok, res = pcall(function()
+                local r = exports[check.resource]
+                return r[check.export](r, entity) -- same as exports['res']:Export(entity)
+            end)
+            if ok and res then claimed = true break end
+        end
+    end
+    claimCache[entity] = { claimed = claimed, at = now }
+    return claimed
+end
+
+-- drop old cache entries now and then
+CreateThread(function()
+    while true do
+        Wait(60000)
+        local now = GetGameTimer()
+        for e, v in pairs(claimCache) do
+            if now - v.at > Config.ClaimCacheMs then claimCache[e] = nil end
+        end
+    end
+end)
+
 local function canSit(ped)
     return not seated
         and not IsEntityDead(ped)
@@ -112,7 +146,7 @@ local function sit(entity)
     if not entity or entity == 0 or not DoesEntityExist(entity) or not canSit(ped) then return end
 
     local def = seatTypes[GetEntityModel(entity)]
-    if not def then return end
+    if not def or isClaimed(entity) then return end
 
     debugSpots(entity, def)
 
@@ -157,8 +191,8 @@ exports['rsg-target']:addModel(modelList, {
         icon = Config.TargetIcon,
         label = locale('target_sit'),
         distance = Config.TargetDistance,
-        canInteract = function()
-            return canSit(PlayerPedId())
+        canInteract = function(entity)
+            return canSit(PlayerPedId()) and not isClaimed(entity)
         end,
         onSelect = function(data)
             sit(data.entity)
