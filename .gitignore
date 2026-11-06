@@ -1,1 +1,9 @@
 .cache/
+
+# --- Map mods / paid resources: NEVER commit (some are paid, licensed to this server only) ---
+# (brackets escaped: unescaped [..] is a glob character class in .gitignore)
+\[mapmods\]/
+\[maps\]/
+\[paid\]/
+# Tebex/CFX escrow marker: any resource holding one is a paid, encrypted resource
+*.fxap
