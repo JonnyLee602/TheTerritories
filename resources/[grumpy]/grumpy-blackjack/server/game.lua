@@ -84,7 +84,7 @@ local function actionsFor(r, seat, P)
         local ins = P.amount // 2
         if ins > 0 and free(P) >= ins then acts[#acts + 1] = { id = 'insurance', amount = ins } end
         acts[#acts + 1] = { id = 'no_insurance' }
-    elseif r.phase == 'playing' and r.turn == seat and not r.busy then
+    elseif r.phase == 'playing' and r.turn == seat and not r.busy and not r.waiting then
         local h = P.hands[P.active]
         if h and not h.done then
             acts[#acts + 1] = { id = 'hit' }
@@ -157,17 +157,21 @@ end
 ---------------------------------------------------------------------
 -- Dealing
 ---------------------------------------------------------------------
-local function draw(st, r)
+-- to = the seat the card goes to, or 'dealer'
+local function draw(st, r, to)
     local c = st.shoe:Draw()
     if not c then -- never runs dry mid-round with the penetration rule, but just in case
         st.shoe = Cards.NewShoe(R.Decks)
         c = st.shoe:Draw()
     end
     r.seq = r.seq + 1
-    return { r = c.r, s = c.s, seq = r.seq }
+    local card = { r = c.r, s = c.s, seq = r.seq, to = to }
+    r.bySeq[r.seq] = card
+    return card
 end
 
--- Shows the cards dealt so far one at a time, then calls done
+-- Deals the cards drawn so far, one at a time: the dealer reaches for the seat (or his own spot), and the card lands
+-- partway into the clip. Then calls done.
 local function reveal(tid, r, done)
     r.busy = true
     local function step()
@@ -177,9 +181,18 @@ local function reveal(tid, r, done)
             r.busy = false
             return done()
         end
-        r.shown = r.shown + 1
-        push(tid)
-        L.After(key(tid, 'reveal'), T.Card, step)
+        local c = r.bySeq[r.shown + 1]
+        if c and c.to == 'dealer' then
+            dealerAnim(tid, 'self', nil, ('%02d'):format(math.max(3, math.min(11, #r.dealer))))
+        elseif c then
+            dealerAnim(tid, 'hit', { c.to })
+        end
+        L.After(key(tid, 'reveal'), T.CardAt, function()
+            if not tables[tid] or tables[tid].round ~= r then return end
+            r.shown = r.shown + 1
+            push(tid)
+            L.After(key(tid, 'reveal'), T.Card - T.CardAt, step)
+        end)
     end
     step()
 end
@@ -221,7 +234,7 @@ startRound = function(tid)
         if err ~= 'no_players' then print(('[%s] BeginHand: %s'):format(GAME, tostring(err))) end
         return push(tid)
     end
-    local r = { id = handId, phase = 'betting', stakes = L.Stakes(tid), seats = {}, order = {}, dealer = {}, seq = 0,
+    local r = { id = handId, phase = 'betting', stakes = L.Stakes(tid), seats = {}, order = {}, dealer = {}, seq = 0, bySeq = {},
         shown = 0, holeShown = false, deadline = os.time() + T.Bet // 1000 }
     for _, p in ipairs(L.Seats(tid)) do
         if p.inHand then
@@ -264,11 +277,10 @@ local function dealCards(tid)
     for _ = 1, 2 do
         for _, seat in ipairs(r.order) do
             local h = r.seats[seat].hands[1]
-            h.cards[#h.cards + 1] = draw(st, r)
+            h.cards[#h.cards + 1] = draw(st, r, seat)
         end
-        r.dealer[#r.dealer + 1] = draw(st, r)
+        r.dealer[#r.dealer + 1] = draw(st, r, 'dealer')
     end
-    dealerAnim(tid, 'deal', r.order)
     reveal(tid, r, function() afterDeal(tid) end)
 end
 
@@ -370,7 +382,7 @@ local function armTurn(tid, r, seat)
         local prof = L.NpcProfile(tid, seat)
         L.After(key(tid, 'npc'), Brain.ThinkMs(prof, 0.5), function()
             local cur = tables[tid] and tables[tid].round
-            if cur ~= r or r.turn ~= seat or r.busy then return end
+            if cur ~= r or r.turn ~= seat or r.busy or r.waiting then return end
             local h = P.hands[P.active]
             if not h then return end
             local move = BJ.NpcMove(h, r.dealer[1], BJ.CanDouble(h, R) and free(P) >= h.amount,
@@ -389,9 +401,17 @@ nextTurn = function(tid)
         if not P.gone then
             for hi, h in ipairs(P.hands) do
                 if not h.done then
-                    r.turn, P.active = seat, hi
-                    armTurn(tid, r, seat)
-                    return push(tid)
+                    -- a beat first: the turn moves (marker, heads turn), then the actions appear
+                    r.turn, P.active, r.waiting, r.deadline = seat, hi, true, nil
+                    push(tid)
+                    L.After(key(tid, 'beat'), L.Beat(T.TurnBeat[1], T.TurnBeat[2]), function()
+                        local cur = tables[tid] and tables[tid].round
+                        if cur ~= r or r.turn ~= seat then return end
+                        r.waiting = false
+                        armTurn(tid, r, seat)
+                        push(tid)
+                    end)
+                    return
                 end
             end
         end
@@ -416,8 +436,6 @@ dealerPlay = function(tid)
     local r = st.round
     r.phase = 'dealer'
     r.deadline = nil
-    r.holeShown = true
-    dealerAnim(tid, 'reveal')
     push(tid)
     local live = false
     for _, seat in ipairs(r.order) do
@@ -429,23 +447,36 @@ dealerPlay = function(tid)
         local cur = tables[tid] and tables[tid].round
         if cur ~= r then return end
         if live and BJ.DealerHits(r.dealer, R) then
-            r.dealer[#r.dealer + 1] = draw(st, r)
-            r.shown = r.seq
+            r.dealer[#r.dealer + 1] = draw(st, r, 'dealer')
             dealerAnim(tid, 'self', nil, ('%02d'):format(math.min(11, #r.dealer)))
-            push(tid)
-            return L.After(key(tid, 'dealer'), T.DealerStep, step)
+            -- the card lands partway into his reach
+            return L.After(key(tid, 'dealer'), T.CardAt, function()
+                if not tables[tid] or tables[tid].round ~= r then return end
+                r.shown = r.seq
+                push(tid)
+                L.After(key(tid, 'dealer'), T.DealerStep - T.CardAt, step)
+            end)
         end
         local total = BJ.Score(r.dealer)
         L.Say(tid, nil, locale(total > 21 and 'dealer_busts' or 'dealer_has', total))
         settle(tid)
     end
-    L.After(key(tid, 'dealer'), T.DealerStep, step)
+    -- a breath, then he turns his hole card over in time with the clip
+    L.Seq(key(tid, 'dealer')):Wait(L.Beat(500, 800)):Do(function()
+        if not tables[tid] or tables[tid].round ~= r then return false end
+        dealerAnim(tid, 'reveal')
+    end):Wait(T.RevealAt):Do(function()
+        if not tables[tid] or tables[tid].round ~= r then return false end
+        r.holeShown = true
+        push(tid)
+    end):Wait(T.DealerStep):Do(step):Run()
 end
 
 settle = function(tid)
     local st = tables[tid]
     local r = st and st.round
-    if not r or r.phase == 'result' then return end
+    if not r or r.phase == 'result' or r.settling then return end
+    r.settling = true
     local dealerBJ = #r.dealer == 2 and BJ.Score(r.dealer) == 21
     local payouts, outcomes = {}, {}
     for _, seat in ipairs(r.order) do
@@ -461,41 +492,54 @@ settle = function(tid)
         if P.insurance then total = total + BJ.InsurancePayout(P.insurance.net, dealerBJ) end
         payouts[seat], outcomes[seat] = total, best
     end
-    local ok, err = L.Settle(r.id, { payouts = payouts })
-    if not ok then return abort(tid, err) end
-    r.phase, r.turn, r.deadline, r.holeShown, r.shown = 'result', nil, nil, true, r.seq
-    local results, winners, losers = {}, {}, {}
+    -- who won and lost, worked out now; shown as a sequence: the dealer takes the losing bets, the money settles
+    -- (the pot slides to him or to the biggest winner), he pays the winners, everyone reacts, one line at a time
+    local results, winners, losers, lines = {}, {}, {}, {}
     for _, seat in ipairs(r.order) do
         local P = r.seats[seat]
         local profit = payouts[seat] - P.staked
         if profit > 0 then
             results[#results + 1] = { seat = seat, amount = profit }
             winners[#winners + 1] = seat
-            seatAnim(tid, seat, 'win')
         elseif profit < 0 then
             losers[#losers + 1] = seat
-            seatAnim(tid, seat, 'lose')
         end
         local o = outcomes[seat]
-        if o == 'blackjack' then L.Say(tid, nil, locale('result_blackjack', P.name, L.Fmt(math.max(0, profit))))
-        elseif profit > 0 then L.Say(tid, nil, locale('result_win', P.name, L.Fmt(profit)))
-        elseif profit == 0 then L.Say(tid, nil, locale('result_push', P.name))
-        else L.Say(tid, nil, locale('result_lose', P.name, L.Fmt(-profit))) end
-        if P.insurance and dealerBJ then L.Say(tid, nil, locale('insurance_pays', P.name, L.Fmt(P.insurance.net * 2))) end
+        if o == 'blackjack' then lines[#lines + 1] = locale('result_blackjack', P.name, L.Fmt(math.max(0, profit)))
+        elseif profit > 0 then lines[#lines + 1] = locale('result_win', P.name, L.Fmt(profit))
+        elseif profit == 0 then lines[#lines + 1] = locale('result_push', P.name)
+        else lines[#lines + 1] = locale('result_lose', P.name, L.Fmt(-profit)) end
+        if P.insurance and dealerBJ then lines[#lines + 1] = locale('insurance_pays', P.name, L.Fmt(P.insurance.net * 2)) end
     end
-    dealerAnim(tid, 'collect', losers)
-    if #winners > 0 then
-        L.After(key(tid, 'pay'), #losers > 0 and A.Dealer.collect.ms or 0, function() dealerAnim(tid, 'pay', winners) end)
-    end
-    push(tid, results)
-    L.After(key(tid, 'clear'), T.Result, function()
-        local cur = tables[tid]
-        if not cur or cur.round ~= r then return end
-        dealerAnim(tid, 'cards', r.order)
-        cur.round = nil
-        push(tid)
-        L.After(key(tid, 'next'), T.Next, function() startRound(tid) end)
+    local function here() return tables[tid] ~= nil and tables[tid].round == r end
+    local seq = L.Seq(key(tid, 'result')):Wait(L.Beat(500, 800)):Do(function()
+        if not here() then return false end
+        for _, seat in ipairs(losers) do seatAnim(tid, seat, 'lose') end
+        dealerAnim(tid, 'collect', losers)
+    end):Wait(#losers > 0 and math.floor(A.Dealer.collect.ms * 0.6) or 0):Do(function()
+        if not here() then return false end
+        local ok, err = L.Settle(r.id, { payouts = payouts })
+        if not ok then abort(tid, err) return false end
+        r.phase, r.turn, r.deadline, r.holeShown, r.shown = 'result', nil, nil, true, r.seq
+        push(tid, results)
+    end):Wait(#winners > 0 and 600 or 0):Do(function()
+        if not here() then return false end
+        for _, seat in ipairs(winners) do seatAnim(tid, seat, 'win') end
+        dealerAnim(tid, 'pay', winners)
     end)
+    for _, line in ipairs(lines) do
+        seq:Wait(T.Line):Do(function() if not here() then return false end L.Say(tid, nil, line) end)
+    end
+    seq:Wait(T.Result):Do(function()
+        if not here() then return false end
+        dealerAnim(tid, 'cards', r.order)
+    end):Wait(math.floor(A.Dealer.cards.ms * 0.5)):Do(function()
+        local cur = tables[tid]
+        if not cur or cur.round ~= r then return false end
+        cur.round = nil
+        push(tid)                                  -- the cards go back to the dealer (they slide on the client)
+        L.After(key(tid, 'next'), T.Next, function() startRound(tid) end)
+    end):Run()
 end
 
 ---------------------------------------------------------------------
@@ -545,7 +589,7 @@ applyMove = function(tid, seat, id, amount, src)
     end
 
     -- playing moves
-    if r.phase ~= 'playing' or r.turn ~= seat or r.busy then return no(r.turn ~= seat and 'not_your_turn' or nil) end
+    if r.phase ~= 'playing' or r.turn ~= seat or r.busy or r.waiting then return no(r.turn ~= seat and 'not_your_turn' or nil) end
     local h = P.hands[P.active]
     if not h or h.done then return no() end
     L.CancelTimer(key(tid, 'act'))
@@ -560,9 +604,8 @@ applyMove = function(tid, seat, id, amount, src)
     end
 
     if id == 'hit' then
-        h.cards[#h.cards + 1] = draw(st, r)
+        h.cards[#h.cards + 1] = draw(st, r, seat)
         seatAnim(tid, seat, 'hit')
-        dealerAnim(tid, 'hit', { seat })
         reveal(tid, r, function()
             local total = BJ.Score(h.cards)
             if total > 21 then
@@ -581,9 +624,8 @@ applyMove = function(tid, seat, id, amount, src)
         local net = stake(tid, r, seat, h.amount)
         if not net then return false end
         h.net, h.amount, h.doubled = h.net + net, h.amount * 2, true
-        h.cards[#h.cards + 1] = draw(st, r)
+        h.cards[#h.cards + 1] = draw(st, r, seat)
         seatAnim(tid, seat, 'double')
-        dealerAnim(tid, 'hit', { seat })
         L.Say(tid, nil, locale('doubles', P.name))
         reveal(tid, r, function()
             h.done = true
@@ -603,10 +645,9 @@ applyMove = function(tid, seat, id, amount, src)
         h.cards = { h.cards[1] }
         h.split, h.fromAces = true, aces
         table.insert(P.hands, P.active + 1, h2)
-        h.cards[2] = draw(st, r)
-        h2.cards[2] = draw(st, r)
+        h.cards[2] = draw(st, r, seat)
+        h2.cards[2] = draw(st, r, seat)
         seatAnim(tid, seat, 'split')
-        dealerAnim(tid, 'hit', { seat })
         L.Say(tid, nil, locale('splits', P.name))
         reveal(tid, r, function()
             if aces then

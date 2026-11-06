@@ -39,7 +39,7 @@ No database, items or images of its own. Tables: any dealer (PVD) table with `p_
 | `Rules.DoubleAfterSplit` / `MaxHands` / `ResplitAces` | `true` / `4` / `false` | Split rules |
 | `Rules.Insurance` | `true` | Offer insurance against a dealer ace |
 | `HouseEdge` / `MaxPayout` | `0.0042` / `2.5` | Told to the core (rake tuner, cover checks) |
-| `Timers.*` | bet 15 s, act 20 s, insurance 8 s | Round pacing (ms) |
+| `Timers.*` | bet 15 s, act 20 s, insurance 8 s | Round pacing (ms); `Card`/`CardAt` time each card to the dealer's reach, `TurnBeat` a breath before each turn, `Line` the paced result lines |
 | `Layout.Seat` / `Layout.Dealer` | see file | Where the cards lie, from each seat and the dealer (forward / right, metres) |
 | `Anim.Seats` | `{ 1, 2, 3, 4 }` | Our seat → Rockstar's seat number in the dealer's clips; swap if he reaches for the wrong chair |
 | `Anim.Player` / `Anim.Dealer` | blackjack clips | Animations (data/rdr3_discoveries ingameanims list) |
