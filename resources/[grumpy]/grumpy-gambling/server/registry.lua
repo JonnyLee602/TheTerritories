@@ -70,13 +70,6 @@ exports('GetGames', function()
     return list
 end)
 
--- Placeholder games with no gameplay, so a table can start and chips can be tested before any module exists
-if Config.DevGames then
-    Registry.Register({ id = 'dev_pvp', label = 'Test (no gameplay)', kind = 'pvp', minSeats = 1, maxSeats = 12 }, GetCurrentResourceName())
-    Registry.Register({ id = 'dev_pvd', label = 'Test (no gameplay)', kind = 'pvd', minSeats = 1, maxSeats = 12,
-        houseEdge = 0.0, maxPayout = 2.0 }, GetCurrentResourceName())
-end
-
 -- A module stopping takes its game off every table that runs it
 AddEventHandler('onResourceStop', function(res)
     for id, g in pairs(Registry.games) do

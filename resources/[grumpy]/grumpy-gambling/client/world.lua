@@ -248,7 +248,93 @@ local function anchorOf(t, p)
     return t.x, t.y, t.z, t.h
 end
 
-local function updateProps(t, w)
+---------------------------------------------------------------------
+-- Motion: one small tween loop for every moving prop (only runs while something moves)
+---------------------------------------------------------------------
+local Mo = Config.Motion
+local tweens = {}
+
+local function ease(p) return 1 - (1 - p) ^ 3 end
+
+-- Moves obj from a to b (x, y, z, ry, h) over ms, then calls done
+local function tween(obj, a, b, ms, done)
+    if not Mo.Enabled or ms <= 0 then
+        SetEntityCoordsNoOffset(obj, b.x, b.y, b.z, false, false, false)
+        SetEntityRotation(obj, 0.0, b.ry, b.h, 2, true)
+        if done then done() end
+        return
+    end
+    tweens[#tweens + 1] = { obj = obj, a = a, b = b, t0 = GetGameTimer(), ms = ms, done = done }
+end
+
+CreateThread(function()
+    while true do
+        if #tweens == 0 then
+            Wait(100)
+        else
+            local now = GetGameTimer()
+            for i = #tweens, 1, -1 do
+                local tw = tweens[i]
+                if not DoesEntityExist(tw.obj) then
+                    table.remove(tweens, i)
+                else
+                    local p = math.min(1.0, (now - tw.t0) / tw.ms)
+                    local e = ease(p)
+                    local a, b = tw.a, tw.b
+                    SetEntityCoordsNoOffset(tw.obj, a.x + (b.x - a.x) * e, a.y + (b.y - a.y) * e, a.z + (b.z - a.z) * e, false, false, false)
+                    SetEntityRotation(tw.obj, 0.0, a.ry + (b.ry - a.ry) * e, a.h + (b.h - a.h) * e, 2, true)
+                    if p >= 1.0 then
+                        table.remove(tweens, i)
+                        if tw.done then tw.done() end
+                    end
+                end
+            end
+            Wait(0)
+        end
+    end
+end)
+
+-- Where dealt cards come from and collected cards go: in front of the dealer, or the middle of a card table
+local function deckPoint(t)
+    local z = t.z + Config.Cards.Height
+    if t.kind == 'pvd' and t.dealer then
+        local off = t.dealer
+        local x, y, _, h = Geo.ToWorld(GGC.Origin(t), t.h, { x = off.x, y = off.y, z = 0.0, h = off.h })
+        local r = math.rad(h)
+        return { x = x - math.sin(r) * 0.3, y = y + math.cos(r) * 0.3, z = z + 0.02, ry = 180.0, h = h }
+    end
+    return { x = t.x, y = t.y, z = z + 0.02, ry = 180.0, h = t.h }
+end
+
+-- Where a pot goes: the winner's chips, or the dealer
+local function potPoint(t, to)
+    if to == 'dealer' or (type(to) ~= 'number') then
+        local d = deckPoint(t)
+        d.ry = 0.0
+        return d
+    end
+    local x, y, z, h = GGC.SeatWorld(t, to)
+    if not x then return nil end
+    local f = t.chipForward or Config.ChipStacks.Forward
+    local r = math.rad(h)
+    return { x = x - math.sin(r) * f, y = y + math.cos(r) * f, z = z + (t.chipHeight or Config.ChipStacks.Height), ry = 0.0, h = h }
+end
+
+local function spawnProp(model, at)
+    local hash = GGC.LoadModel(model)
+    if not hash then return nil end
+    local obj = CreateObject(hash, at.x, at.y, at.z, false, false, false)
+    SetModelAsNoLongerNeeded(hash)
+    if not obj or not DoesEntityExist(obj) then return nil end
+    SetEntityCoordsNoOffset(obj, at.x, at.y, at.z, false, false, false)
+    SetEntityRotation(obj, 0.0, at.ry, at.h, 2, true)
+    SetEntityCollision(obj, false, false)
+    FreezeEntityPosition(obj, true)
+    return obj
+end
+
+-- extra = { potTo = seat | 'dealer' } when a settled hand takes the pot off the table
+local function updateProps(t, w, extra)
     w.props = w.props or {}
     local want = {}
     for _, p in ipairs(GGC.TableProps[t.id] or {}) do
@@ -257,45 +343,79 @@ local function updateProps(t, w)
             local r = math.rad(ah)
             local fx, fy = -math.sin(r), math.cos(r)  -- forward
             local rx, ry = math.cos(r), math.sin(r)   -- right
-            local model = p.card and cardModel(t, p.card) or p.model
+            local down = p.card and p.card.down == true
+            local model = p.card and cardModel(t, down and { r = 'K', s = 's' } or p.card) or p.model
             local x, y = ax + fx * p.x + rx * p.y, ay + fy * p.x + ry * p.y
             local z = az + Config.Cards.Height + p.z
-            local sig = ('%s|%.3f|%.3f|%.3f|%.1f|%s'):format(model, x, y, z, ah + p.h, p.card and p.card.down and 'd' or 'u')
-            want[p.key] = { model = model, x = x, y = y, z = z, h = ah + p.h, down = p.card and p.card.down, sig = sig }
+            want[p.key] = { model = model, card = p.card ~= nil, down = down, x = x, y = y, z = z, h = ah + p.h,
+                ry = down and 180.0 or 0.0, sig = ('%s|%.3f|%.3f|%.3f|%.1f'):format(model, x, y, z, ah + p.h) }
         end
     end
+    -- leaving: cards slide back to the deck, the pot to whoever won it, anything else just goes
     for key, have in pairs(w.props) do
-        if not want[key] or want[key].sig ~= have.sig then
-            deleteEntity(have.obj)
+        local d = want[key]
+        if not d then
             w.props[key] = nil
+            local obj = have.obj
+            if obj and DoesEntityExist(obj) then
+                local dest = (key == '_pot' and extra and extra.potTo ~= nil and potPoint(t, extra.potTo)) or (have.card and deckPoint(t)) or nil
+                if dest and Mo.Enabled then
+                    dest.ry = have.card and 180.0 or 0.0
+                    tween(obj, have, dest, key == '_pot' and Mo.PotMs or Mo.CollectMs, function() deleteEntity(obj) end)
+                else
+                    deleteEntity(obj)
+                end
+            end
+        elseif d.sig ~= have.sig then
+            -- turned over (a back becomes this card) or moved/changed: a new prop takes over from the old one
+            w.props[key] = nil
+            local old = have.obj
+            local slot = { sig = d.sig, card = d.card, down = d.down, x = d.x, y = d.y, z = d.z, h = d.h, ry = d.ry }
+            w.props[key] = slot
+            local flip = have.card and have.down and not d.down and math.abs(have.x - d.x) < 0.01 and math.abs(have.y - d.y) < 0.01
+            CreateThread(function()
+                local from = flip and { x = d.x, y = d.y, z = d.z + 0.02, ry = 180.0, h = d.h } or { x = have.x, y = have.y, z = have.z, ry = have.ry, h = have.h }
+                local obj = spawnProp(d.model, from)
+                deleteEntity(old)
+                if not obj then return end
+                if w.props[key] ~= slot or world[t.id] ~= w then return deleteEntity(obj) end
+                slot.obj = obj
+                tween(obj, from, d, flip and Mo.FlipMs or Mo.SlideMs)
+            end)
         end
     end
+    -- arriving: cards are dealt from the deck, other props (the pot) appear in place
     for key, d in pairs(want) do
         if not w.props[key] then
-            local slot = { sig = d.sig }
+            local slot = { sig = d.sig, card = d.card, down = d.down, x = d.x, y = d.y, z = d.z, h = d.h, ry = d.ry }
             w.props[key] = slot
-            local hash = GGC.LoadModel(d.model)
-            local obj = hash and CreateObject(hash, d.x, d.y, d.z, false, false, false) or nil
-            if hash then SetModelAsNoLongerNeeded(hash) end
-            if obj and DoesEntityExist(obj) and w.props[key] == slot and world[t.id] == w then
-                SetEntityCoordsNoOffset(obj, d.x, d.y, d.z, false, false, false)
-                SetEntityRotation(obj, 0.0, d.down and 180.0 or 0.0, d.h, 2, true)
-                SetEntityCollision(obj, false, false)
-                FreezeEntityPosition(obj, true)
+            CreateThread(function()
+                local from = d.card and Mo.Enabled and deckPoint(t) or d
+                local obj = spawnProp(d.model, from)
+                if not obj then return end
+                if w.props[key] ~= slot or world[t.id] ~= w then return deleteEntity(obj) end
                 slot.obj = obj
-            else
-                deleteEntity(obj)
-            end
+                if from ~= d then tween(obj, from, d, Mo.SlideMs) end
+            end)
         end
     end
 end
 
-RegisterNetEvent('grumpy-gambling:client:props', function(tableId, list)
+RegisterNetEvent('grumpy-gambling:client:props', function(tableId, list, extra)
     if Config.Debug then print(('[grumpy-gambling] props for table %s: %d'):format(tostring(tableId), type(list) == 'table' and #list or -1)) end
     GGC.TableProps[tableId] = list
     local t, w = GGC.Tables[tableId], world[tableId]
-    if t and w then CreateThread(function() updateProps(t, w) end) end
+    if t and w then CreateThread(function() updateProps(t, w, type(extra) == 'table' and extra or nil) end) end
 end)
+
+-- The peds this client spawned at a table (NPC players by seat, and the dealer), for look-at
+function GGC.TablePeds(id)
+    local w = world[id]
+    if not w then return nil end
+    local npcs = {}
+    for seat, slot in pairs(w.npcPeds or {}) do if slot.ped and DoesEntityExist(slot.ped) then npcs[seat] = slot.ped end end
+    return npcs, w.dealer
+end
 
 RegisterNetEvent('grumpy-gambling:client:seatAnim', function(tableId, seat, a)
     local ped

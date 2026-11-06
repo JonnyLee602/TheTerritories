@@ -39,7 +39,22 @@ local function send(t, src, seat)
     local v = Play.views[t.id]
     if not v then return end
     v.public._now = os.time() -- the client counts `deadline` down against the server clock
-    TriggerClientEvent('grumpy-gambling:client:view', src, t.id, v.public, seat and v.private[seat] or nil, seat)
+    -- every player sees their own chips (stack minus what's in the current hand), whatever the game shows
+    local priv = seat and v.private[seat] or nil
+    local occ = seat and t.occupants[seat]
+    if occ and occ.src == src then
+        local copy = {}
+        for k, val in pairs(priv or {}) do copy[k] = val end
+        copy._chips = math.max(0, (occ.stack or 0) - GG.Hands.Contributed(t.id, seat))
+        priv = copy
+    end
+    TriggerClientEvent('grumpy-gambling:client:view', src, t.id, v.public, priv, seat)
+end
+
+-- A player's chips changed outside a game move (buy-in, top-up): resend their view
+function Play.Resend(t, seat)
+    local occ = t.occupants[seat]
+    if occ and occ.src then send(t, occ.src, seat) end
 end
 
 -- What the table UI shows in its header, added by the core so every game gets it
@@ -198,8 +213,11 @@ function Play.SetProps(t, list)
         if type(p) == 'table' and type(p.key) == 'string' and (p.at == 'seat' or p.at == 'dealer' or p.at == 'table') then
             local item = { key = p.key:sub(1, 32), at = p.at, seat = math.tointeger(p.seat),
                 x = num(p.x, 3), y = num(p.y, 3), z = num(p.z, 1), h = num(p.h, 360) }
-            if type(p.card) == 'table' and RANKS[p.card.r] and SUITS[p.card.s] then
-                item.card = { r = p.card.r, s = p.card.s, down = p.card.down == true }
+            if type(p.card) == 'table' and p.card.down == true then
+                -- face down: clients get a card back, never which card it is (nothing to read from the prop)
+                item.card = { down = true }
+            elseif type(p.card) == 'table' and RANKS[p.card.r] and SUITS[p.card.s] then
+                item.card = { r = p.card.r, s = p.card.s }
             elseif type(p.model) == 'string' then
                 item.model = p.model:sub(1, 64)
             end
@@ -224,11 +242,12 @@ function Play.TableProps(t)
 end
 
 -- Called by hands.lua: the first bet of a hand puts the pot on the table; settling or cancelling takes it away
-function Play.SetPot(t, on)
+-- to = where the chips go when the pot is taken off: a seat number (the winner) or 'dealer' (the house kept it)
+function Play.SetPot(t, on, to)
     on = on == true
     if (Play.pots[t.id] == true) == on then return end
     Play.pots[t.id] = on or nil
-    toNearby(t, 'grumpy-gambling:client:props', t.id, Play.TableProps(t))
+    toNearby(t, 'grumpy-gambling:client:props', t.id, Play.TableProps(t), (not on and to) and { potTo = to } or nil)
 end
 
 exports('SetProps', function(tableId, list)
@@ -273,5 +292,6 @@ RegisterNetEvent('grumpy-gambling:server:action', function(actionId, amount)
     if not t or t.state ~= 'active' or not t.game then return end
     local occ = t.occupants[s.seat]
     if not occ or occ.src ~= src then return end
+    occ.acted = true -- took part in this hand (Seats.HandClosed counts hands without a move)
     TriggerEvent('grumpy-gambling:server:playerAction', t.id, t.game, s.seat, src, actionId, amount)
 end)

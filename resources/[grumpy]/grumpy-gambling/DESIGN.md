@@ -2,7 +2,12 @@
 
 Status: **core complete** 2026-11-06 as v0.7.0: phases 1–6 built and tested in game, phase 7 (audit, docs,
 compliance) done. v0.8.0 adds cards on the table (`SetProps`), seat and dealer clips (`SeatAnim`/`DealerAnim`) and
-several hands per seat in the panel, for the first module, **grumpy-blackjack** 0.1.0 (classic rules chosen
+several hands per seat in the panel, for the first module, **grumpy-blackjack** 0.1.0. v0.9.0 adds card picking in
+the panel and a brain `bonus`, for **grumpy-drawpoker** 0.1.0 (Five-Card Draw, chosen 2026-11-06: blinds, no-limit,
+draw up to three or four with an ace). Then, after in-game feedback ("choppy"), a feel pass (2026-11-06): paced
+beats in the modules (`GGLib.Seq`/`Beat`), client motion (slides, flips, collection, pot to the winner), heads turning
+to the acting seat (`TASK_LOOK_AT_COORD`), frontend sounds (`RDRO_Poker_Sounds`; the data has no card/chip sounds),
+a smoother panel; face-down card props no longer carry their rank and suit (a leak found on the way) (classic rules chosen
 2026-11-06: 6 decks, S17, 3:2, peek, double any two incl. after split, split to 4 hands, aces once, insurance, no
 surrender; bet window then turns). Phase 3 was tested in real Lua 5.4 (`tests/`, incl. the test games
 playing full hands through the core). Phase 3 adds

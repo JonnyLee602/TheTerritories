@@ -199,6 +199,8 @@ function Brain.Decide(ctx)
     local board = ctx.board or {}
     local opponents = math.max(1, ctx.opponents or 1)
     local s = Brain.Strength(ctx.hole, board, opponents)
+    -- a game may add to it (e.g. a four-flush before the draw in five-card draw)
+    if ctx.bonus then s = math.max(0, math.min(1, s + ctx.bonus)) end
     local meta = { strength = s, strong = s >= (p.strongAt or 0.82), bluff = false }
     local preflop = #board == 0 and #ctx.hole == 2
     local e = s + (math.random() * 2 - 1) * (p.noise or 0.06) + ((ctx.position or 0.5) - 0.5) * 0.06

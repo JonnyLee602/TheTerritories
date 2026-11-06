@@ -2,8 +2,7 @@ Config = {}
 
 Config.Debug = false
 Config.AutoDatabase = true                 -- create tables from install.sql on start
-Config.DevGames = false                    -- dev servers only: placeholder "Test (no gameplay)" games so tables can start
-                                           -- and buy-in / cash-out can be tried before any game module is installed
+Config.DevGames = false                    -- dev servers only: the /gga (type a move) and /ggbot (NPC count) commands
 
 ---------------------------------------------------------------------
 -- Admin
@@ -30,6 +29,8 @@ Config.Seating = {
     StandKey = 0xE3BF959B,                 -- INPUT_CONTEXT_X (R), data/rdr3_discoveries/Controls/README.md
     SetupKey = 0x760A9C6F,                 -- INPUT_INTERACT_OPTION1 (G), same file
     StandHoldMs = 750,
+    RebuySeconds = 45,                     -- out of chips at a running table: buy back in within this, or stand up
+    MissedHands = 5,                       -- stood up after this many hands in a row without a single move
 }
 
 -- Placed (spawned) tables hide the map's own chairs around them while spawned, so they don't pile up on the
@@ -124,6 +125,40 @@ Config.Pot = {
     Model = 'p_gen_pokerchipante01x',
     Dealer = { x = 0.55, y = 0.0 },       -- straight out in front of the dealer, beyond his own cards
     Table = { x = 0.0, y = 0.0 },
+}
+
+-- Whose turn: a marker over the seat that's acting (players and NPCs), drawn for the players seated at that table.
+-- Types: data/rdr3_discoveries/graphics/markers/marker_types.lua (0xD6445746 = prop_mp_halo_point).
+Config.TurnMarker = {
+    Enabled = true,
+    Type = 0xD6445746,
+    Height = 1.25,                         -- metres above the seat cushion (over a seated head)
+    Scale = 0.18,
+    Color = { 210, 175, 90, 200 },         -- r, g, b, alpha (house gold)
+    Bob = true,
+}
+
+-- How the table moves (all on each player's own screen): cards slide from the dealer (or the middle of a card table)
+-- to where they land, turn over instead of popping, slide back when collected; the pot slides to whoever won it.
+-- Seated NPCs and the dealer look at whoever is acting.
+Config.Motion = {
+    Enabled = true,
+    SlideMs = 280,                         -- a card dealt
+    FlipMs = 260,                          -- a card turned over
+    CollectMs = 340,                       -- cards gathered back
+    PotMs = 700,                           -- the pot pushed to the winner (or raked in by the dealer)
+    LookAt = true,
+}
+
+-- Sounds for the player at the table (frontend sounds: data/rdr3_discoveries/audio/frontend_soundsets). The game's
+-- poker set has no card or chip sounds, so these are your turn, your bet or fold, and winning.
+Config.Sounds = {
+    Enabled = true,
+    Set = 'RDRO_Poker_Sounds',
+    Turn = 'player_turn_countdown_start',
+    Bet = 'menu_select_bet',
+    Fold = 'menu_select_fold',
+    Win = 'showdown_win',
 }
 
 -- Table UI (phase 4): the panel shown while seated

@@ -54,6 +54,11 @@ DEPS['test_blackjack.lua'] = SERVER + ['server/play.lua', 'lua:Config.Npc.Enable
     'lua:Fake.resource = "grumpy-blackjack"', 'lib/init.lua', 'lib/cards.lua', 'lib/poker.lua', 'lib/npc_brain.lua', 'lib/server.lua',
     '../grumpy-blackjack/shared/config.lua', '../grumpy-blackjack/server/rules.lua', '../grumpy-blackjack/server/game.lua',
     'lua:Fake.resource = "grumpy-gambling"']
+# five-card draw: the core plus the grumpy-drawpoker resource
+DEPS['test_drawpoker.lua'] = SERVER + ['server/play.lua', 'lua:Config.Npc.Enabled = false', 'lua:GG.Ready = true',
+    'lua:Fake.resource = "grumpy-drawpoker"', 'lib/init.lua', 'lib/cards.lua', 'lib/poker.lua', 'lib/betting.lua', 'lib/npc_brain.lua',
+    'lib/server.lua', '../grumpy-drawpoker/shared/config.lua', '../grumpy-drawpoker/server/game.lua', 'lua:Fake.resource = "grumpy-gambling"']
+DEPS['test_seats.lua'] = DEPS['test_play.lua']
 # NPC system: the same, with NPCs on
 DEPS['test_npc.lua'] = [d for d in DEPS['test_play.lua'] if d != 'lua:Config.Npc.Enabled = false']
 if __name__ == '__main__':

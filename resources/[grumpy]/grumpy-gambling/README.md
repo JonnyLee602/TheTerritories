@@ -3,7 +3,7 @@
 The gambling core for The Territories: card tables, seating, stake tiers, chip stacks, the rake, NPC players and
 business tables, shared by small **game modules** (blackjack, poker, faro, …) that only define rules and odds.
 
-Version 0.8.0 (core complete, plus cards and animations for game modules) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
+Version 0.9.0 (core complete, plus cards, animations and card picking for game modules) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
 developers and [DESIGN.md](DESIGN.md) for the full design.
 
 This is a community script. It is **not** made or supported by the RSG authors.
@@ -13,9 +13,8 @@ This is a community script. It is **not** made or supported by the RSG authors.
 
 > **Status.** The core is complete (phases 1–7): tables and seating, chips/hands/rake/ledger, the **module library**
 > game modules are written with (`lib/`), the **table UI**, **NPC players**, and **business tables** for grumpy-pob
-> owners. Game modules: **grumpy-blackjack** (0.1.0). Five-card draw, hold'em, faro, roulette and poker dice come
-> next, each as its own resource. Dev servers: `grumpy-gambling-test` adds two test games, `/ggbot` overrides the NPC count,
-> and `Config.DevGames = true` adds placeholder games for trying chips.
+> owners. Game modules: **grumpy-blackjack** (0.1.0), **grumpy-drawpoker** (Five-Card Draw, 0.1.0). Hold'em, faro,
+> roulette and poker dice come next, each as its own resource. Dev servers: `Config.DevGames = true` adds the `/gga` and `/ggbot` commands.
 
 ## Features
 - **`/gambling` admin panel** (house style NUI):
@@ -40,6 +39,16 @@ This is a community script. It is **not** made or supported by the RSG authors.
 - **Chips (buy-in stacks).** When the game starts, each seated player buys chips with pocket money (cash or bloodmoney,
   the table's money) within the tier's buy-in range (13–26 big blinds). Press **G** to top up between hands. Standing
   up pays the chips back. A player who disconnects, or anything still owed after a restart, is paid on their next login.
+- **Sitting out:** a player who runs out of chips gets the Chips window to buy back in and is stood up (cashed out)
+  if they haven't within 45 seconds; a player who sits through 5 hands in a row without a single move is stood up
+  (warned after the 4th). Both keep seats free for people who want to play.
+- **A table that flows:** cards slide from the dealer (or the middle of a card table) to where they land, turn over
+  instead of popping, and are gathered back; the pot slides to whoever won it; NPC players and the dealer turn their
+  heads to whoever is acting; games pace their beats (a breath between turns, cards dealt one at a time in time with
+  the dealer's hands, showdowns turned up hand by hand); the panel eases new cards in, counts the pot up and lets the
+  feed lines arrive one at a time. Your turn, your bets and your wins have sounds.
+- **Whose turn:** a gold marker floats over the seat that's acting (an NPC thinking, or another player), for everyone
+  seated at that table.
 - **Chip stacks on the table.** Every player with chips gets a stack in front of their seat, one model per tier
   (Micro, Low, Mid, High), so people walking past can tell the stakes without sitting down.
 - **Crash-safe hands.** A hand's bets live in memory and are written in one database transaction when it settles. If the
@@ -141,7 +150,11 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `Currencies` | `cash`, `bloodmoney` | Table money types |
 | `Tiers` | micro, low, mid, high | Stakes per tier (blinds, buy-in range, NPC cap). See DESIGN.md §6 |
 | `Pvd.MaxBetMultiplier` | `10` | Dealer games: max bet = 10 × min bet |
-| `DevGames` | `false` | Dev servers: placeholder games, `/gga <action> [dollars]` to act, `/ggbot [n|clear|auto]` (admin) to override the NPC count |
+| `DevGames` | `false` | Dev servers: `/gga <action> [dollars]` to act, `/ggbot [n|clear|auto]` (admin) to override the NPC count |
+| `Seating.RebuySeconds` / `MissedHands` | `45` / `5` | Out of chips: time to buy back in before standing up; hands in a row without a move before standing up (0 = off) |
+| `Motion.SlideMs` / `FlipMs` / `CollectMs` / `PotMs` / `LookAt` | 280 / 260 / 340 / 700 / on | How cards and the pot move; heads turning to the acting seat |
+| `Sounds.*` | `RDRO_Poker_Sounds` | Turn, bet, fold and win sounds for the seated player (frontend sounds; set `Enabled = false` to mute) |
+| `TurnMarker.Enabled` / `Type` / `Height` / `Scale` / `Color` | on, halo pointer | The marker over the acting seat (marker types: data/rdr3_discoveries graphics/markers) |
 | `TableUI.AutoFocus` / `FeedLines` | `true` / `8` | Take the mouse on your turn; feed lines shown |
 | `Cards.Style` / `StyleByTable` / `Height` | `val` / `{}` / `0.805` | Deck look for cards on the table (val, bla, rho, camp, van, rrs, std_labastille, new), per table, and the table-top height |
 | `Business.Items` / `Models` | `gambling_table_pvp` / `pvd` | The two items and the models they place |

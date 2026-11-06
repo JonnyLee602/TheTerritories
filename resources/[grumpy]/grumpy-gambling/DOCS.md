@@ -1,6 +1,6 @@
 # grumpy-gambling — developer docs
 
-Version 0.8.0, core complete plus cards and animations for modules (foundation, money, module library, table UI, NPC players, business tables). The full design is in [DESIGN.md](DESIGN.md).
+Version 0.9.0, core complete plus cards, animations and card picking for modules (foundation, money, module library, table UI, NPC players, business tables). The full design is in [DESIGN.md](DESIGN.md).
 
 ## Contents
 1. Architecture
@@ -41,6 +41,7 @@ Version 0.8.0, core complete plus cards and animations for modules (foundation, 
 | `client/table.lua` | Table panel bridge: shows the view, takes the mouse on your turn (`GGC.MyTurn`), Esc / G focus, `act` callback |
 | `server/business.lua` | Business tables: items, placement checks, cashbox, owner panel, grumpy-pob events (owner changes, repossession, seizure, NPC moves), abandonment, owed items |
 | `client/business.lua` | Placing from the item (form + rsg-gizmo with a live NPC-distance check), the owner's panel, `GGC.MyTables` |
+| `client/turn.lua` | The marker over the acting seat (`public.turn` of the latest view; not your own seat) |
 | `client/anim.lua` | Seated animations: idle loop over the chair scenario for the local player and local NPC peds, one-off cue clips |
 | `server/npc.lua` | NPC players: seating rule, profiles (persona + tier + drunk + tilt), win-cap window, chatter, tells, regulars' memory, cardsharp call-outs; dev `/ggbot` |
 | `lib/npc_brain.lua` | Poker brain (strength, decisions, opponent tracker), PVD bet sizing, think time, cardsharp card swap |
@@ -214,6 +215,20 @@ GGLib.RegisterGame({ id = 'blackjack', label = locale('label'), kind = 'pvd', mi
   with the same key; `CancelTimer`, `CancelTimers(prefix)`), `GGLib.Fmt(cents)`, `GGLib.Cents(dollars)`.
 - **Money:** every chip the betting engine moves (`put` from `Post`/`Act`) goes to the core with `GGLib.Bet`. Give back
   `Uncalled()` with `GGLib.Return`. Settle with a ranking (PVP) or payouts (PVD). Never touch player money yourself.
+- **Pacing:** `GGLib.Beat(lo, hi)` (a random pause) and `GGLib.Seq(key):Do(fn):Wait(ms):Do(fn):Run()` (paced steps
+  under one timer key; a `Do` returning false stops it). Update the view and props at the moment a motion lands (e.g.
+  a card at ~40% of the dealer's reach), give each turn a beat before its actions appear (the turn marker and heads
+  move first), and settle a showdown after the hands are turned up so the pot slides with the winner's line.
+- **Face-down cards are only backs:** `card = { down = true }` is all clients get (rank and suit are dropped by the
+  core), so a modded client can't read hole cards from the props. Send the real card when it turns up; the client
+  flips it.
+- **The pot's destination:** at settle the core sends the props update with `potTo` = the biggest winner's seat, or
+  `'dealer'` when the house came out ahead; the client slides the pot there.
+- **Picking cards** (a draw): an action `{ id, pick = { max, aceMax? } }` makes the player's own cards clickable in
+  the panel; the action is sent with `amount` = a bitmask of the picked cards (card 1 = 1, card 2 = 2, card 3 = 4 …).
+  `aceMax`: more may be picked when the one card kept is an ace. The button reads "Draw N" / "Stand pat". Validate the
+  mask on the server (grumpy-drawpoker is the example).
+- **Brain bonus:** `ctx.bonus` adds to the brain's strength estimate (e.g. a drawing hand before the draw).
 - **Several hands per seat:** `seats[].hands = { { cards, label, active } }` draws one row per hand (blackjack
   splits); `public.dealerLabel` shows under the dealer's cards.
 - **Cards and animations on the table:** `GGLib.Props(tableId, list)`, `GGLib.SeatAnim(tableId, seat, anim)`,
@@ -266,6 +281,10 @@ database. Seats, game and tier are runtime only: a restart empties every table a
   withdrawals are conditional updates (never below zero; open hands' reserved cover can't be withdrawn). Ledger:
   `box_in` +, `box_out` -, `box_gov` - (repossessed clean box to the government account), `box_sink` - (repossessed
   dirty box destroyed), `box_seized` - (law seizure). The ledger still sums to stacks + boxes.
+- **Sitting out** (`server/seats.lua`): every player move through the action relay marks the seat as having acted;
+  `Seats.HandClosed` (after each settled hand, and rounds cancelled with no bets) counts hands without a move and
+  stands the player up at `Seating.MissedHands`. `Seats.CheckBroke` (every 3 s) offers the Chips window to a seated
+  player with no chips at an active table and stands them up after `Seating.RebuySeconds`.
 - **NPC money:** created when an NPC sits, destroyed when it leaves. At PVP the chips are real in the pot (players can
   win them, up to the cap). At PVD, NPC bets never reach the house: no rake, no cover, no house result.
 - **NPC win cap:** each hand with NPCs adds rows to `grumpy_gambling_npc_window` inside the settle transaction: what
@@ -360,12 +379,14 @@ amount)` (table items owed after an offline pack-up, given at login); tables use
 | "The table must stand inside your business" | Use the item within `MaxDistanceFromNpc` (+5 m) of the business's clerk; the ghost must stay inside that range |
 | Dealer table says the house can't cover bets | Put money in its cashbox (Manage table); each stake needs `PvdCoverMaxBets` × its max bet |
 | No "Manage table" option | Only the placer sees it, from the middle of the table, while not seated |
+| Players get stood up for "sitting out" | They made no move for `Seating.MissedHands` hands (set 0 to turn off); a game must route moves through the core's action relay |
+| No marker over the acting seat | `Config.TurnMarker.Enabled`; only seated players see it, and only when the game sets `public.turn` (blackjack's betting window has no turn) |
 | No NPCs sit down | `Config.Npc.Enabled`; the table needs a started game and a real player; a player at the NPC cap gets none (`GetNpcWindow`); one seat always stays free |
 | NPCs look the same everywhere / invisible | Outfit numbers pick a preset per model; a model with no presets falls back to a random outfit |
 | No tells | `Config.Npc.Tells.Chance` × the persona's `tells`, only when strength ≥ `Tells.Strong` or bluffing; High-tier NPCs and sharks show fewer by design. `Config.Debug` prints each cue in F8 |
 | Seated players look frozen | `Config.Anim.Enabled`; the module must call `GGLib.Cue` for moves; check F8 for anim dict load failures |
 | No "Call out cheat" option | Only at bloodmoney tables, only while seated at that table |
-| No Chips window | The table hasn't started a game (no module installed). Dev: `Config.DevGames = true` |
+| No Chips window | The table hasn't started a game: install a game module (grumpy-blackjack, grumpy-drawpoker …) |
 | "Owed to you from the card tables" on login | Chips from a disconnect or restart being paid back: expected |
 | How much has the rake removed? | `SELECT currency, -SUM(amount_c)/100 FROM grumpy_gambling_ledger WHERE kind = 'rake' GROUP BY currency` |
 | What are the current rates? | `grumpy_gambling_rake_rates` (tuned), else `Config.Rake.Seed`; the console logs each change |

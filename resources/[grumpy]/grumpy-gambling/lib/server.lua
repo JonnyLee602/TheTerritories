@@ -129,6 +129,36 @@ end
 
 function GGLib.CancelTimer(key) timers[key] = nil end
 
+-- A random pause (ms) between lo and hi: human-feeling gaps between beats
+function GGLib.Beat(lo, hi) return math.random(lo, hi or lo) end
+
+-- Paced steps under one timer key: GGLib.Seq(key):Do(fn):Wait(ms):Do(fn):Run(). Waits chain one after another; a
+-- Do that returns false stops the sequence (e.g. the hand it belonged to is gone). Cancel with GGLib.CancelTimer(key)
+-- (or CancelTimers on its prefix).
+function GGLib.Seq(key)
+    local s = { steps = {} }
+    function s:Do(fn) self.steps[#self.steps + 1] = { fn = fn } return self end
+    function s:Wait(ms) self.steps[#self.steps + 1] = { wait = ms } return self end
+    function s:Run()
+        local i = 0
+        local function nextStep()
+            i = i + 1
+            local st = self.steps[i]
+            if not st then return end
+            if st.wait then return GGLib.After(key, st.wait, nextStep) end
+            local ok, res = pcall(st.fn)
+            if not ok then
+                print(('^1[%s] sequence %s: %s^7'):format(GetCurrentResourceName(), tostring(key), tostring(res)))
+                return
+            end
+            if res == false then return end
+            nextStep()
+        end
+        nextStep()
+    end
+    return s
+end
+
 function GGLib.CancelTimers(prefix)
     for key in pairs(timers) do
         if tostring(key):sub(1, #prefix) == prefix then timers[key] = nil end

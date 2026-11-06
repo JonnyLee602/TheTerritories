@@ -28,6 +28,66 @@ function Seats.Stand(src, reason, dropped)
     return true
 end
 
+---------------------------------------------------------------------
+-- Sitting out: missed hands, and no chips
+---------------------------------------------------------------------
+-- After every hand: a player who was dealt in but made no move has missed it. After MissedHands in a row they're
+-- stood up (warned one hand before). Stood up a moment later, so the game finishes its own bookkeeping first.
+function Seats.HandClosed(t, h)
+    local limit = Config.Seating.MissedHands
+    for seat, s in pairs(h.seats) do
+        local occ = t.occupants[seat]
+        if not s.npc and not s.departed and occ and occ.src and occ.cid == s.cid then
+            if occ.acted then occ.missed = 0 else occ.missed = (occ.missed or 0) + 1 end
+            occ.acted = false
+            if limit and limit > 0 then
+                if occ.missed == limit - 1 then
+                    GG.Notify(occ.src, locale('missed_warn', occ.missed), 'error')
+                elseif occ.missed >= limit then
+                    local src, cid = occ.src, occ.cid
+                    SetTimeout(1500, function()
+                        local now = t.occupants[seat]
+                        if now and now.src == src and now.cid == cid and (now.missed or 0) >= limit then Seats.Stand(src, 'stood_missed') end
+                    end)
+                end
+            end
+        end
+    end
+end
+
+-- Out of chips at a running table: offer the chips window once, then stand up after RebuySeconds
+function Seats.CheckBroke(t)
+    if t.state ~= 'active' then return end
+    local wait = Config.Seating.RebuySeconds
+    if not wait or wait <= 0 then return end
+    local now = os.time()
+    for seat, occ in pairs(t.occupants) do
+        if occ.src then
+            if (occ.stack or 0) > 0 or GG.Hands.InHand(t.id, seat) then
+                occ.brokeSince = nil
+            elseif not occ.brokeSince then
+                occ.brokeSince = now
+                GG.Wallet.Offer(occ.src, t, occ)
+                GG.Notify(occ.src, locale('chips_rebuy', wait), 'inform')
+            elseif now - occ.brokeSince >= wait then
+                Seats.Stand(occ.src, 'stood_broke')
+            end
+        end
+    end
+end
+
+CreateThread(function()
+    while true do
+        Wait(3000)
+        if GG.Ready then
+            for _, t in pairs(GG.Tables.byId) do
+                local ok, err = pcall(Seats.CheckBroke, t)
+                if not ok then print('^1[grumpy-gambling] rebuy check: ' .. tostring(err) .. '^7') end
+            end
+        end
+    end
+end)
+
 function Seats.StandAll(t, reason)
     for seat, occ in pairs(t.occupants) do
         if occ.npc then GG.Npc.Remove(t, seat) else Seats.Stand(occ.src, reason) end

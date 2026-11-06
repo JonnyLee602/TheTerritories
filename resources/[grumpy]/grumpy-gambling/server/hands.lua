@@ -198,7 +198,17 @@ local function close(h)
     Hands.open[h.id] = nil
     if Hands.byTable[h.tableId] == h.id then Hands.byTable[h.tableId] = nil end
     local t = GG.Play and GG.Tables.Get(h.tableId)
-    if t then GG.Play.SetPot(t, false) end
+    if t then GG.Play.SetPot(t, false, h.potTo) end
+end
+
+-- Where the pot slides when a hand settles: the biggest winner, or the dealer when the house came out ahead
+local function potDestination(h, r)
+    if h.kind == 'pvd' and (r.house or 0) < 0 then return 'dealer' end
+    local best, bestAmount
+    for seat, a in pairs(r.awards) do
+        if a > 0 and (not bestAmount or a > bestAmount) then best, bestAmount = seat, a end
+    end
+    return best or (h.kind == 'pvd' and 'dealer' or nil)
 end
 
 function Hands.Cancel(handId, reason)
@@ -215,6 +225,8 @@ function Hands.Cancel(handId, reason)
         end
     end
     GG.Debug('hand cancelled', h.id, reason)
+    -- only a round nobody played counts toward missed hands (not a stopped table, a crash or a caught cheat)
+    if t and (reason == nil or reason == 'no_bets') then GG.Seats.HandClosed(t, h) end
     if t and GG.Npc then GG.Npc.AfterHand(t, nil) end
     return true
 end
@@ -340,6 +352,7 @@ function Hands.Settle(handId, result)
     end
 
     -- committed: bring memory in line
+    h.potTo = potDestination(h, r)
     close(h)
     local now = os.time()
     local chipsChanged = false
@@ -362,6 +375,7 @@ function Hands.Settle(handId, result)
         GG.Npc.CapApplied(npcWindow)
         GG.Npc.AfterHand(t, h, r.awards)
     end
+    GG.Seats.HandClosed(t, h)
     return true, { awards = r.awards, rake = r.rake, house = r.house, wagered = r.wagered }
 end
 

@@ -157,11 +157,18 @@ end
 
 local before = #F.hands
 local guard, potSeen, potLeft = 0, false, false
+local downSeen, downLeaks = 0, 0
 while #F.hands - before < 250 do
     guard = guard + 1
     if guard > 200000 then error('blackjack stalled after ' .. (#F.hands - before) .. ' rounds') end
     if not act() then Fake.Advance(500) end
     if GG.Play.pots[1] then potSeen = true end
+    for _, it in ipairs(GG.Play.TableProps(bj)) do
+        if it.card and it.card.down then
+            downSeen = downSeen + 1
+            if it.card.r or it.card.s then downLeaks = downLeaks + 1 end
+        end
+    end
     if GG.Play.pots[1] and not GG.Hands.ForTable(1) then potLeft = true end
     for seat, occ in pairs(bj.occupants) do
         local lim = GG.Wallet.Limits(bj)
@@ -179,6 +186,7 @@ for _, k in ipairs({ 'doubles', 'splits', 'insures', 'result_blackjack', 'busts'
     T.ok((seen[k] or 0) > 0, ('rounds saw %s (%d)'):format(k, seen[k] or 0))
 end
 T.ok(potSeen, 'the pot is on the table while a hand has bets')
+T.ok(downSeen > 0 and downLeaks == 0, ('face-down cards never tell clients what they are (%d seen)'):format(downSeen))
 T.ok(not potLeft, 'and never outlives its hand')
 local potItem
 for _, it in ipairs(GG.Play.TableProps(bj)) do if it.key == '_pot' then potItem = it end end

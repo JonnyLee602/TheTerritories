@@ -300,5 +300,13 @@
   "ui_biz_packup_note": "Takes the table back as an item and pays you the cashbox. Nobody may be seated.",
   "ui_biz_packup_confirm": "Pack up this table? The cashbox (%s) comes to you.",
   "ui_act_insurance": "Insurance",
-  "ui_act_no_insurance": "No insurance"
+  "ui_act_no_insurance": "No insurance",
+  "ui_act_draw_n": "Draw %s",
+  "ui_act_stand_pat": "Stand pat",
+  "ui_pick_hint": "Click the cards you want to throw away",
+  "chips_rebuy": "You're out of chips. Buy back in within %s seconds or you'll be stood up.",
+  "stood_broke": "You were out of chips and gave up your seat",
+  "missed_warn": "You've sat out %s hands in a row. Play the next one or you'll be stood up.",
+  "stood_missed": "You sat out too many hands and gave up your seat",
+  "ui_chips_short": "Chips %s"
 }
