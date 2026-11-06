@@ -317,6 +317,21 @@ RegisterNetEvent('rsg-doorlock:server:admin:teleported', function(id)
     if door then Webhook.AdminTeleport(src, door) end
 end)
 
+---------------------------------------------
+-- [grumpy-backroom hook] lock / unlock a door from another resource.
+-- The state is NOT saved: a restart restores the database state (grumpy-backroom re-applies its open rooms).
+---------------------------------------------
+exports('SetDoorState', function(doorID, locked)
+    local door = ready and Doors[tonumber(doorID) or -1]
+    if not door then return false end
+    locked = locked == true
+    if door.locked ~= locked then
+        door.locked = locked
+        TriggerClientEvent('rsg-doorlock:client:setState', -1, door.id, locked)
+    end
+    return true
+end)
+
 AddEventHandler('playerDropped', function()
     lastUse[source] = nil
 end)
