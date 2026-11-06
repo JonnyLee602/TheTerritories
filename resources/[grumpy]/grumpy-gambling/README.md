@@ -1,18 +1,20 @@
 # grumpy-gambling
 
-The gambling core for The Territories: card tables, seating, stake tiers and (in later phases) stacks, rake, NPC players
-and business tables, shared by small **game modules** (blackjack, poker, faro, …) that only define rules and odds.
+The gambling core for The Territories: card tables, seating, stake tiers, chip stacks, the rake, NPC players and
+business tables, shared by small **game modules** (blackjack, poker, faro, …) that only define rules and odds.
 
-Version 0.6.0 (**phase 6 of 7: business tables**) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
+Version 0.7.0 (**core complete**, phases 1–7) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
 developers and [DESIGN.md](DESIGN.md) for the full design.
 
 This is a community script. It is **not** made or supported by the RSG authors.
 
-**Dependencies:** `rsg-core`, `rsg-target`, `rsg-gizmo`, `oxmysql`
+**Dependencies:** `rsg-core`, `rsg-target`, `rsg-gizmo`, `rsg-inventory`, `oxmysql`. Optional: `grumpy-pob` 1.2.0+
+(business tables), `rsg-weather` (drunk NPCs in the evening).
 
-> **Status.** Phases 1–6 are built: tables and seating, chips/hands/rake/ledger, the **module library** game modules
-> are written with (`lib/`), the **table UI**, **NPC players**, and **business tables** for grumpy-pob owners. No real game modules are released yet (blackjack,
-> poker, faro … come next). Dev servers: `grumpy-gambling-test` adds two test games, `/ggbot` overrides the NPC count,
+> **Status.** The core is complete (phases 1–7): tables and seating, chips/hands/rake/ledger, the **module library**
+> game modules are written with (`lib/`), the **table UI**, **NPC players**, and **business tables** for grumpy-pob
+> owners. No game modules are released yet: blackjack, five-card draw, hold'em, faro, roulette and poker dice come
+> next, each as its own resource. Dev servers: `grumpy-gambling-test` adds two test games, `/ggbot` overrides the NPC count,
 > and `Config.DevGames = true` adds placeholder games for trying chips.
 
 ## Features
@@ -106,7 +108,15 @@ This is a community script. It is **not** made or supported by the RSG authors.
    Game modules go **after** `grumpy-gambling`.
 3. Database: tables are created automatically. To install them by hand, set `Config.AutoDatabase = false` and import
    `install.sql`.
-4. In game: `/gambling` → **New table**.
+4. Business tables: add the two items to `rsg-core/shared/items.lua` and their images
+   (`gambling_table_pvp.png`, `gambling_table_pvd.png`) to `rsg-inventory/html/images`, and run grumpy-pob 1.2.0+
+   (it sells them in the manager's Gambling tab):
+   ```lua
+   gambling_table_pvp = { name = 'gambling_table_pvp', label = 'Card Table', weight = 15000, type = 'item', image = 'gambling_table_pvp.png', unique = true, useable = true, shouldClose = true, description = 'A saloon card table and chairs. Set it up in a business you own.', category = 'business', },
+   gambling_table_pvd = { name = 'gambling_table_pvd', label = "Dealer's Table", weight = 15000, type = 'item', image = 'gambling_table_pvd.png', unique = true, useable = true, shouldClose = true, description = "A dealer's table for games against the house. Set it up in a business you own.", category = 'business', },
+   ```
+   Restart the whole server after adding items (rsg-inventory only sees new items after rsg-core and it restart).
+5. In game: `/gambling` → **New table**.
 
 ## Configuration (`shared/config.lua`)
 | Option | Default | Description |
@@ -156,7 +166,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `Rake.MaxDailyStep` / `MinSamples` / `WindowDays` / `TuneEveryHours` | `0.0025` / `200` / `7` / `24` | How fast and from how much play the tuner moves a rate |
 | `Rake.FreeTiers` / `Pinned` | micro / none | Tiers with no rake; fixed rates that skip the tuner (`['pvp:low:holdem'] = 0.04`) |
 | `Rake.Pvp.MaxPerHandBB` | `3` | Safety cap on rake per poker hand, in big blinds |
-| `Rake.BusinessShare` | pvp `0.5`, pvd `0.0` | Business tables (phase 6): share of the rake to the owner's cashbox |
+| `Rake.BusinessShare` | pvp `0.5`, pvd `0.0` | Business tables: share of the rake to the owner's cashbox (the rest is destroyed) |
 
 Table models and their seat layouts are in `shared/models.lua` (seed values; calibrate in game). **Place new table**
 offers the Smithfields saloon card table (`p_tablepoker01x` with `p_windsorchair03x` chairs) for PVP and
@@ -170,10 +180,20 @@ offers the Smithfields saloon card table (`p_tablepoker01x` with `p_windsorchair
    chair should be, facing the table (and the dealer for PVD). Right click cancels.
 3. Close (hide) or delete tables from the same screen.
 
+**Business owners** (grumpy-pob): Manage business → **Gambling** tab → buy a Card Table or Dealer's Table → use the
+item inside your business → name it, pick the money → place it. Target the middle of your table → **Manage table**
+for the cashbox, stakes, NPCs, name, open/closed, move and pack up. Fund a dealer's table before players arrive.
+
 **Players:** walk up to a seat → **Sit down**. The first player picks the game and stakes. Everyone then buys chips
 in the Chips window. The table panel shows the game; on your turn click your move (Esc to look around, **G** to come
 back). **G** also opens the game picker (while choosing) or the Chips window (to top up between hands). Hold **R** to
-stand up and cash out.
+stand up and cash out. At a back-room (bloodmoney) table, target an NPC you think is cheating → **Call out cheat**.
+
+| Command | Who | What |
+|---|---|---|
+| `/gambling` | `Config.AdminPermission` | Admin panel: place, bind, calibrate, rename, open/close, delete tables |
+| `/gga <action> [dollars]` | anyone seated, dev only (`Config.DevGames`) | Type a move instead of clicking it |
+| `/ggbot [n|clear|auto]` | admin, dev only (`Config.DevGames`) | Override the NPC count at your table |
 
 ## Developer example
 ```lua

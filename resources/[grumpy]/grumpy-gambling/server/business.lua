@@ -217,7 +217,7 @@ function Biz.PackUp(t, src, why)
     end
     local item = B.Items[t.kind]
     local given = false
-    if src and item then
+    if src and item and exports['rsg-inventory']:CanAddItem(src, item, 1) then
         given = exports['rsg-inventory']:AddItem(src, item, 1, nil, nil, 'grumpy-gambling:packup') == true
     end
     if item and not given then GG.DB.PendingItemAdd(cid, item, 1) end
@@ -358,7 +358,8 @@ end)
 function Biz.GiveOwed(Player)
     local src = Player.PlayerData.source
     for _, r in ipairs(GG.DB.PendingItems(Player.PlayerData.citizenid)) do
-        if exports['rsg-inventory']:AddItem(src, r.item, r.amount, nil, nil, 'grumpy-gambling:owed') then
+        if exports['rsg-inventory']:CanAddItem(src, r.item, r.amount)
+            and exports['rsg-inventory']:AddItem(src, r.item, r.amount, nil, nil, 'grumpy-gambling:owed') then
             GG.DB.PendingItemDone(r.id)
             GG.Notify(src, locale('biz_item_returned'), 'success')
         end

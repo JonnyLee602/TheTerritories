@@ -1,6 +1,6 @@
 # grumpy-gambling — developer docs
 
-Version 0.6.0, phases 1–6 (foundation, money, module library, table UI, NPC players, business tables). The full design, including later phases, is in [DESIGN.md](DESIGN.md).
+Version 0.7.0, core complete (foundation, money, module library, table UI, NPC players, business tables). The full design is in [DESIGN.md](DESIGN.md).
 
 ## Contents
 1. Architecture
@@ -28,7 +28,7 @@ Version 0.6.0, phases 1–6 (foundation, money, module library, table UI, NPC pl
 | `server/registry.lua` | Game module registry (`RegisterGame`, `GetGames`), module stop handling |
 | `server/tables.lua` | Table registry, profiles + calibration, persistence, lifecycle (empty → setup → active), sync |
 | `server/rake.lua` | Current rates, per-table remainders, buffered play stats, the daily tuner, `GetRakeRate` |
-| `server/house.lua` | Who pays dealer-game wins: the server (public/Micro) or a cashbox (business, phase 6) and its cover check |
+| `server/house.lua` | Who pays dealer-game wins: the server (public/Micro) or a cashbox (business tables) and its cover check |
 | `server/hands.lua` | The hand API: `BeginHand`, `Bet`, `Return`, `SetRakeable`, `Settle`, `CancelHand`, `GetHand`, `GetSeats` |
 | `server/wallet.lua` | Buy-in / top-up, cash-out, payouts owed to offline players, restart recovery, Chips window |
 | `server/seats.lua` | Sit / stand (cashing out), one seat per player, setup choice, disconnects, sync callback |
@@ -145,7 +145,7 @@ No client exports.
 
 `seatTaken` / `seatLeft` also fire for NPCs, with `src = nil`.
 
-Phase 3 adds the hand API and wraps these in the module library (DESIGN.md §11).
+The module library wraps these for game modules (`GGLib.RegisterGame` handlers, DESIGN.md §11).
 
 ## 5. Callbacks and net events
 | Name | Side | Notes |
@@ -298,10 +298,10 @@ grumpy_gambling_tables (id, label, kind, source, model, bound, x, y, z, h, curre
                         seats JSON, dealer JSON, settings JSON, enabled, created_by, created_at)
 grumpy_gambling_models (model PK, data JSON, updated_by, updated_at)   -- model calibrations
 ```
-`business_id`, `owner_cid` and `settings` are reserved for business tables (phase 6).
+`business_id`, `owner_cid` and `settings` are used by business tables.
 Money tables (cents in `_c` columns): `grumpy_gambling_stacks` (one row per seated character), `grumpy_gambling_pending`
 (owed, paid at login), `grumpy_gambling_hands` (settled hands), `grumpy_gambling_ledger`, `grumpy_gambling_cashboxes`
-(phase 6), `grumpy_gambling_rake_remainder`, `grumpy_gambling_rake_stats` (tuner input), `grumpy_gambling_rake_rates`
+(business tables), `grumpy_gambling_rake_remainder`, `grumpy_gambling_rake_stats` (tuner input), `grumpy_gambling_rake_rates`
 (tuner output). NPCs: `grumpy_gambling_npc_window (id, citizenid, ts, amount_c)` (purged after the window) and
 `grumpy_gambling_regular_memory (regular_id, citizenid, hands, net_c, last_seen)` (saved as increments). Business:
 `grumpy_gambling_box_stats (table_id, rake_c, house_c, hands)`, `grumpy_gambling_pending_items (citizenid, item,

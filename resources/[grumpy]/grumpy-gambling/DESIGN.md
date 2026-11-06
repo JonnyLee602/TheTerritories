@@ -1,7 +1,7 @@
 # grumpy-gambling — core design
 
-Status: **phases 1–5 built and tested in game; phase 6 (business tables) built** 2026-11-06 as v0.6.0 (tested in
-Lua 5.4 with a fake grumpy-pob, not yet played in game); phase 7 to do. Phase 3 was tested in real Lua 5.4 (`tests/`, incl. the test games
+Status: **core complete** 2026-11-06 as v0.7.0: phases 1–6 built and tested in game, phase 7 (audit, docs,
+compliance) done. Next: game modules (§15). Phase 3 was tested in real Lua 5.4 (`tests/`, incl. the test games
 playing full hands through the core). Phase 3 adds
 `server/play.lua` (views, action relay, stakes) and the dev-only `grumpy-gambling-test` resource; `lib/flow.lua`
 became timers in `lib/server.lua`, and the NPC brain moves to phase 5. Layout additions to §4.2:
@@ -600,22 +600,25 @@ hours) · `Config.Business` (items, `MaxDistanceFromNpc`, `MaxTables`, `AbandonD
 | 6. Business | Items, placement checks, cashbox, owner settings, limits, grumpy-pob exports and hooks, ownership loss, repossession, back-room rule | Owner places and runs tables; repossession test |
 | 7. Wrap-up | README, DOCS, audit checklist, compliance, recipe + live deploy | Checklist passes |
 
+All seven phases done (2026-11-05 to 2026-11-06): v0.1.0 – v0.7.0, each tested in real Lua 5.4 (`tests/`, 313
+assertions with money conservation checked after every step) and phases 1–6 played in game on the dev server.
+
 **Modules after the core** (suggested order): Blackjack (PVD) · Five-Card Draw (PVP, period-correct) ·
 Texas Hold'em (PVP) · Faro (PVD, *the* 1890s saloon game) · Roulette (PVD, replaces rsg-roulette) · Poker dice.
 
 ## 16. Open items
-- Item labels, prices (asset purchase, clean cash; suggest scaling from the heavy-rifle anchor $25–40) and where
-  they're sold.
-- Micro tables: locations and which is PVP vs PVD.
-- PVD maximum bet multiplier (draft 10×).
-- `Config.Rake.Pvd.OwnerShare` (draft 0%, option 25%).
-- Rake tuner bounds: `MinRate`/`MaxRate` per tier × kind and `MaxDailyStep` (drafts: PVP 1–7%, PVD 0.25–3%;
-  step 0.25 percentage points a day).
-- NPC cap window: 60 or 90 minutes (built with 90; one config value).
-- Cardsharp call-out consequences.
-- Seat/dealer/prop anchors: measure in game per model (calibration tool).
-- Saint Denis card style: NT uses `01x_std_labastille`; the object list shows `..._std` — check in game.
-- Removing rsg-roulette once the roulette module exists.
+Settled while building: item labels (Card Table, Dealer's Table) and seller (grumpy-pob manager "Gambling" tab);
+PVD max bet 10× (in use); `BusinessShare.pvd` 0% (the box keeps the house result instead); NPC cap window 90 min;
+cardsharp call-outs (§8.7 as built); anchors are calibrated in game per model.
+
+Still open:
+- Table prices: $150 / $250 drafts (grumpy-pob `Config.Gambling.Prices`), no doctrine band yet.
+- Micro tables: locations and which is PVP vs PVD (admins place them with `/gambling`, max 2).
+- Rake tuner bounds (`MinRate`/`MaxRate`/`MaxDailyStep`): watch the stats after launch.
+- grumpy-pob's audit screen could list a business's cashboxes (`GetBusinessCashboxes` is ready).
+- Saint Denis card style (`01x_std_labastille` vs `..._std`): check when the card props come with the poker modules.
+- Not yet seen in game: a bloodmoney table with a cardsharp call-out.
+- Removing rsg-roulette once the roulette module exists (doctrine gap 9).
 
 ## 17. Sources
 | Value | File |

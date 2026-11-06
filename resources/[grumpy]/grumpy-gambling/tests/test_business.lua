@@ -25,6 +25,7 @@ exports('GetBusiness', function(id) if id == 7 then return { id = 7, owned = pob
 exports('AddGovMoney', function(amount) pob.gov = pob.gov + math.floor(amount * 100 + 0.5); pob.govCalls = pob.govCalls + 1; return true end)
 exports('IsReady', function() return true end)
 Fake.resource = 'rsg-inventory'
+exports('CanAddItem', function(src) return not full[src] end)
 exports('GetItemCount', function(src, item) return (inv[src] or {})[item] or 0 end)
 exports('RemoveItem', function(src, item, n)
     local have = (inv[src] or {})[item] or 0

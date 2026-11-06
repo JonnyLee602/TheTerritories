@@ -5,7 +5,7 @@ lua54 'yes'
 
 name 'grumpy-gambling'
 description 'Gambling core: tables, seating, tiers, stacks, rake and NPCs shared by grumpy-gambling game modules'
-version '0.6.0'
+version '0.7.0'
 
 shared_scripts {
     '@rsg-core/shared/locale.lua',
@@ -58,5 +58,6 @@ dependencies {
     'rsg-core',
     'rsg-target',
     'rsg-gizmo',
+    'rsg-inventory',
     'oxmysql',
 }
