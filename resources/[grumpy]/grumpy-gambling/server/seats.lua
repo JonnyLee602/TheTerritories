@@ -10,13 +10,20 @@ function Seats.Stand(src, reason, dropped)
     if not s then return false end
     Seats.bySrc[src] = nil
     local t = GG.Tables.Get(s.id)
+    local cashed = 0
     if t and t.occupants[s.seat] and t.occupants[s.seat].src == src then
+        local occ = t.occupants[s.seat]
+        GG.Hands.SeatLeaving(t.id, s.seat)          -- bets already in an open hand stay there
+        cashed = GG.Wallet.CashOut(t, s.seat, occ, dropped)
         t.occupants[s.seat] = nil
         GG.Tables.OnSeatLeft(t, s.seat, src)
     end
     if not dropped then
         TriggerClientEvent('grumpy-gambling:client:stood', src)
         if reason then GG.Notify(src, locale(reason), 'inform') end
+        if cashed > 0 and t then
+            GG.Notify(src, locale('chips_cashed_out', GG.M.Fmt(cashed), locale('currency_' .. t.currency)), 'success')
+        end
     end
     return true
 end
@@ -43,10 +50,11 @@ RegisterNetEvent('grumpy-gambling:server:sit', function(tableId, seat)
         return GG.Notify(src, locale('too_far'), 'error')
     end
 
-    t.occupants[seat] = { src = src, cid = Player.PlayerData.citizenid, name = GG.CharName(src) }
+    t.occupants[seat] = { src = src, cid = Player.PlayerData.citizenid, name = GG.CharName(src), stack = 0 }
     Seats.bySrc[src] = { id = t.id, seat = seat }
     TriggerClientEvent('grumpy-gambling:client:seated', src, t.id, seat)
     GG.Tables.OnSeatTaken(t, seat, src)
+    if t.state == 'active' then GG.Wallet.Offer(src, t, t.occupants[seat]) end
 end)
 
 RegisterNetEvent('grumpy-gambling:server:stand', function()

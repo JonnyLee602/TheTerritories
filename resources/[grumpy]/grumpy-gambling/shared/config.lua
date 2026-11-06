@@ -2,6 +2,8 @@ Config = {}
 
 Config.Debug = false
 Config.AutoDatabase = true                 -- create tables from install.sql on start
+Config.DevGames = false                    -- dev servers only: placeholder "Test (no gameplay)" games so tables can start
+                                           -- and buy-in / cash-out can be tried before any game module is installed
 
 ---------------------------------------------------------------------
 -- Admin
@@ -40,6 +42,21 @@ Config.HideMapChairs = {
         'p_chairpokerfancy01x',
         'p_gen_chairpokerfancy01x',
     },
+}
+
+-- A chip stack on the table in front of every player with chips, one model per tier, so people walking past can
+-- tell the stakes. Models: data/rdr3_discoveries/objects/object_list.lua (s_minigame.rpf).
+Config.ChipStacks = {
+    Enabled = true,
+    Models = {
+        micro = 'p_chips_la_bas02x',
+        low = 'p_crd_chips040x',
+        mid = 'p_crd_chips440x',
+        high = 'p_crd_chips449x',
+    },
+    Forward = 0.6,                         -- metres from the chair toward the table (NT puts bet chips ~0.68 m out)
+    Height = 0.80,                         -- metres above the floor, about the table top (a model can override both:
+                                           -- chipForward / chipHeight in shared/models.lua)
 }
 
 Config.Dealer = {
@@ -111,4 +128,37 @@ Config.Tiers = {
 
 Config.Pvd = {
     MaxBetMultiplier = 10,                     -- PVD max bet = 10 × min bet (min bet = the tier's big blind)
+}
+
+---------------------------------------------------------------------
+-- Money (DESIGN.md §7). Amounts inside the core are integer cents.
+---------------------------------------------------------------------
+Config.Money = {
+    SavePlayer = true,                     -- rsg-core Player.Functions.Save() after a buy-in or cash-out
+    BuyInStep = 'smallBlind',              -- the buy-in slider moves in small blinds
+}
+
+---------------------------------------------------------------------
+-- Rake (DESIGN.md §6.3, approved 2026-11-05). Taken out of every bet; auto-tuned so the average player loses
+-- about Target units per player-hour: big blinds at PVP, minimum bets at PVD (the game's own edge counts).
+-- About half what a real card room takes (5–6 BB/h). Launch gentle, raise Target in 0.5 steps if money piles up.
+---------------------------------------------------------------------
+Config.Rake = {
+    Target = { pvp = 3.0, pvd = 2.5 },
+    FreeTiers = { micro = true },          -- practice tables never pay rake
+    -- starting rates until a tier/kind/game has MinSamples hands (assumptions in DESIGN.md §6.3)
+    Seed = {
+        pvp = { low = 0.044, mid = 0.033, high = 0.027 },
+        pvd = { low = 0.016, mid = 0.011, high = 0.0075 },   -- tuned for blackjack (edge ~0.5%)
+    },
+    MinRate = { pvp = 0.01, pvd = 0.0025 }, -- the PVD floor keeps cashboxes and the sink fed
+    MaxRate = { pvp = 0.07, pvd = 0.03 },
+    MaxDailyStep = 0.0025,                 -- a rate moves at most 0.25 percentage points per tuning run
+    MinSamples = 200,                      -- hands in the window before a rate is tuned
+    WindowDays = 7,                        -- stats window the tuner reads
+    TuneEveryHours = 24,
+    Pinned = {},                           -- fixed rates that skip the tuner, e.g. ['pvp:low:holdem'] = 0.04
+    Pvp = { MaxPerHandBB = 3 },            -- safety cap on rake per hand, in big blinds
+    -- business tables (phase 6): share of the rake that goes to the owner's cashbox; the rest is destroyed
+    BusinessShare = { pvp = 0.5, pvd = 0.0 },
 }

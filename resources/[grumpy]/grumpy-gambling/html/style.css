@@ -99,3 +99,5 @@ select option { background:#141414; }
 .modal-wrap { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:transparent; }
 .modal-title { text-align:center; font-size:18px; }
 .snippet { width:100%; height:180px; resize:none; white-space:pre; overflow:auto; font-family:Consolas, monospace; font-size:11.5px; line-height:1.4; user-select:text; }
+.amount { text-align:center; font-size:24px; font-weight:700; letter-spacing:1px; margin:2px 0 6px; }
+input[type=range] { padding:0; height:6px; accent-color:#bdbdbd; margin:8px 0; }

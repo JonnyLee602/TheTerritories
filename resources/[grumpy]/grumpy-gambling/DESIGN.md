@@ -1,7 +1,9 @@
 # grumpy-gambling — core design
 
-Status: **phase 1 (foundation) built** 2026-11-05 as v0.1.0, untested in game; phases 2–7 to do. Phase 1 also added
-`shared/geometry.lua` (table-local maths) and `server/registry.lua` (module registry) to the layout in §4.2. This file is the contract every
+Status: **phase 1 (foundation) built and tested in game; phase 2 (money) built** 2026-11-05 as v0.2.0, unit- and
+integration-tested in real Lua 5.4 (`tests/`), not yet played in game; phases 3–7 to do. Layout additions to §4.2:
+`shared/geometry.lua`, `server/registry.lua` (phase 1); `server/money.lua` (pure maths), `server/db.lua` (all money SQL),
+`server/wallet.lua` (stacks) (phase 2). `server/hands.lua`, `rake.lua`, `house.lua` as planned. This file is the contract every
 game module is built against. Update it whenever a decision changes.
 
 ---
@@ -280,11 +282,18 @@ Currencies never mix: every account entry carries the table's currency.
   (`pending`). **Resource stop / crash:** unsettled hands are refunded into stacks, stacks are paid to online
   players, offline ones go to `pending`.
 
-### 7.3 Hands
-- `BeginHand` writes a hand row. `Bet` moves stack → pot (minus skim). `Return` gives back uncalled bets (and their
-  skim). `Settle` pays out and closes the hand.
-- Contributions are written per betting round so a crash can always refund to the last consistent point.
-- **Side pots** are built by `lib/betting.lua` from contributions; the core settles each pot separately.
+### 7.3 Hands (as built in phase 2)
+- **Integer cents** everywhere inside the core; dollars only at rsg-core (`AddMoney`/`RemoveMoney`).
+- `BeginHand` opens a hand **in memory**. `Bet` records bets against the live stack. Nothing is written until
+  **`Settle`**, which commits every stack, payouts owed, the rake remainder, the cashbox, the hand row and the ledger in
+  **one database transaction**. A crash mid-hand therefore leaves everyone's pre-hand stack: the hand never happened.
+  (This replaces the planned "write contributions per betting round and refund open hands on boot".)
+- **PVP rake** is computed at settlement from the hand's total bets (same result as skimming each bet; an uncalled bet
+  handed back with `Return` simply never pays it). The pot players see (`GetHand().pot`) is already net of it.
+- **Side pots** are built by the core (`server/money.lua`) from the bets; the module only ranks the live seats
+  (`{ {best}, {tied, tied}, ... }`) and the core splits each pot, odd cents by `oddOrder` or seat order.
+- **PVD:** the rake comes out of each bet as it's placed; the rest is the stake, and `Settle` takes the total paid back
+  to each seat (capped at stake × the game's `maxPayout`).
 
 ### 7.4 Rake: out of every bet
 The bet amount never changes: a $1 bet takes $1 from the stack. The rake (§6.3 rate, through the table's rake
@@ -471,10 +480,11 @@ exports['grumpy-gambling']:RegisterGame({
 | `tableStopping` | tableId, reason | Finish or cancel the hand |
 
 ### 11.3 Module → core (lib wrappers over exports)
-`GG.BeginHand(tableId)` → handId · `GG.Bet(handId, seat, amount)` → ok, net · `GG.Return(handId, seat, amount)` ·
-`GG.Reserve(handId, seat, maxPayout)` (PVD) · `GG.SetRakeable(handId, bool)` · `GG.Settle(handId, results)` ·
-`GG.Cancel(handId, reason)` · `GG.View(tableId, publicView, privateViews)` · `GG.Cue(tableId, cue)` ·
-`GG.Stand(tableId, seat)` · `GG.Seats(tableId)` · `GG.Tier(tableId)`.
+Built in phase 2 as exports (cents): `BeginHand(tableId)` → handId · `Bet(handId, seat, cents)` → ok, net ·
+`Return(handId, seat, cents)` · `SetRakeable(handId, bool)` · `Settle(handId, { ranking | payouts })` ·
+`CancelHand(handId, reason)` · `GetHand(handId)` · `GetSeats(tableId)` · `GetRakeRate(tableId)`.
+PVD cover is reserved automatically inside `Bet` (no separate `Reserve`). Phase 3 adds the lib wrappers and
+`View(tableId, publicView, privateViews)` · `Cue(tableId, cue)` · `Stand(tableId, seat)` · `Tier(tableId)`.
 
 ### 11.4 View model (sent to the NUI shell)
 ```lua
@@ -500,14 +510,16 @@ grumpy_gambling_tables     (id, kind, source, model, bound, x, y, z, rx, ry, rz,
                             business_id, owner_cid, settings JSON, state, created_at)
 grumpy_gambling_cashboxes  (table_id PK, currency, balance DECIMAL(14,2))
 grumpy_gambling_stacks     (citizenid PK, table_id, currency, amount DECIMAL(14,2), updated_at)
-grumpy_gambling_hands      (id, table_id, game, tier, started_at, settled_at, data JSON)   -- open rows refunded on boot
+grumpy_gambling_hands      (id, table_id, game, tier, currency, started_at, settled_at, wagered_c, rake_c, house_c, data JSON)
+                                                                                -- written only when a hand settles
 grumpy_gambling_ledger     (id, ts, table_id, hand_id, kind, from_acc, to_acc, amount, currency, cid, note)
 grumpy_gambling_pending    (citizenid, currency, amount)
 grumpy_gambling_npc_window (citizenid, ts, amount)
 grumpy_gambling_regulars   (id, name, gender, model, outfit, personality, skill, home_table, traits JSON)
 grumpy_gambling_regular_memory (regular_id, citizenid, hands, net, last_seen)
-grumpy_gambling_rake_stats (day, tier, kind, game, hands, seat_minutes, wagered, avg_stack, rate)  -- rake tuner input/output
-grumpy_gambling_rake_remainder (table_id PK, remainder DECIMAL(12,6))
+grumpy_gambling_rake_stats (day, tier, kind, game, hands, wagered_c, player_seconds, rake_c)   -- tuner input
+grumpy_gambling_rake_rates (tier, kind, game, rate, samples)                                   -- tuner output
+grumpy_gambling_rake_remainder (table_id PK, remainder DOUBLE)
 ```
 The ledger records money in and out (buy-in, cash-out, cashbox, rake, mint, sink, refunds) and one line per settled
 hand, not every bet.

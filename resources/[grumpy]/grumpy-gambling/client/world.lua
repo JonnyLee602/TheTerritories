@@ -18,6 +18,7 @@ local function despawn(id)
     for _, c in ipairs(w.chairs) do deleteEntity(c) end
     for _, f in ipairs(w.frozen) do if DoesEntityExist(f) then FreezeEntityPosition(f, false) end end
     for _, hd in ipairs(w.hidden) do RemoveModelHide(hd.x, hd.y, hd.z, hd.r, hd.model, false) end
+    for _, c in pairs(w.chipProps or {}) do deleteEntity(c.obj) end
     deleteEntity(w.dealer)
     deleteEntity(w.obj)
     world[id] = nil
@@ -123,8 +124,37 @@ local function hideMapChairs(t, w)
     end
 end
 
+-- Chip stacks: one in front of every seat with chips, using the tier's model (Config.ChipStacks)
+local function updateChips(t, w)
+    w.chipProps = w.chipProps or {}
+    local cfg = Config.ChipStacks
+    local model = cfg and cfg.Enabled and t.tier and cfg.Models[t.tier] or nil
+    for i = 1, #t.seats do
+        local want = model and t.chips and t.chips[i] and model or nil
+        local have = w.chipProps[i]
+        if have and have.model ~= want then
+            deleteEntity(have.obj)
+            w.chipProps[i], have = nil, nil
+        end
+        if want and not have then
+            local slot = { model = want }       -- claim the seat before loading (loading yields)
+            w.chipProps[i] = slot
+            local x, y, z, h = GGC.SeatWorld(t, i)
+            local fwd = t.chipForward or cfg.Forward
+            local a = math.rad(h)
+            local obj = spawnObject(want, x - math.sin(a) * fwd, y + math.cos(a) * fwd, z + (t.chipHeight or cfg.Height), h)
+            if obj then SetEntityCollision(obj, false, false) end
+            if w.chipProps[i] == slot and world[t.id] == w then
+                slot.obj = obj
+            else
+                deleteEntity(obj)                -- the seat changed or the table despawned while loading
+            end
+        end
+    end
+end
+
 local function spawn(t)
-    local w = { key = geometryKey(t), chairs = {}, zones = {}, frozen = {}, hidden = {} }
+    local w = { key = geometryKey(t), chairs = {}, zones = {}, frozen = {}, hidden = {}, chipProps = {} }
     world[t.id] = w
     if not t.bound then
         hideMapChairs(t, w)
@@ -144,6 +174,7 @@ local function spawn(t)
         w.dealer, chair = spawnDealer(t)
         if chair then w.chairs[#w.chairs + 1] = chair end
     end
+    updateChips(t, w)
     for i = 1, #t.seats do
         local x, y, z = GGC.SeatWorld(t, i)
         w.zones[#w.zones + 1] = exports['rsg-target']:addSphereZone({
@@ -173,7 +204,11 @@ end
 
 AddEventHandler('grumpy-gambling:client:tableChanged', function(id)
     local t = GGC.Tables[id]
-    if t then updateBlip(t) end
+    if not t then return end
+    updateBlip(t)
+    -- chip stacks follow buy-ins, busts and cash-outs (only for tables spawned near us, same geometry)
+    local w = world[id]
+    if w and w.key == geometryKey(t) then CreateThread(function() updateChips(t, w) end) end
 end)
 
 AddEventHandler('grumpy-gambling:client:tableRemoved', function(id)

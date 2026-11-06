@@ -28,6 +28,8 @@ local function applyProfile(t)
     local base = Models[t.model] or {}
     local mo = Tables.modelOverrides[t.model] or {}
     t.chair = base.chair
+    t.chipForward = base.chipForward
+    t.chipHeight = base.chipHeight
     t.sitZ = base.sitZ or 0.5
     t.chairYaw = base.chairYaw or 0.0
     t.seats = copyOffsets(t.seatsOverride) or copyOffsets(mo.seats) or copyOffsets(base.seats) or {}
@@ -100,13 +102,18 @@ local function gameLabel(t)
 end
 
 function Tables.Public(t)
-    local occupied = {}
-    for i = 1, #t.seats do occupied[i] = t.occupants[i] ~= nil end
+    local occupied, chips = {}, {}
+    for i = 1, #t.seats do
+        occupied[i] = t.occupants[i] ~= nil
+        chips[i] = t.occupants[i] ~= nil and (t.occupants[i].stack or 0) > 0
+    end
     return {
         id = t.id, label = t.label, kind = t.kind, source = t.source, model = t.model, bound = t.bound,
         x = t.x, y = t.y, z = t.z, h = t.h, currency = t.currency, fixedTier = t.fixedTier, enabled = t.enabled,
         seats = t.seats, dealer = t.dealer, chair = t.chair, sitZ = t.sitZ, chairYaw = t.chairYaw,
-        state = t.state, game = t.game, gameLabel = gameLabel(t), tier = t.tier, occupied = occupied, version = t.version,
+        chipForward = t.chipForward, chipHeight = t.chipHeight,
+        state = t.state, game = t.game, gameLabel = gameLabel(t), tier = t.tier, occupied = occupied, chips = chips,
+        version = t.version,
     }
 end
 
@@ -245,6 +252,8 @@ end
 
 -- Back to an empty table (tier and game are forgotten; micro tables keep their fixed tier)
 function Tables.Reset(t, reason)
+    local h = GG.Hands and GG.Hands.ForTable(t.id)
+    if h then GG.Hands.Cancel(h.id, 'table_stopped') end
     if t.state == 'active' and t.game then
         TriggerEvent('grumpy-gambling:server:tableStopping', t.id, t.game, reason or 'empty')
     end
@@ -302,6 +311,7 @@ function Tables.Configure(t, src, gameId, tierId)
     Tables.Sync(t)
     notifyTable(t, locale('table_started', g.label, locale(Config.Tiers[tierId].label)), 'success')
     TriggerEvent('grumpy-gambling:server:tableStarted', t.id, g.id, tierId, t.currency)
+    for _, occ in pairs(t.occupants) do GG.Wallet.Offer(occ.src, t, occ) end
     return true
 end
 
@@ -309,6 +319,8 @@ end
 function Tables.GameRemoved(gameId)
     for _, t in pairs(Tables.byId) do
         if t.game == gameId then
+            local h = GG.Hands.ForTable(t.id)
+            if h then GG.Hands.Cancel(h.id, 'game_stopped') end
             notifyTable(t, locale('game_closed'), 'error')
             local first = anotherOccupant(t, nil)
             if first then startSetup(t, first) else t.state = 'empty'; t.game, t.tier = nil, nil end

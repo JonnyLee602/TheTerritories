@@ -3,16 +3,16 @@
 The gambling core for The Territories: card tables, seating, stake tiers and (in later phases) stacks, rake, NPC players
 and business tables, shared by small **game modules** (blackjack, poker, faro, …) that only define rules and odds.
 
-Version 0.1.0 (**phase 1 of 7: foundation**) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
+Version 0.2.0 (**phase 2 of 7: money**) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
 developers and [DESIGN.md](DESIGN.md) for the full design.
 
 This is a community script. It is **not** made or supported by the RSG authors.
 
 **Dependencies:** `rsg-core`, `rsg-target`, `rsg-gizmo`, `oxmysql`
 
-> **Phase 1 status.** Tables can be placed, calibrated, sat at and stood up from, and the first player picks a game
-> and tier. **No money moves yet** and no games exist yet (modules come after the core). Until a module is installed,
-> the picker says no games are available.
+> **Status.** Phase 1 (tables, seating, game + tier choice) and phase 2 (chips, hands, rake, ledger) are built.
+> No game modules exist yet, so until one is installed the picker says no games are available. On a dev server,
+> `Config.DevGames = true` adds placeholder games so buy-in and cash-out can be tried.
 
 ## Features
 - **`/gambling` admin panel** (house style NUI):
@@ -34,6 +34,17 @@ This is a community script. It is **not** made or supported by the RSG authors.
   player leaves. If they take longer than 2 minutes and someone else is seated, the choice passes on. Press **G** to
   reopen the picker.
 - **Bloodmoney tables** offer only Low, Mid and High.
+- **Chips (buy-in stacks).** When the game starts, each seated player buys chips with pocket money (cash or bloodmoney,
+  the table's money) within the tier's buy-in range (13–26 big blinds). Press **G** to top up between hands. Standing
+  up pays the chips back. A player who disconnects, or anything still owed after a restart, is paid on their next login.
+- **Chip stacks on the table.** Every player with chips gets a stack in front of their seat, one model per tier
+  (Micro, Low, Mid, High), so people walking past can tell the stakes without sitting down.
+- **Crash-safe hands.** A hand's bets live in memory and are written in one database transaction when it settles. If the
+  server stops mid-hand, the hand never happened: everyone keeps their pre-hand chips.
+- **Rake, taken out of every bet** and **auto-tuned** so the average player loses about 3 big blinds per hour (poker) or
+  2.5 minimum bets per hour (dealer games, the game's own edge included). Fractions of a cent carry between hands. Public
+  tables destroy the rake (a money sink). Micro tables pay none.
+- **Ledger** of every buy-in, cash-out, payout, rake and house win or loss; hands are recorded too.
 - Everything is checked on the server: admin permission, distances, seat ownership, model and type, micro limits.
 
 ## Installation
@@ -73,6 +84,15 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `Currencies` | `cash`, `bloodmoney` | Table money types |
 | `Tiers` | micro, low, mid, high | Stakes per tier (blinds, buy-in range, NPC cap). See DESIGN.md §6 |
 | `Pvd.MaxBetMultiplier` | `10` | Dealer games: max bet = 10 × min bet |
+| `DevGames` | `false` | Dev servers: placeholder games with no gameplay so chips can be tested |
+| `ChipStacks.Enabled` / `Models` / `Forward` / `Height` | `true` / one per tier / `0.6` / `0.80` | Chip stack props in front of seats with chips; a model can override `chipForward` / `chipHeight` |
+| `Money.SavePlayer` / `BuyInStep` | `true` / `smallBlind` | Save the player after a buy-in or cash-out; buy-in slider step |
+| `Rake.Target` | pvp `3.0`, pvd `2.5` | Average loss per player-hour: big blinds (PVP), minimum bets (PVD) |
+| `Rake.Seed` / `MinRate` / `MaxRate` | see file | Starting rates per tier, and the tuner's bounds |
+| `Rake.MaxDailyStep` / `MinSamples` / `WindowDays` / `TuneEveryHours` | `0.0025` / `200` / `7` / `24` | How fast and from how much play the tuner moves a rate |
+| `Rake.FreeTiers` / `Pinned` | micro / none | Tiers with no rake; fixed rates that skip the tuner (`['pvp:low:holdem'] = 0.04`) |
+| `Rake.Pvp.MaxPerHandBB` | `3` | Safety cap on rake per poker hand, in big blinds |
+| `Rake.BusinessShare` | pvp `0.5`, pvd `0.0` | Business tables (phase 6): share of the rake to the owner's cashbox |
 
 Table models and their seat layouts are in `shared/models.lua` (seed values; calibrate in game). **Place new table**
 offers the Smithfields saloon card table (`p_tablepoker01x` with `p_windsorchair03x` chairs) for PVP and
@@ -86,8 +106,9 @@ offers the Smithfields saloon card table (`p_tablepoker01x` with `p_windsorchair
    chair should be, facing the table (and the dealer for PVD). Right click cancels.
 3. Close (hide) or delete tables from the same screen.
 
-**Players:** walk up to a seat → **Sit down**. The first player picks the game and stakes. Hold **R** to stand up;
-press **G** to reopen the game picker.
+**Players:** walk up to a seat → **Sit down**. The first player picks the game and stakes. Everyone then buys chips
+in the Chips window. Press **G** for the game picker (while choosing) or the Chips window (to top up between hands).
+Hold **R** to stand up and cash out.
 
 ## Developer example
 ```lua
@@ -98,10 +119,11 @@ exports['grumpy-gambling']:RegisterGame({
     dealer = true, houseEdge = 0.005, maxPayout = 2.5,
 })
 
-AddEventHandler('grumpy-gambling:server:tableStarted', function(tableId, gameId, tier, currency)
-    if gameId ~= 'blackjack' then return end
-    -- set up the table's state (the hand API arrives in phase 3)
-end)
+-- a hand (amounts are integer cents; only the game's own resource may call these for its tables)
+local handId = exports['grumpy-gambling']:BeginHand(tableId)
+local ok, stake = exports['grumpy-gambling']:Bet(handId, seat, 100)       -- PVD: stake = $1 minus the rake
+exports['grumpy-gambling']:Settle(handId, { payouts = { [seat] = stake * 2 } })  -- PVD: total back to each seat
+-- PVP: exports['grumpy-gambling']:Settle(handId, { ranking = { { 3 }, { 1, 5 } } })  -- best first, ties grouped
 ```
 
 ## Locales

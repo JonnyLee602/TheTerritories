@@ -227,15 +227,51 @@ function renderSetup() {
   $('content').replaceChildren(...nodes);
 }
 
+// ---------------------------------------------------------------- chips (buy-in / top-up). Amounts arrive in cents.
+const fmtC = (c) => '$' + (Number(c || 0) / 100).toFixed(2);
+
+function renderChips() {
+  $('title').textContent = data.label || tr('ui_chips_title');
+  $('subtitle').textContent = tr('ui_chips_title') + ' · ' + tr('tier_' + data.tier) + ' · ' + tr('ui_' + data.currency);
+  $('tabs').classList.add('hidden');
+  $('btn-back').style.visibility = 'hidden';
+  const step = Math.max(1, data.step || 1);
+  const stack = data.stack || 0;
+  const minAdd = Math.max(step, data.min - stack);
+  const maxAdd = Math.min(data.max - stack, data.pocket);
+  const info = el('div', { class: 'info' }, [
+    el('div', {}, [el('b', { text: tr('ui_stack') }), ' ' + fmtC(stack)]),
+    el('div', {}, [el('b', { text: tr('ui_pocket') }), ' ' + fmtC(data.pocket)]),
+    el('div', {}, [el('b', { text: tr('ui_table_limits') }), ' ' + fmtC(data.min) + ' – ' + fmtC(data.max)]),
+  ]);
+  const nodes = [info];
+  if (data.inHand) { nodes.push(el('div', { class: 'note', text: tr('ui_in_hand') })); }
+  else if (data.max - stack < step) { nodes.push(el('div', { class: 'note', text: tr('ui_at_max') })); }
+  else if (maxAdd < minAdd) { nodes.push(el('div', { class: 'note', text: tr('ui_not_enough') })); }
+  else {
+    if (st.amount == null || st.amount < minAdd || st.amount > maxAdd) {
+      st.amount = stack > 0 ? minAdd : Math.max(minAdd, Math.min(maxAdd, data.min));
+    }
+    const shown = el('div', { class: 'amount', text: fmtC(st.amount) });
+    const slider = el('input', { type: 'range', min: minAdd, max: maxAdd, step, value: st.amount,
+      oninput: (e) => { st.amount = Number(e.target.value); shown.textContent = fmtC(st.amount); } });
+    nodes.push(field(tr('ui_amount'), slider), shown,
+      button(stack > 0 ? tr('ui_top_up') : tr('ui_buy_in'), () => post('buyIn', { amount: st.amount / 100 })));
+  }
+  nodes.push(el('div', { class: 'note', text: tr('ui_chips_note') }));
+  $('content').replaceChildren(...nodes);
+}
+
 // ---------------------------------------------------------------- shell
 function render() {
   if (!view || !data) return;
   if (view === 'admin') renderAdmin();
   else if (view === 'setup') renderSetup();
+  else if (view === 'chips') renderChips();
 }
 
 function resetState() {
-  st = { tab: 'tables', detail: null, game: null, tier: null,
+  st = { tab: 'tables', detail: null, game: null, tier: null, amount: null,
     form: { label: '', kind: 'pvp', source: 'public', currency: 'cash', model: '' } };
 }
 

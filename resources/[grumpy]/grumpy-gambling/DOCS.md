@@ -1,6 +1,6 @@
 # grumpy-gambling — developer docs
 
-Version 0.1.0, phase 1 (foundation). The full design, including later phases, is in [DESIGN.md](DESIGN.md).
+Version 0.2.0, phases 1–2 (foundation, money). The full design, including later phases, is in [DESIGN.md](DESIGN.md).
 
 ## Contents
 1. Architecture
@@ -23,15 +23,22 @@ Version 0.1.0, phase 1 (foundation). The full design, including later phases, is
 | `shared/geometry.lua` | `Geo`: table-local ↔ world maths (`ToWorld`, `ToLocal`, `Ring`, `Wrap`) |
 | `shared/models.lua` | `Models`: table model profiles (seats, chair, sit height, dealer) |
 | `server/main.lua` | `GG` namespace, helpers, database creation, load order, `IsReady` |
+| `server/money.lua` | `GG.M`: **pure** money maths in integer cents: rake with carried remainder, splits, side pots, awards, rake tuner |
+| `server/db.lua` | `GG.DB`: every money query, including the one-transaction settlement |
 | `server/registry.lua` | Game module registry (`RegisterGame`, `GetGames`), module stop handling |
 | `server/tables.lua` | Table registry, profiles + calibration, persistence, lifecycle (empty → setup → active), sync |
-| `server/seats.lua` | Sit / stand, one seat per player, setup choice, disconnects, sync callback |
+| `server/rake.lua` | Current rates, per-table remainders, buffered play stats, the daily tuner, `GetRakeRate` |
+| `server/house.lua` | Who pays dealer-game wins: the server (public/Micro) or a cashbox (business, phase 6) and its cover check |
+| `server/hands.lua` | The hand API: `BeginHand`, `Bet`, `Return`, `SetRakeable`, `Settle`, `CancelHand`, `GetHand`, `GetSeats` |
+| `server/wallet.lua` | Buy-in / top-up, cash-out, payouts owed to offline players, restart recovery, Chips window |
+| `server/seats.lua` | Sit / stand (cashing out), one seat per player, setup choice, disconnects, sync callback |
 | `server/admin.lua` | `/gambling`: create, bind, move, rename, toggle, delete, teleport, calibrate |
 | `client/main.lua` | `GGC` namespace, table sync, NUI bridge |
 | `client/world.lua` | Distance-gated spawning of tables, chairs, dealers; seat targets; blips |
-| `client/seat.lua` | Seated scenario, stand / choose-game prompts, picker callbacks |
+| `client/seat.lua` | Seated scenario, stand / choose-game / chips prompts, picker and chips callbacks |
 | `client/admin.lua` | Admin panel, rsg-gizmo placement/move, map table binding, calibration flow |
-| `html/*` | NUI: admin panel and game/tier picker (house style) |
+| `html/*` | NUI: admin panel, game/tier picker and Chips window (house style) |
+| `tests/*` | Not loaded by the game. Lua tests run in real Lua 5.4: `tests/run_tests.py` (Python 3.12 + `lupa`) |
 | `locales/en.json` | All player-facing text |
 
 ## 2. Data formats
@@ -54,7 +61,7 @@ each facing the centre, numbered around the table. `p_tablepoker01x` (the Smithf
 **Public table** (sent to clients, returned by `GetTable`):
 `{ id, label, kind ('pvp'|'pvd'), source ('public'|'micro'), model, bound, x, y, z, h, currency ('cash'|'bloodmoney'),
 fixedTier, enabled, seats, dealer, chair, sitZ, chairYaw, state ('empty'|'setup'|'active'), game, gameLabel, tier,
-occupied = { [seat] = bool }, version }`
+occupied = { [seat] = bool }, chips = { [seat] = bool } (has a stack), chipForward, chipHeight, version }`
 
 **Tier** (`Config.Tiers[id]`): `{ order, label (locale key), stage, smallBlind, bigBlind, buyInMin, buyInMax
 (× big blind), npcCapMultiplier, choosable, bloodmoney }`.
@@ -74,7 +81,26 @@ rules? }`. `models` (optional) limits the game to those table models; it must be
 | `GetSeated(tableId)` | `{ seat, src, cid, name }[]` | Real players at a table |
 | `StandPlayer(src)` | bool | Stands a player up |
 
-No client exports in phase 1.
+### Hand API (phase 2, for game modules)
+Amounts are **integer cents**. Only the resource that registered a table's game may call these for that table.
+
+| Export | Returns | Notes |
+|---|---|---|
+| `BeginHand(tableId)` | `handId` / `nil, err` | One open hand per table. Seats with chips join |
+| `Bet(handId, seat, cents)` | `true, cents` / `false, err` | PVP: into the pot. PVD: the rake comes out and the rest is the stake at risk (returned); refused with `house_cover` if a cashbox can't cover it |
+| `Return(handId, seat, cents)` | bool | PVP: hand back an uncalled bet (no rake on it) |
+| `SetRakeable(handId, bool)` | bool | PVP: `false` = no rake this hand ("no flop, no drop") |
+| `Settle(handId, result)` | `true, { awards, rake, house, wagered }` / `false, err` | PVP `{ ranking = { {seat}, {seat, seat} }, oddOrder? }`: best first, ties grouped, folded seats left out; the core builds side pots, takes the rake and splits. PVD `{ payouts = { [seat] = cents } }`: total back to each seat, at most stake × `maxPayout` |
+| `CancelHand(handId, reason)` | bool | Nobody loses anything; players who left get their bets back |
+| `GetHand(handId)` | `{ pot, wagered, rate, seats }` | `pot` is net of the rake paid so far (what players should see) |
+| `GetSeats(tableId)` | `{ seat, src, cid, name, stack, available, inHand }[]` | |
+| `GetRakeRate(tableId)` | number | Current rate for the table's tier and game |
+
+Errors: `no_table`, `table_not_started`, `not_your_table`, `hand_open`, `no_players`, `game_needs_maxPayout`, `no_hand`,
+`not_in_hand`, `bad_amount`, `not_enough_chips`, `house_cover`, `pvp_only`, `bad_ranking`, `bad_payouts`,
+`payout_too_high`, `unbalanced`, `db_error` (the hand is cancelled).
+
+No client exports.
 
 ## 4. Events for modules and other resources (server, local `AddEventHandler`)
 | Event | Args | When |
@@ -83,7 +109,8 @@ No client exports in phase 1.
 | `grumpy-gambling:server:tableStarted` | `tableId, gameId, tier, currency` | The first player picked game and tier |
 | `grumpy-gambling:server:seatTaken` | `tableId, gameId, seat, src` | A player sat at an active table |
 | `grumpy-gambling:server:seatLeft` | `tableId, gameId, seat, src` | A player left an active table |
-| `grumpy-gambling:server:tableStopping` | `tableId, gameId, reason` | The last real player left (reason `empty`) |
+| `grumpy-gambling:server:tableStopping` | `tableId, gameId, reason` | The last real player left (reason `empty`); an open hand is cancelled |
+| `grumpy-gambling:server:stackChanged` | `tableId, seat, src, cents` | A player bought in or topped up |
 
 Phase 3 adds the hand API and wraps these in the module library (DESIGN.md §11).
 
@@ -95,6 +122,8 @@ Phase 3 adds the hand API and wraps these in the module library (DESIGN.md §11)
 | `grumpy-gambling:server:sit` (`tableId, seat`) | server | Distance, free seat, one seat per player |
 | `grumpy-gambling:server:stand` | server | |
 | `grumpy-gambling:server:requestSetup` / `configure` (`gameId, tierId`) | server | Setup player only |
+| `grumpy-gambling:server:buyIn` (`dollars`) / `requestChips` | server | Seated player at an active table, not in a hand, within the buy-in range |
+| `grumpy-gambling:client:chips` / `chipsClosed` | client | Chips window (amounts in cents) |
 | `grumpy-gambling:server:admin*` | server | Admin only: `Create`, `Move`, `Rename`, `Toggle`, `Delete`, `Teleport`, `Calibrate`, `ResetCalibration` |
 | `grumpy-gambling:client:sync` / `table` / `removeTable` | client | Table data |
 | `grumpy-gambling:client:seated` / `stood` / `setup` / `setupClosed` | client | Seat state and picker |
@@ -109,9 +138,23 @@ if seat then print(('seat %d at table %d'):format(seat.seat, seat.tableId)) end
 for _, p in ipairs(exports['grumpy-gambling']:GetSeated(3) or {}) do print(p.seat, p.name) end
 ```
 
-## 7. Persistence
+## 7. Persistence and the money model
 Tables (placement, money type, Micro flag, per-table calibration, open/closed) and model calibrations are saved in the
 database. Seats, game and tier are runtime only: a restart empties every table and stands everyone up.
+
+**Money** (integer cents inside the core; dollars only at rsg-core):
+- **Buy-in:** `RemoveMoney` (the table's currency), then the stack row is written and the player is saved.
+- **During a hand** bets live in memory. **Settle** writes every stack, payouts owed, the rake remainder, the cashbox,
+  the hand and the ledger in **one transaction**. A crash before that = the hand never happened.
+- **Stand up:** what isn't in an open hand is paid back (`AddMoney`); bets already in the hand stay there and any win is
+  paid to the player afterwards. **Disconnect:** the chips wait in `grumpy_gambling_pending` for the next login.
+- **Restart:** every stack row left behind is moved to pending; players online get it at once, others at login.
+- **Ledger sign:** `amount_c` is the change in money held by the core (stacks + cashboxes): `buyin`/`topup` +,
+  `cashout`/`pending`/`refund`/`recovered` -, `rake` - (destroyed), `mint` + (the house paid a dealer-game win),
+  `sink` - (the house kept a loss), `rake_box`/`paid_pending` 0. With no hand open, the sum of the ledger equals the
+  stacks plus cashboxes.
+- **Rake tuner:** play stats are buffered and flushed every minute; once a day the tuner reads the last
+  `WindowDays` and moves each rate toward the target (DESIGN.md §6.3).
 
 ## 8. Security model
 - Admin actions require `Config.AdminPermission` on the server, plus cooldowns.
@@ -122,7 +165,12 @@ database. Seats, game and tier are runtime only: a restart empties every table a
   stands within `ServerSeatDistance` of the seat.
 - Game/tier choice: only the setup player, only games registered for the table's type/model/seat count, only allowed
   tiers (fixed Micro, no Micro elsewhere, bloodmoney tables Low–High).
-- No money moves in phase 1.
+- Money only moves on the server, in the core. Buy-in amounts are re-checked against the tier range, the player's
+  money (`RemoveMoney` must succeed) and an open hand. Modules can't touch money directly: `Settle` refuses rankings with
+  unknown or repeated seats, payouts above stake × `maxPayout`, and any result where awards + rake don't equal the bets.
+- Only the resource that registered the game can drive hands at its tables (`GetInvokingResource`).
+- Tested in real Lua 5.4: 2,000 random side-pot hands, and an integration run of 600 poker + 400 dealer hands with
+  buy-ins, top-ups, leavers, drops, a crash and a database failure: money conserved after every step.
 
 ## 9. Database schema
 ```sql
@@ -131,6 +179,10 @@ grumpy_gambling_tables (id, label, kind, source, model, bound, x, y, z, h, curre
 grumpy_gambling_models (model PK, data JSON, updated_by, updated_at)   -- model calibrations
 ```
 `business_id`, `owner_cid` and `settings` are reserved for business tables (phase 6).
+Money tables (cents in `_c` columns): `grumpy_gambling_stacks` (one row per seated character), `grumpy_gambling_pending`
+(owed, paid at login), `grumpy_gambling_hands` (settled hands), `grumpy_gambling_ledger`, `grumpy_gambling_cashboxes`
+(phase 6), `grumpy_gambling_rake_remainder`, `grumpy_gambling_rake_stats` (tuner input), `grumpy_gambling_rake_rates`
+(tuner output).
 
 ## 10. Server owner how-tos
 - **Add a table model:** add an entry to `Models` in `shared/models.lua` (verify the model in
@@ -157,4 +209,9 @@ grumpy_gambling_models (model PK, data JSON, updated_by, updated_at)   -- model 
 | Seats are in the wrong place | Calibrate the table or the model |
 | "No games are installed" | No module of that table type is running; ensure modules after grumpy-gambling |
 | Table skipped on start (console) | Its model has no profile in `shared/models.lua` |
+| Chip stacks float or sit inside the table | Tune `Config.ChipStacks.Forward` / `Height`, or per model `chipForward` / `chipHeight` in `shared/models.lua` |
 | Can't move a table | Map (bound) tables can't move; spawned tables need nobody seated |
+| No Chips window | The table hasn't started a game (no module installed). Dev: `Config.DevGames = true` |
+| "Owed to you from the card tables" on login | Chips from a disconnect or restart being paid back: expected |
+| How much has the rake removed? | `SELECT currency, -SUM(amount_c)/100 FROM grumpy_gambling_ledger WHERE kind = 'rake' GROUP BY currency` |
+| What are the current rates? | `grumpy_gambling_rake_rates` (tuned), else `Config.Rake.Seed`; the console logs each change |

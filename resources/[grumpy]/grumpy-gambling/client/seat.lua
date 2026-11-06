@@ -2,7 +2,7 @@
 local preSeat = nil          -- { x, y, z, h } where the player stood before sitting
 local isSetupPlayer = false
 local promptGroup = GetRandomIntInRange(0, 0xffffff)
-local standPrompt, setupPrompt
+local standPrompt, setupPrompt, chipsPrompt
 
 local function makePrompt(key, text, holdMs)
     local p = PromptRegisterBegin()
@@ -24,6 +24,7 @@ end
 CreateThread(function()
     standPrompt = makePrompt(Config.Seating.StandKey, locale('prompt_stand'), Config.Seating.StandHoldMs)
     setupPrompt = makePrompt(Config.Seating.SetupKey, locale('prompt_setup'))
+    chipsPrompt = makePrompt(Config.Seating.SetupKey, locale('prompt_chips'))
 end)
 
 local function sitAt(t, seat)
@@ -64,7 +65,7 @@ RegisterNetEvent('grumpy-gambling:client:stood', function()
     if not GGC.Seat then return end
     GGC.Seat = nil
     isSetupPlayer = false
-    if GGC.uiOpen == 'setup' then GGC.CloseUI() end
+    if GGC.uiOpen == 'setup' or GGC.uiOpen == 'chips' then GGC.CloseUI() end
     leaveSeat()
 end)
 
@@ -78,6 +79,23 @@ end)
 RegisterNetEvent('grumpy-gambling:client:setupClosed', function()
     isSetupPlayer = false
     if GGC.uiOpen == 'setup' then GGC.CloseUI() end
+end)
+
+-- Chips window: buy in when the game starts, or top up between hands (G)
+RegisterNetEvent('grumpy-gambling:client:chips', function(data)
+    if not GGC.Seat or type(data) ~= 'table' then return end
+    if GGC.uiOpen and GGC.uiOpen ~= 'chips' and GGC.uiOpen ~= 'setup' then return end
+    GGC.OpenUI('chips', data)
+end)
+
+RegisterNetEvent('grumpy-gambling:client:chipsClosed', function()
+    if GGC.uiOpen == 'chips' then GGC.CloseUI() end
+end)
+
+RegisterNUICallback('buyIn', function(body, cb)
+    cb('ok')
+    local amount = type(body) == 'table' and tonumber(body.amount)
+    if amount and amount > 0 then TriggerServerEvent('grumpy-gambling:server:buyIn', amount) end
 end)
 
 RegisterNUICallback('configure', function(body, cb)
@@ -108,8 +126,10 @@ CreateThread(function()
                     Wait(1500)
                 elseif not GGC.uiOpen then
                     local setupOn = isSetupPlayer and t.state == 'setup'
+                    local chipsOn = t.state == 'active'
                     showPrompt(standPrompt, true)
                     showPrompt(setupPrompt, setupOn)
+                    showPrompt(chipsPrompt, chipsOn)
                     local title = t.gameLabel and ('%s · %s'):format(t.label, t.gameLabel) or t.label
                     PromptSetActiveGroupThisFrame(promptGroup, CreateVarString(10, 'LITERAL_STRING', title))
                     if PromptHasHoldModeCompleted(standPrompt) then
@@ -117,6 +137,9 @@ CreateThread(function()
                         Wait(1000)
                     elseif setupOn and PromptHasStandardModeCompleted(setupPrompt) then
                         TriggerServerEvent('grumpy-gambling:server:requestSetup')
+                        Wait(500)
+                    elseif chipsOn and PromptHasStandardModeCompleted(chipsPrompt) then
+                        TriggerServerEvent('grumpy-gambling:server:requestChips')
                         Wait(500)
                     end
                 end
@@ -130,4 +153,5 @@ AddEventHandler('onResourceStop', function(res)
     if GGC.Seat then leaveSeat() end
     if standPrompt then PromptDelete(standPrompt) end
     if setupPrompt then PromptDelete(setupPrompt) end
+    if chipsPrompt then PromptDelete(chipsPrompt) end
 end)
