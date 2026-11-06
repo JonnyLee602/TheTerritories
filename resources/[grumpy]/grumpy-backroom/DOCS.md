@@ -17,11 +17,12 @@
 | `shared/zone.lua` | `BackroomZone.Valid/Contains/Centre`: polygon extruded from `minZ` to `maxZ`, used by the server to decide who is inside |
 | `server/main.lua` | Rooms in memory + DB, `GlobalState.grumpyBackrooms`, the bribe, the 1 s ticker (warnings, closing), showing out, rsg-doorlock door control, admin callbacks, exports |
 | `client/main.lua` | Doorman peds (spawn within range, rsg-target option), bribe menu (rsg-menubase), rsg-core poly zones for the "time left" notice, the show-out (fade, stand up from grumpy-sit, teleport) |
+| `client/reup.lua` + `html/` | Closing-time re-up panel: NUI without focus, upper right; tap the key = next length, hold = `server:reup`; hides on timeout, leaving the zone, death, payment (`client:reupDone`) or show-out |
 | `client/admin.lua` | `/backroom` list + editor, rsg-gizmo doorman placement (local ghost ped + `Edit()`), door picker, corner capture, preview lines |
 | `integrations/rsg-doorlock.md` | The `SetDoorState` hook for rsg-doorlock |
 
 Flow: bribe → `openRoom` (adds time, unlocks the doors if it was closed, saves `open_until`) → ticker warns players
-inside at `WarnAt` → at 0 `closeRoom`: everyone inside (server-side `GetEntityCoords` + polygon test) is stood up
+inside at `WarnAt` (each gets `client:reup` with their own prices; paying there runs the same `pay()` as the doorman, but checks the player is inside the zone instead of near the doorman) → at 0 `closeRoom`: everyone inside (server-side `GetEntityCoords` + polygon test) is stood up
 from grumpy-gambling (`StandPlayer`, chips cashed out; bets already in a hand stay in it) and sent
 `client:showOut` → doors lock after `LockDelay` → `SweepAfter` checks move anyone still inside with server
 `SetEntityCoords`.
@@ -43,10 +44,12 @@ Room (server): `{ id, name, model, npc = {x,y,z,w}, doors = { rsgDoorlockId, ...
 | Name | Side | Notes |
 |---|---|---|
 | `grumpy-backroom:server:bribe (roomId, choice)` | server event | `choice` = index into `Config.Bribes` |
-| `grumpy-backroom:server:quote (roomId)` | callback | `{ name, left, max, options = { {minutes, price} } }`, price already × standing |
+| `grumpy-backroom:server:reup (roomId, choice)` | server event | Re-up from inside; payer must be inside the zone and the room still open |
+| `grumpy-backroom:server:quote (roomId)` | callback | `{ id, name, left, max, options = { {minutes, price, fits} } }`, price already × standing |
 | `grumpy-backroom:server:timeLeft (roomId)` | callback | seconds |
 | `grumpy-backroom:server:adminRooms / adminSave / adminDelete / adminSetOpen` | callbacks | admin only |
 | `grumpy-backroom:client:showOut (exit)` | client event | fade + teleport |
+| `grumpy-backroom:client:reup (quote)` / `client:reupDone (roomId)` | client events | Show / hide the re-up panel |
 | `grumpy-backroom:client:openAdmin` | client event | from `/backroom` |
 
 Uses: `rsg-doorlock:server:getDoors` (door picker), `exports['rsg-doorlock']:SetDoorState` (hook),
@@ -89,4 +92,5 @@ grumpy_backroom_rooms (id PK, name VARCHAR(48), npc_model VARCHAR(64), npc JSON,
 | Door doesn't open for someone who just joined | Hook missing (fallback mode) |
 | "Kick-out point is inside the zone" | Move the point outside the red lines |
 | People on the stairs/balcony aren't shown out | Zone too low or a corner missing: raise the height or add corners |
+| Re-up key does nothing | The card table has the mouse (your turn): press Esc, or wait for the next warning |
 | Doorman never appears | Room not enabled or incomplete (list says "Not set up") |

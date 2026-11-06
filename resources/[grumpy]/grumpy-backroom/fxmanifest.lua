@@ -6,7 +6,7 @@ lua54 'yes'
 author 'Grumpy'
 name 'grumpy-backroom'
 description 'Back-room card rooms: bribe the doorman, the rsg-doorlock doors open for a while, everyone inside is shown out when time runs out.'
-version '0.1.0'
+version '0.2.0'
 
 shared_scripts {
     '@rsg-core/shared/locale.lua',
@@ -18,6 +18,7 @@ client_scripts {
     '@rsg-core/client/zones.lua',
     'client/main.lua',
     'client/admin.lua',
+    'client/reup.lua',
 }
 
 server_scripts {
@@ -25,8 +26,13 @@ server_scripts {
     'server/main.lua',
 }
 
+ui_page 'html/index.html'
+
 files {
     'locales/*.json',
+    'html/index.html',
+    'html/style.css',
+    'html/script.js',
 }
 
 dependencies {

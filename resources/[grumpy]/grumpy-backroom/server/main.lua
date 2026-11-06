@@ -5,6 +5,7 @@ local RSGCore = exports['rsg-core']:GetCoreObject()
 local Rooms = {}
 local ready = false
 local lastAct = {}
+local quoteFor -- defined with the bribe below
 
 ---------------------------------------------
 -- helpers
@@ -206,9 +207,10 @@ CreateThread(function()
                         for _, at in ipairs(Config.WarnAt) do
                             if left <= at and not room.warned[at] then
                                 room.warned[at] = true
-                                local inside = playersInside(room)
-                                for _, src in ipairs(inside) do
-                                    if at >= 60 then
+                                for _, src in ipairs(playersInside(room, true)) do
+                                    if Config.Reup.Enabled then
+                                        TriggerClientEvent('grumpy-backroom:client:reup', src, quoteFor(src, room))
+                                    elseif at >= 60 then
                                         notify(src, 'warn_minutes', 'inform', math.floor(left / 60 + 0.5))
                                     else
                                         notify(src, 'warn_seconds', 'error', left)
@@ -300,44 +302,84 @@ local function charge(Player, price)
     end
 end
 
+-- prices for this player (× their standing) and what still fits under MaxOpenMinutes
+quoteFor = function(src, room)
+    local mult = standingMult(src)
+    local left = timeLeft(room)
+    local options = {}
+    for i, b in ipairs(Config.Bribes) do
+        options[i] = { minutes = b.minutes, price = money(round2(b.price * mult)),
+                       fits = left + b.minutes * 60 <= Config.MaxOpenMinutes * 60 }
+    end
+    return { id = room.id, name = room.name, left = left, max = Config.MaxOpenMinutes * 60, options = options }
+end
+
 RSGCore.Functions.CreateCallback('grumpy-backroom:server:quote', function(src, cb, roomId)
     local room = ready and Rooms[tonumber(roomId) or -1]
     if not room or not usable(room) then return cb(nil) end
-    local mult = standingMult(src)
-    local options = {}
-    for i, b in ipairs(Config.Bribes) do
-        options[i] = { minutes = b.minutes, price = money(round2(b.price * mult)) }
-    end
-    cb({ name = room.name, left = timeLeft(room), max = Config.MaxOpenMinutes * 60, options = options })
+    cb(quoteFor(src, room))
 end)
 
-RegisterNetEvent('grumpy-backroom:server:bribe', function(roomId, choice)
-    local src = source
-    if not ready or cooldown(src, 2000) then return end
-    local room = Rooms[tonumber(roomId) or -1]
-    local bribe = Config.Bribes[tonumber(choice) or -1]
-    if not room or not usable(room) or not bribe then return end
-
-    local Player = RSGCore.Functions.GetPlayer(src)
-    if not Player then return end
+-- shared by the doorman (outside) and the re-up panel (inside); the caller checks where the player is
+local function pay(src, Player, room, bribe, isReup)
     local meta = Player.PlayerData.metadata or {}
-    if meta.isdead or meta.ishandcuffed then return end
-    if not nearNpc(src, room) then return notify(src, 'too_far') end
-    if lawBlocked(Player) then return notify(src, 'law_blocked') end
+    if meta.isdead or meta.ishandcuffed then return false end
+    if lawBlocked(Player) then notify(src, 'law_blocked') return false end
 
     local left = timeLeft(room)
+    if isReup and left <= 0 then notify(src, 'reup_too_late') return false end
     if left + bribe.minutes * 60 > Config.MaxOpenMinutes * 60 then
-        return notify(src, 'too_long', 'error', math.floor(left / 60))
+        notify(src, 'too_long', 'error', math.floor(left / 60))
+        return false
     end
 
     local price = round2(bribe.price * standingMult(src))
     local paidWith = price <= 0 and 'free' or charge(Player, price)
-    if not paidWith then return notify(src, 'no_money', 'error', money(price)) end
+    if not paidWith then notify(src, 'no_money', 'error', money(price)) return false end
 
     openRoom(room, bribe.minutes * 60)
-    notify(src, left > 0 and 'paid_extend' or 'paid_open', 'success', money(price), bribe.minutes, math.floor(timeLeft(room) / 60))
-    print(('[grumpy-backroom] %s (%s) paid $%s %s for %d min in "%s" (#%d)'):format(
-        GetPlayerName(src) or '?', Player.PlayerData.citizenid, money(price), paidWith, bribe.minutes, room.name, room.id))
+    local total = math.floor(timeLeft(room) / 60)
+    notify(src, left > 0 and 'paid_extend' or 'paid_open', 'success', money(price), bribe.minutes, total)
+    print(('[grumpy-backroom] %s (%s) paid $%s %s for %d min in "%s" (#%d)%s'):format(GetPlayerName(src) or '?',
+        Player.PlayerData.citizenid, money(price), paidWith, bribe.minutes, room.name, room.id, isReup and ' (re-up from inside)' or ''))
+
+    -- everyone else inside: close their panel and tell them who kept the room
+    local name = Player.PlayerData.charinfo and Player.PlayerData.charinfo.firstname or GetPlayerName(src) or '?'
+    for _, other in ipairs(playersInside(room, true)) do
+        TriggerClientEvent('grumpy-backroom:client:reupDone', other, room.id)
+        if other ~= src and left > 0 then notify(other, 'reup_by_other', 'success', name, bribe.minutes, total) end
+    end
+    return true
+end
+
+local function bribeFrom(src, roomId, choice)
+    if not ready or cooldown(src, 2000) then return end
+    local room = Rooms[tonumber(roomId) or -1]
+    local bribe = Config.Bribes[tonumber(choice) or -1]
+    if not room or not usable(room) or not bribe then return end
+    return room, bribe, RSGCore.Functions.GetPlayer(src)
+end
+
+-- at the doorman
+RegisterNetEvent('grumpy-backroom:server:bribe', function(roomId, choice)
+    local src = source
+    local room, bribe, Player = bribeFrom(src, roomId, choice)
+    if not Player then return end
+    if not nearNpc(src, room) then return notify(src, 'too_far') end
+    pay(src, Player, room, bribe, false)
+end)
+
+-- from inside the room (the closing-time panel)
+RegisterNetEvent('grumpy-backroom:server:reup', function(roomId, choice)
+    local src = source
+    if not Config.Reup.Enabled then return end
+    local room, bribe, Player = bribeFrom(src, roomId, choice)
+    if not Player then return end
+    local ped = GetPlayerPed(src)
+    if not ped or ped == 0 or not BackroomZone.Contains(room.zone, GetEntityCoords(ped)) then
+        return notify(src, 'reup_not_inside')
+    end
+    pay(src, Player, room, bribe, true)
 end)
 
 -- the client asks when it walks into a room, to show how long is left

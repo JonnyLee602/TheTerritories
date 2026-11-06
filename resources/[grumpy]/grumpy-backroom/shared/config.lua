@@ -31,7 +31,19 @@ Config.MoneyReason    = 'grumpy-backroom-bribe'
 -- Closing time
 ---------------------------------------------
 Config.WarnAt        = { 300, 60, 15 } -- seconds left when everyone inside is warned
-Config.LockDelay     = 1500            -- ms after the room is cleared before the doors lock
+-- At every warning, players inside get a small panel in the upper-right corner (clear of the card-table UI at the
+-- bottom) to pay for more time without walking out to the doorman. Same prices and money rules as the doorman.
+-- The panel never takes the mouse: tap the key to pick a length, hold it to pay. It hides itself after ShowSeconds.
+-- The key only works while the card table doesn't have the mouse (Esc gives it back).
+Config.Reup = {
+    Enabled     = true,
+    Key         = 0xF3830D8E, -- INPUT_OPEN_JOURNAL (J), data/rdr3_discoveries/Controls/README.md; blocked while the panel shows
+    KeyLabel    = 'J',
+    HoldMs      = 1200,       -- hold this long to pay (a tap picks the next length)
+    ShowSeconds = 25,
+    Position    = { top = '6vh', right = '1.5vw' }, -- CSS, upper right
+}
+Config.LockDelay     = 1500           -- ms after the room is cleared before the doors lock
 Config.SweepAfter    = { 4000, 10000 } -- ms after closing: anyone still inside is moved out by the server
 Config.StandFromTables = true          -- stand players up from grumpy-gambling tables first (their chips are cashed out)
 Config.Exempt = {

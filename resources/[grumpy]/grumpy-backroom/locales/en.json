@@ -21,6 +21,13 @@
   "warn_seconds": "Room closes in %d seconds. Finish your hand!",
   "shown_out": "Time's up. The doorman shows you out.",
   "closed_by_admin": "The room has been closed. The doorman shows you out.",
+  "reup_closes": "Room closes in",
+  "reup_option": "%d more minutes - $%s",
+  "reup_hint": "Tap [%s] for another length, hold [%s] to pay the doorman",
+  "reup_full": "The house won't keep the room open any longer.",
+  "reup_too_late": "Too late, the room is already closing.",
+  "reup_not_inside": "You have to be in the room to pay from here.",
+  "reup_by_other": "%s paid for %d more minutes. %d minutes left.",
 
   "time_hm": "%d h %d min",
   "time_m": "%d min",

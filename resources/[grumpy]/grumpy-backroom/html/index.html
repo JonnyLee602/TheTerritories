@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>grumpy-backroom</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- closing-time re-up panel: upper right, display only (never takes the mouse) -->
+    <div id="reup" class="panel hidden">
+        <div class="head">
+            <div class="title" id="r-title">Back Room</div>
+            <div class="subtitle" id="r-name"></div>
+        </div>
+        <div class="divider">&#10022;</div>
+        <div class="closes"><span id="r-closes">Closes in</span> <b id="r-left">0:00</b></div>
+        <div id="r-options" class="options"></div>
+        <div class="hold"><div id="r-hold" class="hold-fill"></div></div>
+        <div class="hint" id="r-hint"></div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
