@@ -32,7 +32,7 @@ Config.SpriteHover  = { 255, 255, 255, 255 } -- r, g, b, a when looking at zone
 ---------------------------------
 Config.Highlight = {
     Enabled            = true,
-    Radius             = 10.0,  -- scan radius around the player
+    Radius             = 1.0,   -- scan radius around the player (The Territories: 1 m, RSG default 10.0)
     ScanInterval       = 500,   -- (ms) how often to rescan
     MaxDrawn           = 16,    -- max markers (game limit is 32 draws per frame)
     Peds               = true,
