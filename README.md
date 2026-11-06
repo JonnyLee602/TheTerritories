@@ -61,6 +61,7 @@ Every edit made for a grumpy script is marked `[grumpy-bartender hook]`, `[grump
 | rsg-multijob | Built into rsg-core since 2026-10-31 (rsg-core `provide`s it). Its tables are reused as they are. |
 | rsg-gangmenu | Replaced by grumpy-groups (which `provide`s rsg-gangmenu; same stash ids and gang funds). |
 | rsg-trader | Replaced by grumpy-trader (imports rsg-trader data on its first start). |
+| rsg-loading | Replaced by grumpy-loading (The Territories Gazette newspaper loading screen). |
 
 ## Adding a new customization
 
@@ -76,7 +77,7 @@ Edit the file on `main`, then commit it. That's all: the next update keeps it au
 | Base | `recipe/` from this repo: `server.cfg` (RSG's + `ensure [grumpy]`), logo, SQL |
 | Database | `recipe/rsg/rsgcore.sql` (all RSG tables), `recipe/territories_stores.sql` (our NPC shops), `recipe/grumpy/*.sql` |
 | Standalone | cfx-server-data, oxmysql, ox_lib, PolyZone and the rest, same sources as RSG's recipe |
-| Framework | 84 resources: stock ones straight from Rexshack-RedM **pinned to the commit in `upstream.lock`**, customized ones from this repo |
+| Framework | 83 resources: stock ones straight from Rexshack-RedM **pinned to the commit in `upstream.lock`**, customized ones from this repo |
 | Grumpy | each `resources/[grumpy]/*` script from this repo |
 | Extras | Nt_Blackjack, Nt_Holdem, rsg-mapping, redm-ymaps (as RSG's recipe) |
 

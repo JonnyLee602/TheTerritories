@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title></title>
+<!-- Fonts load from Google Fonts (OFL licensed). If offline, the page falls back to Georgia / Times New Roman. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Playfair+Display:wght@700;900&family=UnifrakturMaguntia&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="backdrop"><div id="bgA" class="bg"></div><div id="bgB" class="bg"></div></div>
+
+<div id="stage">
+  <main id="paper">
+
+    <header class="masthead">
+      <div class="ear ear-left" id="earLeft"></div>
+      <div class="ear ear-right" id="earRight"></div>
+      <div class="topline">
+        <span id="issue"></span>
+        <span id="dateline"></span>
+        <span id="price"></span>
+      </div>
+      <div class="rule thin"></div>
+      <h1 id="title"></h1>
+      <div class="rule double"></div>
+      <div class="subline">
+        <span id="motto"></span>
+        <span class="star">✦</span>
+        <span id="population"></span>
+      </div>
+      <div class="rule thin"></div>
+    </header>
+
+    <section class="columns">
+      <article class="col lead" id="lead">
+        <p class="kicker" id="leadKicker"></p>
+        <h2 id="leadHeadline"></h2>
+        <p class="deck" id="leadDeck"></p>
+        <div class="short-rule"></div>
+        <p class="body" id="leadBody"></p>
+      </article>
+
+      <article class="col paths">
+        <h3 class="col-title" id="pathsTitle"></h3>
+        <div id="pathsList"></div>
+      </article>
+
+      <aside class="col side">
+        <div class="wanted">
+          <div class="wanted-title" id="wantedTitle"></div>
+          <div class="wanted-subject" id="wantedSubject"></div>
+          <div class="wanted-rule"></div>
+          <p class="wanted-text" id="wantedText"></p>
+          <div class="wanted-reward" id="wantedReward"></div>
+          <div class="wanted-discord hidden" id="wantedDiscord"></div>
+        </div>
+        <div class="notices">
+          <h3 class="col-title" id="noticesTitle"></h3>
+          <p class="notice" id="notice"></p>
+        </div>
+      </aside>
+    </section>
+
+    <footer class="wire">
+      <div class="wire-head">
+        <span class="wire-label" id="wireLabel"></span>
+        <span class="wire-status" id="wireStatus"></span>
+        <span class="wire-pct" id="wirePct">0%</span>
+      </div>
+      <div class="wire-track">
+        <div class="wire-line"></div>
+        <div class="wire-poles" id="wirePoles"></div>
+        <div class="wire-fill" id="wireFill"></div>
+        <div class="wire-spark" id="wireSpark"></div>
+      </div>
+    </footer>
+
+  </main>
+</div>
+
+<div id="musicHint" class="music-hint hidden"></div>
+<audio id="music" loop preload="auto"></audio>
+
+<script src="config.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
