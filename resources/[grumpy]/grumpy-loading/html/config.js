@@ -5,7 +5,7 @@ window.GAZETTE_CONFIG = {
   locale: 'en',
 
   // Server logo, framed in the masthead's left corner (replaces the left corner text). Blank = text only.
-  logo: 'images/logo.png',
+  logo: 'images/logo.webp',
 
   // The dateline shows today's month and day in this year, e.g. "Thursday, November 5, 1899".
   year: 1899,

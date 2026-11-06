@@ -41,7 +41,7 @@ There are no items and no database.
 | Option | Default | Description |
 |---|---|---|
 | `locale` | `'en'` | Language file in `locales/` |
-| `logo` | `'images/logo.png'` | Server logo, framed in the masthead's left corner (it replaces the left corner text). Blank = text only. |
+| `logo` | `'images/logo.webp'` | Server logo, framed in the masthead's left corner (it replaces the left corner text). Blank = text only. |
 | `year` | `1899` | Year printed in the dateline |
 | `firstIssue` | `'2026-11-05'` | Date of Issue No. 1. The issue number counts days since then. |
 | `storySeconds` | `14` | Seconds per front-page story |
