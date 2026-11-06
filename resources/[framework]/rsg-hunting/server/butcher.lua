@@ -8,6 +8,28 @@ for _, animal in ipairs(Config.Animal) do
     AnimalByModel[animal.model] = animal
 end
 
+-- [Territories] butcher meat matches skinning meat: the raw_* item the
+-- skinning table (Config.Animals) gives for a model replaces any raw_*
+-- item in Config.Animal, so an animal yields the same meat either way.
+-- Models with no skinning entry (legendaries) keep their Config.Animal item.
+local SkinMeatByModel = {}
+for _, animal in ipairs(Config.Animals) do
+    for i = 1, 5 do
+        local name = animal['rewarditem' .. i]
+        if type(name) == 'string' and name:sub(1, 4) == 'raw_' then
+            SkinMeatByModel[animal.modelhash] = name
+            break
+        end
+    end
+end
+
+local function butcherItem(model, name)
+    if type(name) == 'string' and name:sub(1, 4) == 'raw_' then
+        return SkinMeatByModel[model] or name
+    end
+    return name
+end
+
 local QualityMultiplier = {
     poor    = Config.PoorMultiplier or 1,
     good    = Config.GoodMultiplier or 2,
@@ -88,7 +110,7 @@ local function handler_sellCarcass(src, netId, quality)
     local qty = ItemQuantity[quality]
     local items = {}
     for i = 1, 3 do
-        local name = animal['rewarditem' .. i]
+        local name = butcherItem(animal.model, animal['rewarditem' .. i])
         if name and RSGCore.Shared.Items[name] then
             if not exports['rsg-inventory']:CanAddItem(src, name, qty) then
                 notify(src, locale('inventory_full'), 'error')

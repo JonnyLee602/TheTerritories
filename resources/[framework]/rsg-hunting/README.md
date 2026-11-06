@@ -91,7 +91,7 @@ Hunting, trapper and butcher script for the RSG Framework (RedM). Players skin a
 | `Config.DistanceSpawn` / `Config.FadeIn` | Butcher NPC spawn distance and fade |
 | `Config.Blip` | Butcher blips |
 | `Config.ButcherLocations` | Butcher prompt coords, NPC model and coords |
-| `Config.Animal` | Animals the butcher buys: `model`, `rewardmoney`, `rewarditem1`–`rewarditem3` |
+| `Config.Animal` | Animals the butcher buys: `model`, `rewardmoney`, `rewarditem1`–`rewarditem3`. Any `raw_*` item is swapped for the `raw_*` meat that animal gives when skinned (`Config.Animals`), so both always match |
 
 ### Hunting XP
 ```lua
