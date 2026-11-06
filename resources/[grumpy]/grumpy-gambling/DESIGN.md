@@ -1,7 +1,8 @@
 # grumpy-gambling — core design
 
-Status: **phases 1–2 built and tested in game; phase 3 (module library) built** 2026-11-05 as v0.3.0 and tested in
-real Lua 5.4 (`tests/`, incl. the test games playing full hands through the core); phases 4–7 to do. Phase 3 adds
+Status: **phases 1–3 built and tested in game; phase 4 (table UI) built** 2026-11-05 as v0.4.0 (previewed in a
+browser, not yet played in game); phases 5–7 to do. Phase 3 was tested in real Lua 5.4 (`tests/`, incl. the test games
+playing full hands through the core). Phase 3 adds
 `server/play.lua` (views, action relay, stakes) and the dev-only `grumpy-gambling-test` resource; `lib/flow.lua`
 became timers in `lib/server.lua`, and the NPC brain moves to phase 5. Layout additions to §4.2:
 `shared/geometry.lua`, `server/registry.lua` (phase 1); `server/money.lua` (pure maths), `server/db.lua` (all money SQL),
@@ -313,8 +314,8 @@ remainder) comes **out of** that $1.
 | Public / Micro | 100% sink | 100% sink |
 | Business | 50% cashbox, 50% sink | `Config.Rake.Pvd.OwnerShare` (default 0%) cashbox, rest sink; the owner earns the game's edge through the cashbox |
 
-- The table info card shows the current rate ("The house keeps 4.4% of every bet"). It isn't hidden, just not
-  itemised per hand.
+- Players never see the rake: no rate on the table UI and none sent to clients (owner's decision 2026-11-05, replacing
+  the earlier "show the rate on the info card"). Modules can read it server-side (`GetStakes().rake`).
 
 ### 7.5 Conservation check
 At `Settle`, for the hand: `Σ contributions = Σ payouts + rake` (PVP), or for PVD each seat's

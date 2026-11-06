@@ -108,6 +108,8 @@ local function uiLocale()
     return uiStrings
 end
 
+GGC.UiLocale = uiLocale
+
 function GGC.OpenUI(view, data)
     GGC.uiOpen = view
     SetNuiFocus(true, true)
@@ -124,6 +126,7 @@ function GGC.CloseUI()
     GGC.uiOpen = nil
     SetNuiFocus(false, false)
     SendNUIMessage({ action = 'close' })
+    TriggerEvent('grumpy-gambling:client:uiClosed')
 end
 
 -- Hide without forgetting the view (rsg-gizmo running)

@@ -2,7 +2,7 @@
 local preSeat = nil          -- { x, y, z, h } where the player stood before sitting
 local isSetupPlayer = false
 local promptGroup = GetRandomIntInRange(0, 0xffffff)
-local standPrompt, setupPrompt, chipsPrompt
+local standPrompt, setupPrompt, chipsPrompt, turnPrompt
 
 local function makePrompt(key, text, holdMs)
     local p = PromptRegisterBegin()
@@ -25,6 +25,7 @@ CreateThread(function()
     standPrompt = makePrompt(Config.Seating.StandKey, locale('prompt_stand'), Config.Seating.StandHoldMs)
     setupPrompt = makePrompt(Config.Seating.SetupKey, locale('prompt_setup'))
     chipsPrompt = makePrompt(Config.Seating.SetupKey, locale('prompt_chips'))
+    turnPrompt = makePrompt(Config.Seating.SetupKey, locale('prompt_turn'))
 end)
 
 local function sitAt(t, seat)
@@ -126,10 +127,12 @@ CreateThread(function()
                     Wait(1500)
                 elseif not GGC.uiOpen then
                     local setupOn = isSetupPlayer and t.state == 'setup'
-                    local chipsOn = t.state == 'active'
+                    local turnOn = t.state == 'active' and GGC.MyTurn() and not GGC.TableFocused()
+                    local chipsOn = t.state == 'active' and not turnOn
                     showPrompt(standPrompt, true)
                     showPrompt(setupPrompt, setupOn)
                     showPrompt(chipsPrompt, chipsOn)
+                    showPrompt(turnPrompt, turnOn)
                     local title = t.gameLabel and ('%s · %s'):format(t.label, t.gameLabel) or t.label
                     PromptSetActiveGroupThisFrame(promptGroup, CreateVarString(10, 'LITERAL_STRING', title))
                     if PromptHasHoldModeCompleted(standPrompt) then
@@ -138,6 +141,9 @@ CreateThread(function()
                     elseif setupOn and PromptHasStandardModeCompleted(setupPrompt) then
                         TriggerServerEvent('grumpy-gambling:server:requestSetup')
                         Wait(500)
+                    elseif turnOn and PromptHasStandardModeCompleted(turnPrompt) then
+                        GGC.SetTableFocus(true)
+                        Wait(300)
                     elseif chipsOn and PromptHasStandardModeCompleted(chipsPrompt) then
                         TriggerServerEvent('grumpy-gambling:server:requestChips')
                         Wait(500)
@@ -154,4 +160,5 @@ AddEventHandler('onResourceStop', function(res)
     if standPrompt then PromptDelete(standPrompt) end
     if setupPrompt then PromptDelete(setupPrompt) end
     if chipsPrompt then PromptDelete(chipsPrompt) end
+    if turnPrompt then PromptDelete(turnPrompt) end
 end)

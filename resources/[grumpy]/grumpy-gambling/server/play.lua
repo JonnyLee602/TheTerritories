@@ -38,7 +38,19 @@ end)
 local function send(t, src, seat)
     local v = Play.views[t.id]
     if not v then return end
+    v.public._now = os.time() -- the client counts `deadline` down against the server clock
     TriggerClientEvent('grumpy-gambling:client:view', src, t.id, v.public, seat and v.private[seat] or nil, seat)
+end
+
+-- What the table UI shows in its header, added by the core so every game gets it
+local function tableInfo(t)
+    local tier = t.tier and Config.Tiers[t.tier]
+    local g = t.game and GG.Registry.Get(t.game)
+    return {
+        label = t.label, game = g and g.label or t.game, kind = t.kind, currency = t.currency,
+        tier = t.tier, tierLabel = tier and locale(tier.label) or nil, -- the rake rate is never sent to players
+        smallBlind = tier and GG.M.ToCents(tier.smallBlind) or nil, bigBlind = tier and GG.M.ToCents(tier.bigBlind) or nil,
+    }
 end
 
 function Play.PushView(tableId, public, private)
@@ -48,7 +60,10 @@ function Play.PushView(tableId, public, private)
     private = type(private) == 'table' and private or {}
     local priv = {}
     for k, v in pairs(private) do local seat = math.tointeger(k); if seat then priv[seat] = v end end
-    Play.views[t.id] = { public = public, private = priv }
+    local pub = {}
+    for k, v in pairs(public) do pub[k] = v end
+    pub._table = tableInfo(t)
+    Play.views[t.id] = { public = pub, private = priv }
     for seat, occ in pairs(t.occupants) do if occ.src then send(t, occ.src, seat) end end
     return true
 end

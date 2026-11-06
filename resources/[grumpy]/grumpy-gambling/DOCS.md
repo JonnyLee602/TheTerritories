@@ -1,6 +1,6 @@
 # grumpy-gambling — developer docs
 
-Version 0.3.0, phases 1–3 (foundation, money, module library). The full design, including later phases, is in [DESIGN.md](DESIGN.md).
+Version 0.4.0, phases 1–4 (foundation, money, module library, table UI). The full design, including later phases, is in [DESIGN.md](DESIGN.md).
 
 ## Contents
 1. Architecture
@@ -38,9 +38,10 @@ Version 0.3.0, phases 1–3 (foundation, money, module library). The full design
 | `client/world.lua` | Distance-gated spawning of tables, chairs, dealers; seat targets; blips |
 | `client/seat.lua` | Seated scenario, stand / choose-game / chips prompts, picker and chips callbacks |
 | `client/view.lua` | Latest table view and feed for this player; dev `/gga` command (`Config.DevGames`) |
+| `client/table.lua` | Table panel bridge: shows the view, takes the mouse on your turn (`GGC.MyTurn`), Esc / G focus, `act` callback |
 | `server/npc.lua` | NPC seats: `Seat`, `Remove`, `ClearTable`, money created/destroyed; dev `/ggbot` (`Config.DevGames`) |
 | `client/admin.lua` | Admin panel, rsg-gizmo placement/move, map table binding, calibration flow |
-| `html/*` | NUI: admin panel, game/tier picker and Chips window (house style) |
+| `html/*` | NUI: admin panel, game/tier picker, Chips window (`script.js`) and the table panel (`table.js`), house style |
 | `lib/*` | **Module library**, loaded by game modules (not by the core): `init.lua`, `cards.lua`, `poker.lua`, `betting.lua`, `server.lua` |
 | `tests/*` | Not loaded by the game. Lua tests run in real Lua 5.4: `tests/run_tests.py` (Python 3.12 + `lupa`) |
 | `locales/en.json` | All player-facing text |
@@ -140,6 +141,7 @@ Phase 3 adds the hand API and wraps these in the module library (DESIGN.md §11)
 | `grumpy-gambling:client:chips` / `chipsClosed` | client | Chips window (amounts in cents) |
 | `grumpy-gambling:server:action` (`actionId, cents?`) | server | Seated player at an active table; 250 ms rate limit |
 | `grumpy-gambling:client:view` (`tableId, public, private, seat`) / `message` (`tableId, text`) | client | Table view and feed |
+| NUI `act` (`{ id, amount }`) / `tableBlur` | NUI → client | A move from the action bar (sent as `server:action`); Esc on the table |
 | `grumpy-gambling:server:admin*` | server | Admin only: `Create`, `Move`, `Rename`, `Toggle`, `Delete`, `Teleport`, `Calibrate`, `ResetCalibration` |
 | `grumpy-gambling:client:sync` / `table` / `removeTable` | client | Table data |
 | `grumpy-gambling:client:seated` / `stood` / `setup` / `setupClosed` | client | Seat state and picker |
@@ -183,6 +185,13 @@ GGLib.RegisterGame({ id = 'blackjack', label = locale('label'), kind = 'pvd', mi
   with the same key; `CancelTimer`, `CancelTimers(prefix)`), `GGLib.Fmt(cents)`, `GGLib.Cents(dollars)`.
 - **Money:** every chip the betting engine moves (`put` from `Post`/`Act`) goes to the core with `GGLib.Bet`. Give back
   `Uncalled()` with `GGLib.Return`. Settle with a ranking (PVP) or payouts (PVD). Never touch player money yourself.
+- **The table UI** draws any view: `public.board` or `public.dealer` (card lists), `pot`, `turn` (seat), `deadline`
+  (os.time; the core adds `_now` so the client counts down on the server clock), `phase = 'waiting'`, `seats[]` with
+  `seat, name, stack?, bet?, cards?, label?, dealer?, folded?, allin?`, and `results[]` (`seat, amount`). Action buttons
+  come from `private.actions`: `{ id, amount? }` is a button, `{ id, min, max, step }` a slider. Labels use locale keys
+  `ui_act_<id>` (fold, check, call, bet, raise, allin, hit, stand, double, split are included; others show the id).
+  The core also adds `public._table` (label, game, tier, blinds, currency) for the header. The rake rate is never sent to
+  players (owner's decision); modules can read it server-side with `GetStakes`.
 - **Views** (DESIGN.md §11.4): `public` = { game, phase, pot, board, turn, deadline, seats = { { seat, name, stack,
   bet, cards, label, ... } }, results }, `private[seat]` = { cards, actions = { { id = 'fold' }, { id = 'call',
   amount }, { id = 'raise', min, max, step } } } (cents). Phase 4 draws this in the NUI.
@@ -268,6 +277,7 @@ Money tables (cents in `_c` columns): `grumpy_gambling_stacks` (one row per seat
 | Table skipped on start (console) | Its model has no profile in `shared/models.lua` |
 | Chip stacks float or sit inside the table | Tune `Config.ChipStacks.Forward` / `Height`, or per model `chipForward` / `chipHeight` in `shared/models.lua` |
 | Can't move a table | Map (bound) tables can't move; spawned tables need nobody seated |
+| Table panel never takes the mouse | `Config.TableUI.AutoFocus`; a window (chips, picker) open takes priority; press G (Your turn) |
 | No Chips window | The table hasn't started a game (no module installed). Dev: `Config.DevGames = true` |
 | "Owed to you from the card tables" on login | Chips from a disconnect or restart being paid back: expected |
 | How much has the rake removed? | `SELECT currency, -SUM(amount_c)/100 FROM grumpy_gambling_ledger WHERE kind = 'rake' GROUP BY currency` |

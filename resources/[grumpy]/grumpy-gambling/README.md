@@ -3,16 +3,16 @@
 The gambling core for The Territories: card tables, seating, stake tiers and (in later phases) stacks, rake, NPC players
 and business tables, shared by small **game modules** (blackjack, poker, faro, …) that only define rules and odds.
 
-Version 0.3.0 (**phase 3 of 7: module library**) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
+Version 0.4.0 (**phase 4 of 7: table UI**) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
 developers and [DESIGN.md](DESIGN.md) for the full design.
 
 This is a community script. It is **not** made or supported by the RSG authors.
 
 **Dependencies:** `rsg-core`, `rsg-target`, `rsg-gizmo`, `oxmysql`
 
-> **Status.** Phases 1–3 are built: tables and seating, chips/hands/rake/ledger, and the **module library** game
-> modules are written with (`lib/`). The table UI (cards, action buttons) is phase 4, so no real game modules are
-> released yet. Dev servers: `grumpy-gambling-test` adds two test games playable with the `/gga` chat command, and
+> **Status.** Phases 1–4 are built: tables and seating, chips/hands/rake/ledger, the **module library** game modules
+> are written with (`lib/`), and the **table UI**. No real game modules are released yet (blackjack, poker, faro … come
+> next). Dev servers: `grumpy-gambling-test` adds two test games, `/ggbot` seats NPC opponents, and
 > `Config.DevGames = true` adds placeholder games for trying chips.
 
 ## Features
@@ -46,6 +46,12 @@ This is a community script. It is **not** made or supported by the RSG authors.
   2.5 minimum bets per hour (dealer games, the game's own edge included). Fractions of a cent carry between hands. Public
   tables destroy the rake (a money sink). Micro tables pay none.
 - **Ledger** of every buy-in, cash-out, payout, rake and house win or loss; hands are recorded too.
+- **Table UI.** While seated, a panel at the bottom of the screen shows the table without taking the mouse: the
+  board or the dealer's cards, the pot, every seat (stack, bet, dealer button, folded / all-in, whose turn, wins),
+  your own cards, a turn timer, the table feed, and the stakes. On your turn it takes the mouse and
+  shows your moves (Fold, Check, Call $x, All in, and a Min / slider / Max for bets and raises). **Esc** gives the
+  mouse back so you can look around; **G** (Your turn) takes it again. It draws whatever the game sends, so every
+  module gets it for free.
 - **Module library** (`lib/`): cards and shoes, a poker hand evaluator, a no-limit betting engine (blinds, min-raise,
   short all-ins that don't reopen the betting, uncalled bets), and server wrappers for the core (register a game,
   table events, hands, views, timers). A game module is a small resource that loads these files; see DOCS.md.
@@ -89,6 +95,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `Tiers` | micro, low, mid, high | Stakes per tier (blinds, buy-in range, NPC cap). See DESIGN.md §6 |
 | `Pvd.MaxBetMultiplier` | `10` | Dealer games: max bet = 10 × min bet |
 | `DevGames` | `false` | Dev servers: placeholder games, `/gga <action> [dollars]` to act, `/ggbot [n|clear]` (admin) to seat test NPCs |
+| `TableUI.AutoFocus` / `FeedLines` | `true` / `8` | Take the mouse on your turn; feed lines shown |
 | `Npc.Models` / `Names` | townsfolk / six names | NPC players' looks and names (phase 5 adds personalities and regulars) |
 | `ChipStacks.Enabled` / `Models` / `Forward` / `Height` | `true` / one per tier / `0.6` / `0.80` | Chip stack props in front of seats with chips; a model can override `chipForward` / `chipHeight` |
 | `Money.SavePlayer` / `BuyInStep` | `true` / `smallBlind` | Save the player after a buy-in or cash-out; buy-in slider step |
@@ -112,8 +119,9 @@ offers the Smithfields saloon card table (`p_tablepoker01x` with `p_windsorchair
 3. Close (hide) or delete tables from the same screen.
 
 **Players:** walk up to a seat → **Sit down**. The first player picks the game and stakes. Everyone then buys chips
-in the Chips window. Press **G** for the game picker (while choosing) or the Chips window (to top up between hands).
-Hold **R** to stand up and cash out.
+in the Chips window. The table panel shows the game; on your turn click your move (Esc to look around, **G** to come
+back). **G** also opens the game picker (while choosing) or the Chips window (to top up between hands). Hold **R** to
+stand up and cash out.
 
 ## Developer example
 ```lua

@@ -307,5 +307,5 @@ $('btn-close').addEventListener('click', () => post('close'));
 $('btn-back').addEventListener('click', () => { st.detail = null; render(); });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (modalOpen()) closeModal(); else post('close');
+  if (modalOpen()) closeModal(); else if (view) post('close');
 });

@@ -4,7 +4,6 @@ Config.Debug = false
 Config.AutoDatabase = true                 -- create tables from install.sql on start
 Config.DevGames = false                    -- dev servers only: placeholder "Test (no gameplay)" games so tables can start
                                            -- and buy-in / cash-out can be tried before any game module is installed
-Config.DevNotify = { TurnMs = 15000, FeedMs = 8000 } -- dev notifications until the phase 4 table UI: "your turn", feed lines
 
 ---------------------------------------------------------------------
 -- Admin
@@ -58,6 +57,12 @@ Config.ChipStacks = {
     Forward = 0.6,                         -- metres from the chair toward the table (NT puts bet chips ~0.68 m out)
     Height = 0.80,                         -- metres above the floor, about the table top (a model can override both:
                                            -- chipForward / chipHeight in shared/models.lua)
+}
+
+-- Table UI (phase 4): the panel shown while seated
+Config.TableUI = {
+    AutoFocus = true,                      -- take the mouse when it's your turn (Esc gives it back, G takes it again)
+    FeedLines = 8,                         -- lines of the table feed shown
 }
 
 -- NPC players (phase 3: seat plumbing + dev /ggbot; phase 5: seating rule, win cap, brains, regulars)
