@@ -20,7 +20,6 @@ local function despawn(id)
     for _, hd in ipairs(w.hidden) do RemoveModelHide(hd.x, hd.y, hd.z, hd.r, hd.model, false) end
     for _, c in pairs(w.chipProps or {}) do deleteEntity(c.obj) end
     for _, n in pairs(w.npcPeds or {}) do
-        if n.ped and n.target then exports['rsg-target']:removeLocalEntity(n.ped) end
         GGC.Anim.Stop(n.ped)
         deleteEntity(n.ped)
     end
@@ -169,20 +168,6 @@ local function applyOutfit(ped, outfit)
     end
 end
 
--- Back rooms: "Call out cheat" on NPC players, for players seated at the same table
-local function callOutTarget(t, i, ped)
-    exports['rsg-target']:addLocalEntity(ped, {
-        {
-            name = ('grumpy-gambling:callout:%d:%d'):format(t.id, i),
-            icon = 'fa-solid fa-hand-point-right',
-            label = locale('target_callout'),
-            distance = 3.5,
-            canInteract = function() return GGC.Seat ~= nil and GGC.Seat.id == t.id end,
-            onSelect = function() TriggerServerEvent('grumpy-gambling:server:callOut', t.id, i) end,
-        },
-    })
-end
-
 local function updateNpcs(t, w)
     w.npcPeds = w.npcPeds or {}
     for i = 1, #t.seats do
@@ -192,7 +177,6 @@ local function updateNpcs(t, w)
         if outfit == false then outfit = nil end
         local have = w.npcPeds[i]
         if have and (have.model ~= want or have.outfit ~= outfit) then
-            if have.ped and have.target then exports['rsg-target']:removeLocalEntity(have.ped) end
             GGC.Anim.Stop(have.ped)
             deleteEntity(have.ped)
             w.npcPeds[i], have = nil, nil
@@ -216,7 +200,6 @@ local function updateNpcs(t, w)
                 TaskStartScenarioAtPosition(ped, joaat(Config.Seating.Scenario), x, y, z + (t.sitZ or 0.5), h, -1, false, true)
                 slot.ped = ped
                 GGC.Anim.Start(ped)
-                if t.currency == 'bloodmoney' then callOutTarget(t, i, ped); slot.target = true end
             else
                 deleteEntity(ped)
             end
@@ -266,6 +249,28 @@ local function spawn(t)
             debug = Config.Debug,
             options = seatOptions(t.id, i),
         })
+        -- Back rooms: "Call out cheat" on an NPC in this seat, for players seated at the same table. A zone at chest
+        -- height, not the ped: seated NPCs have no collision, so rsg-target's raycast would pass straight through them.
+        if t.currency == 'bloodmoney' then
+            local id, seat = t.id, i
+            w.zones[#w.zones + 1] = exports['rsg-target']:addSphereZone({
+                coords = vector3(x, y, z + (t.sitZ or 0.5) + 0.6),
+                radius = 0.45,
+                debug = Config.Debug,
+                options = { {
+                    name = ('grumpy-gambling:callout:%d:%d'):format(id, seat),
+                    icon = 'fa-solid fa-hand-point-right',
+                    label = locale('target_callout'),
+                    distance = 3.5,
+                    canInteract = function()
+                        local tt = GGC.Tables[id]
+                        if not GGC.Seat or GGC.Seat.id ~= id or GGC.Seat.seat == seat then return false end
+                        return tt ~= nil and tt.npc ~= nil and tt.npc[seat] ~= nil and tt.npc[seat] ~= false
+                    end,
+                    onSelect = function() TriggerServerEvent('grumpy-gambling:server:callOut', id, seat) end,
+                } },
+            })
+        end
     end
     -- business tables: the owner manages theirs from the middle of the table
     if t.businessId then
