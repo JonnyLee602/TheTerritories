@@ -123,7 +123,7 @@ Config.Discovery = {
 -- or put an .ogg/.mp3 in html/sounds/ and set e.g. town = 'sounds/town.ogg'. false = silent for that kind.
 ---------------------------------
 Config.Sound = {
-    Enabled = true,
+    Enabled = false, -- The Territories: zone sounds off (RSG default true)
     Volume  = 0.25, -- 0.0 - 1.0
     Files = {
         state     = nil,

@@ -52,6 +52,7 @@ The commit message on `upstream` lists what RSG changed in each resource. To und
 | rsg-inventory | Core refresh on new items, `stashClosed` event, image URLs | grumpy-pob custom items, stock box |
 | rsg-stables | Registered + job-only stables, per-stable caps, `capExempt`, `MoveHorses`, training exports, `OpenStable` | grumpy-pob stable businesses |
 | rsg-target | `Config.Highlight.Radius` 10.0 → 1.0 | Eye markers only show for targets right next to you |
+| rsg-zonenotify | `Config.Sound.Enabled` true → false (`shared/config.lua`) | Zone notifications are silent |
 
 Every edit made for a grumpy script is marked `[grumpy-bartender hook]`, `[grumpy-pob hook]` or
 `[grumpy-reputation hook]` in the code. The original patch instructions live in each script's `integrations/` folder.
