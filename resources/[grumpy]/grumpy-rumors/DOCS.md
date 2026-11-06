@@ -52,6 +52,7 @@ A rumor without `job` is flavour only.
 | `GiveRumor(src, rumorId)` | boolean | Hands a note directly (loot, quest rewards). No tier check, no charge |
 | `GetRumor(id)` | rumor config or nil | |
 | `CountNotes(src)` | number | Notes in the player's pockets |
+| `Ask(src, opts)` | ok, rumorId | For resources whose NPC acts as an informant (grumpy-trader). **The caller checks the NPC and distance first.** `opts = { key, categories, price, payWith?, cooldown?, reason?, noMoney? }`: `key` is the cooldown key (e.g. `trader:<id>`), `payWith` the money types tried in order (whole price from one), `noMoney` a grumpy-rumors locale key for the "can't pay" line. Charges only when a note is handed over; refunds (reason `grumpy-rumors-refund`) if the item add fails |
 
 ## 4. Events
 | Event | Side | Args |
@@ -103,7 +104,7 @@ Rules for job types:
 
 ## 7. Security model
 What this resource checks:
-- Asking: player exists, informant exists and is enabled, server-side distance to the informant, per-player informant cooldown, note limit, rumor eligibility (category, tier, rumor cooldown, job available, not already holding it), cash before `RemoveMoney`, `CanAddItem` before `AddItem`, refund if `AddItem` fails.
+- Asking (informant NPCs): player exists, informant exists and is enabled, server-side distance to the informant. Asking through `Ask` (traders): grumpy-trader checks the trader, distance and the lawman rule. Both then check the per-character cooldown per informant/trader, note limit, rumor eligibility (category, tier, rumor cooldown, job available, not already holding it), money before `RemoveMoney` (the whole price from one money type), `CanAddItem` before `AddItem`, refund if `AddItem` fails.
 - Acting: the item in that slot must be a `rumor_note` with the **same serial** the server sent when it was read. The note must not be expired, the **reader's** tier must be allowed and the job type must be registered. `canStart` runs before the note is removed, and the note is returned if `start` fails or errors.
 - The client only sends an informant id or a slot plus serial. Rumor ids, members, args and rewards all come from server config and state.
 - Rate limit: 2 s between ask/act per player.
@@ -118,6 +119,7 @@ None.
 - **Add a flavour rumor:** add an entry without `job` and two locale strings.
 - **Add a job rumor:** make sure a resource registers the job type, then add the entry with `job = { type = ..., args = ... }`.
 - **Legal-only informant:** `categories = { 'legal' }`, with legal rumors that have `tiers = { 'neutral', 'respected', 'upstanding' }`.
+- **Trader tips:** grumpy-trader `Config.Rumors.Kinds.legal/illegal` set the categories, price, money types and cooldown per trader kind. A trader with `categories = { 'legal', 'work' }` also hands out rumors whose category is `work`.
 - **Change the brush-off line:** `nothing_<first category>` in locales.
 
 ## 10. Troubleshooting

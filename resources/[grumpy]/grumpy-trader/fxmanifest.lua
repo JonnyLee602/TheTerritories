@@ -6,7 +6,7 @@ lua54 'yes'
 author 'Grumpy (based on rsg-trader by RexShack)'
 name 'grumpy-trader'
 description 'Dynamic-price NPC traders, legal or illegal (fences), with honor/infamy prices and money laundering. Replaces rsg-trader.'
-version '1.0.0'
+version '1.1.0'
 
 shared_scripts {
     '@rsg-core/shared/locale.lua',

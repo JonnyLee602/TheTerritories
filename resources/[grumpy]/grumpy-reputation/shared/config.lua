@@ -88,6 +88,8 @@ Config.MoneyHooks = {
 }
 Config.BloodMoneyAction = 'blood_money' -- any unmatched bloodmoney 'add' (nil = off)
 Config.MinHookAmount = 1                 -- ignore payouts smaller than this
+-- money handed back (a failed purchase or bribe) isn't income: never moves standing. Lua patterns.
+Config.IgnoreReasons = { '%-refund$' }
 
 ---------------------------------------------------------------------
 -- Honor / infamy pricing (doctrine/pricing.md section 2).

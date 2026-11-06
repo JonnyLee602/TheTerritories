@@ -616,6 +616,38 @@ callback('grumpy-trader:server:admin:deleteItem', function(source, traderid, ite
     return result(true, locale('sv_item_removed'))
 end)
 
+---------------------------------------------
+-- rumors (grumpy-rumors): legal traders share legal tips, fences sell illegal ones for a bribe.
+-- This side checks the trader, the distance and the law; grumpy-rumors picks the rumor by standing,
+-- charges only when a note is handed over, and keeps the per-trader cooldown.
+---------------------------------------------
+RegisterNetEvent('grumpy-trader:server:askRumor', function(traderid)
+    local src = source
+    local cfg = Config.Rumors
+    local Player = RSGCore.Functions.GetPlayer(src)
+    local trader = type(traderid) == 'string' and Traders[traderid]
+    if not cfg.Enabled or not Player or not trader then return end
+    if GetResourceState('grumpy-rumors') ~= 'started' then return end
+    local kc = cfg.Kinds[trader.kind]
+    if not kc then return end
+    if not isNearTrader(src, trader) then return end
+    if lawBlocked(Player, trader) then
+        return TriggerClientEvent('RSGCore:Client:Notify', src, { title = trader.tradername, description = locale('sv_law_blocked'), type = 'error', duration = 5000 })
+    end
+
+    local price = tonumber(kc.price) or 0
+    if price > 0 and kc.standingScales then price = price * standingMult(src, trader, 'buy') end
+    exports['grumpy-rumors']:Ask(src, {
+        key = 'trader:' .. traderid,
+        categories = kc.categories,
+        price = round2(price),
+        payWith = kc.payWith or { 'cash' },
+        cooldown = kc.cooldown,
+        reason = cfg.Reason,
+        noMoney = trader.kind == 'illegal' and 'no_bribe' or nil,
+    })
+end)
+
 AddEventHandler('playerDropped', function()
     cooldowns[source] = nil
 end)

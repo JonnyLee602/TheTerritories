@@ -6,7 +6,7 @@ lua54 'yes'
 author 'Grumpy'
 name 'grumpy-rumors'
 description 'Informants hand out expiring rumor notes, gated by grumpy-reputation standing. Notes can start jobs that other resources register.'
-version '1.0.0'
+version '1.1.0'
 
 shared_scripts {
     '@rsg-core/shared/locale.lua',

@@ -13,6 +13,9 @@ end
 AddEventHandler('RSGCore:Server:OnMoneyChange', function(src, moneytype, amount, operation, reason)
     if operation ~= 'add' or (tonumber(amount) or 0) < Config.MinHookAmount then return end
     if Config.Pricing and reason == Config.Pricing.Reason then return end -- price adjustments aren't work
+    if type(reason) == 'string' then
+        for _, pat in ipairs(Config.IgnoreReasons or {}) do if reason:match(pat) then return end end
+    end
     local action = matchHook(reason)
     if not action and moneytype == 'bloodmoney' then action = Config.BloodMoneyAction end
     if Config.Debug then print(('[grumpy-reputation] payout %s %s $%s reason=%s -> %s'):format(src, moneytype, amount, tostring(reason), action or 'no hook')) end

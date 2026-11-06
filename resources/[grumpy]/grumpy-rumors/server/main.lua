@@ -145,47 +145,67 @@ local function giveNote(src, rumor)
 end
 
 -----------------------------------------------------------------------
--- ask an informant
+-- asking for a rumor (informants, and traders through the Ask export)
 -----------------------------------------------------------------------
+local function round2(n) return math.floor(n * 100 + 0.5) / 100 end
+
+-- the whole price comes from the first money type in the list the player can cover
+local function charge(Player, price, payWith, reason)
+    for _, mt in ipairs(payWith) do
+        if (tonumber(Player.PlayerData.money[mt]) or 0) >= price and Player.Functions.RemoveMoney(mt, price, reason) then return mt end
+    end
+end
+
+---@param o table { key, categories, price, payWith?, cooldown?, reason?, noMoney? } (checked by the caller: distance etc.)
+local function askFor(src, o)
+    local Player = RSGCore.Functions.GetPlayer(src)
+    if not Player then return false end
+    local now = os.time()
+    local cid = Player.PlayerData.citizenid
+    AskCooldown[cid] = AskCooldown[cid] or {}
+    if (AskCooldown[cid][o.key] or 0) > now then notify(src, locale('ask_too_soon'), 'error') return false end
+    if #playerNotes(src) >= Config.MaxNotes then notify(src, locale('too_many_notes'), 'error') return false end
+
+    local rumor = pickRumor(src, o.categories)
+    if not rumor then
+        -- nothing for this player: nothing is charged
+        AskCooldown[cid][o.key] = now + Config.NothingCooldown
+        notify(src, locale('nothing_' .. (o.categories[1] or 'any')), 'inform')
+        return false
+    end
+
+    if not exports['rsg-inventory']:CanAddItem(src, ITEM, 1) then notify(src, locale('inventory_full'), 'error') return false end
+    local price = math.max(0, round2(tonumber(o.price) or 0))
+    local paidWith
+    if price > 0 then
+        paidWith = charge(Player, price, o.payWith or { 'cash' }, o.reason or 'grumpy-rumors-tip')
+        if not paidWith then notify(src, locale(o.noMoney or 'no_cash', ('%.2f'):format(price)), 'error') return false end
+    end
+
+    if not giveNote(src, rumor) then
+        if paidWith then Player.Functions.AddMoney(paidWith, price, 'grumpy-rumors-refund') end
+        notify(src, locale('inventory_full'), 'error')
+        return false
+    end
+    AskCooldown[cid][o.key] = now + (tonumber(o.cooldown) or 0)
+    if paidWith then
+        notify(src, locale('got_rumor_paid', ('%.2f'):format(price), locale(rumor.title)), 'success')
+    else
+        notify(src, locale('got_rumor', locale(rumor.title)), 'success')
+    end
+    return true, rumor.id
+end
+
 RegisterNetEvent('grumpy-rumors:server:ask', function(informantId)
     local src = source
-    local Player = RSGCore.Functions.GetPlayer(src)
-    if not Player then return end
-    local now = os.time()
+    if not RSGCore.Functions.GetPlayer(src) then return end
     if (actCooldown[src] or 0) > GetGameTimer() then return end
     actCooldown[src] = GetGameTimer() + 2000
 
     local inf = InformantsById[informantId]
     if not inf or not inf.enabled then return end
     if #(GetEntityCoords(GetPlayerPed(src)) - inf.coords.xyz) > Config.AskDistance + 1.0 then return end
-
-    local cid = Player.PlayerData.citizenid
-    AskCooldown[cid] = AskCooldown[cid] or {}
-    if (AskCooldown[cid][inf.id] or 0) > now then return notify(src, locale('ask_too_soon'), 'error') end
-
-    if #playerNotes(src) >= Config.MaxNotes then return notify(src, locale('too_many_notes'), 'error') end
-
-    local rumor = pickRumor(src, inf.categories)
-    if not rumor then
-        AskCooldown[cid][inf.id] = now + Config.NothingCooldown
-        return notify(src, locale('nothing_' .. (inf.categories[1] or 'any')), 'inform')
-    end
-
-    local price = math.max(0, math.floor(tonumber(inf.price) or 0))
-    if not exports['rsg-inventory']:CanAddItem(src, ITEM, 1) then return notify(src, locale('inventory_full'), 'error') end
-    if price > 0 then
-        if (Player.PlayerData.money.cash or 0) < price or not Player.Functions.RemoveMoney('cash', price, 'grumpy-rumors-tip') then
-            return notify(src, locale('no_cash', price), 'error')
-        end
-    end
-
-    local ok = giveNote(src, rumor)
-    if not ok then
-        if price > 0 then Player.Functions.AddMoney('cash', price, 'grumpy-rumors-refund') end
-        return notify(src, locale('inventory_full'), 'error')
-    end
-    AskCooldown[cid][inf.id] = now + (inf.cooldown or 0)
-    notify(src, locale('got_rumor', locale(rumor.title)), 'success')
+    askFor(src, { key = 'informant:' .. inf.id, categories = inf.categories, price = inf.price, cooldown = inf.cooldown })
 end)
 
 -----------------------------------------------------------------------
@@ -314,3 +334,22 @@ exports('GiveRumor', function(src, rumorId)
 end)
 exports('GetRumor', function(id) return RumorsById[id] end)
 exports('CountNotes', function(src) return #playerNotes(src) end)
+
+-- For other resources (grumpy-trader) that have already checked the player is at their NPC.
+-- opts = { key = 'trader:<id>', categories = { 'legal' }, price = 0, payWith = { 'cash' }, cooldown = 1800,
+--          reason = 'money reason', noMoney = 'locale key' }. Returns ok, rumorId.
+exports('Ask', function(src, opts)
+    src = tonumber(src)
+    if not src or type(opts) ~= 'table' or type(opts.key) ~= 'string' or type(opts.categories) ~= 'table' then return false end
+    if (actCooldown[src] or 0) > GetGameTimer() then return false end
+    actCooldown[src] = GetGameTimer() + 2000
+    local payWith = {}
+    for _, mt in ipairs(type(opts.payWith) == 'table' and opts.payWith or { 'cash' }) do
+        if type(mt) == 'string' then payWith[#payWith + 1] = mt end
+    end
+    return askFor(src, {
+        key = opts.key, categories = opts.categories, price = tonumber(opts.price) or 0, payWith = payWith,
+        cooldown = tonumber(opts.cooldown) or 0, reason = type(opts.reason) == 'string' and opts.reason or nil,
+        noMoney = type(opts.noMoney) == 'string' and opts.noMoney or nil,
+    })
+end)

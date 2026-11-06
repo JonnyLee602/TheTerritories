@@ -64,6 +64,7 @@ Item row: `{ traderid, item, stock, lowstock, highstock, baseprice, mode = 'both
 | `grumpy-trader:server:buy` / `:sell` | callback | `traderid, item, amount` → `{ ok, msg }` |
 | `grumpy-trader:server:launder` *(new)* | callback | `traderid, amount` → `{ ok, msg }` |
 | `grumpy-trader:server:admin:*` | callbacks | admin only: `isAdmin`, `traders`, `saveTrader`, `deleteTrader`, `items`, `saveItem`, `deleteItem` |
+| `grumpy-trader:server:askRumor` *(new)* | net event | `traderid`. Checks the trader, distance and lawman rule, works out the bribe, then calls `exports['grumpy-rumors']:Ask` |
 | `grumpy-trader:client:openAdmin` | client event | opened by `/traderadmin` |
 | `grumpy-trader:server:databaseReady` | server event | tables ready, traders load |
 | `SendWebhook(event, src, title, fields, description)` | server export | Discord log through this resource's webhooks |
@@ -75,6 +76,7 @@ Money reasons (for `RSGCore:Server:OnMoneyChange` listeners):
 | `grumpy-trader-buy` / `grumpy-trader-sell` | legal trader purchase / sale |
 | `grumpy-trader-fence-buy` / `grumpy-trader-fence` | illegal trader purchase / sale |
 | `grumpy-trader-launder` | laundering (bloodmoney out, cash in) |
+| `grumpy-trader-bribe` | bribing a fence for a rumor (`Config.Rumors.Reason`) |
 | `grumpy-trader-refund` | refunds after a failed trade |
 
 ## 6. Integration with grumpy-reputation
@@ -83,6 +85,11 @@ Money reasons (for `RSGCore:Server:OnMoneyChange` listeners):
   `grumpy-trader-fence` → `fence_sale` (outlaw). Payouts under $1 (`MinHookAmount`) give no standing.
 - **Don't** add grumpy-trader reasons to grumpy-reputation's `Config.Pricing.SaleHooks`: prices would be adjusted twice.
 - Without grumpy-reputation everything works at stock prices, and the laundering cut is the flat configured value.
+
+### Rumors (grumpy-rumors)
+- The trader adds a second rsg-target option, **Ask what's new** / **Slip him $… for a tip**, shown only while grumpy-rumors runs.
+- The bribe is `Config.Rumors.Kinds.illegal.price` × the underground **buy** multiplier (`standingScales`), so known outlaws pay less. The label shows the base price.
+- grumpy-rumors decides the rumor from the player's standing, charges only when a note is handed over, and keeps the cooldown (key `trader:<traderid>`, in memory).
 
 ## 7. Persistence and database
 | Table | Purpose |
@@ -109,6 +116,7 @@ rsg-trader's tables (`rsg_trader`, `rsg_trader_npcs`) are only read, once, for t
 - **Stolen goods only the fence buys:** add the item to the fence with **Players sell only** and a base price.
 - **Make dirty money harder to wash:** lower `PlayerDailyLimit` / `TraderDailyLimit`, or raise `DefaultCut`.
 - **Let lawmen use fences (undercover RP):** `Config.Kinds.illegal.blockLaw = false`.
+- **Change what traders say:** `Config.Rumors.Kinds.<kind>.categories` (match grumpy-rumors `Config.Rumors[].category`). Free fences: `price = 0`. No rumors from traders: `Config.Rumors.Enabled = false`.
 - **Pay fences in clean cash instead:** `Config.Kinds.illegal.payOut = 'cash'` (not recommended by the doctrine).
 
 ## 10. Troubleshooting

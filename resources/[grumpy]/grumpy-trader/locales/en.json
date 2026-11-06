@@ -123,6 +123,8 @@
     "wh_test_desc": "If you can read this, the channel is set up correctly.",
     "wh_test_queued": "Test webhooks queued.",
     "cl_target_fence": "Talk business",
+    "cl_target_rumor": "Ask what's new",
+    "cl_target_bribe": "Slip him $%s for a tip",
     "ui_kind": "Kind",
     "ui_kind_legal": "Legal trader",
     "ui_kind_illegal": "Illegal (fence)",

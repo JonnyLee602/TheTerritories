@@ -51,6 +51,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `Config.MoneyHooks` | RSG job payouts | `{ reason = 'exact' }` or `{ pattern = 'lua pattern' }` → `action` |
 | `Config.BloodMoneyAction` | `'blood_money'` | Action for any bloodmoney payout not matched by a hook. `nil` = off |
 | `Config.MinHookAmount` | `1` | Ignore payouts below this |
+| `Config.IgnoreReasons` | `{ '%-refund$' }` | Money reasons (Lua patterns) that never move standing, e.g. refunds of a failed purchase or bribe |
 | `Config.Decay` | on, after 7 days, 10/day | Drift toward 0 when idle |
 | `Config.Pricing.Enabled` / `Deadzone` | `true` / `199` | Honor/infamy prices on/off; standing within ± this pays normal prices |
 | `Config.Pricing.Markets` | legal buy 0.75/1.5, sell 1.5/0.5; underground the reverse | `{ buy = { honor, infamy }, sell = { honor, infamy } }` multipliers at the ends of the scale |

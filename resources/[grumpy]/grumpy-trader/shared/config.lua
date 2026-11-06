@@ -103,6 +103,33 @@ Config.Laundering = {
 }
 
 ---------------------------------
+-- Rumors (needs grumpy-rumors; the option is hidden without it).
+-- Traders are informants: legal traders share legal rumors for free, fences only talk after a bribe.
+-- Which rumor a player gets (and whether they get one at all) is decided by grumpy-rumors from their standing:
+-- an outlaw asking a legal trader, or an honest player bribing a fence, hears nothing and pays nothing.
+---------------------------------
+Config.Rumors = {
+    Enabled  = true,
+    Distance = 3.0, -- target distance; the server checks Config.InteractDistance
+    Kinds = {
+        legal = {
+            categories = { 'legal' },   -- grumpy-rumors Config.Rumors[].category values this trader knows
+            price      = 0,             -- free: honest folk share news
+            cooldown   = 1800,          -- seconds before the same character can ask this trader again
+        },
+        illegal = {
+            categories = { 'illegal' },
+            -- Doctrine band: informant tip $0.50 (pricing.md). Fences charge double: outlaws carry "high bribe costs".
+            price      = 1.00,
+            payWith    = { 'bloodmoney', 'cash' }, -- dirty money first; the whole bribe comes from one type
+            standingScales = true,      -- x grumpy-reputation underground buy price (known outlaws pay less, min x0.75)
+            cooldown   = 1800,
+        },
+    },
+    Reason = 'grumpy-trader-bribe', -- money reason for the bribe
+}
+
+---------------------------------
 -- trader npcs
 -- traders are stored in the `grumpy_trader_npcs` table and managed in game: /traderadmin
 -- Config.DefaultTraders is only used to seed a brand new table (when nothing was imported).

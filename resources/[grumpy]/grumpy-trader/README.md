@@ -4,14 +4,14 @@ Dynamic-price NPC traders where the admin picks, per trader, whether it is a **l
 fence**. Fences pay in dirty money, trade with outlaws on better terms, keep away from on-duty lawmen, and can
 **launder** dirty money into clean cash for a cut. One resource replaces both rsg-trader and a separate fence script.
 
-Version 1.0.0 · for RSG Framework (rsg-core 3.x) · see [DOCS.md](DOCS.md) for developer and server owner details.
+Version 1.1.0 · for RSG Framework (rsg-core 3.x) · see [DOCS.md](DOCS.md) for developer and server owner details.
 
 Based on **rsg-trader by RexShack** (Rexshack-RedM): NPC spawning, stock-based pricing, the trade UI and the admin
 panel are his work. This is a community modification. It is **not** made or supported by the RSG authors, so please
 don't ask them for help with it.
 
 **Dependencies:** `rsg-core`, `rsg-inventory`, `rsg-target`, `rsg-gizmo`, `oxmysql`
-**Optional:** `grumpy-reputation` (honor/infamy prices, laundering cut by standing, standing from sales)
+**Optional:** `grumpy-reputation` (honor/infamy prices, laundering cut by standing, standing from sales), `grumpy-rumors` (traders give rumors)
 
 ## Features
 - Everything rsg-trader does: NPC traders by distance with fade-in, an rsg-target option, a Buy / Sell window with stock bars, prices that move with stock, `/traderadmin` to place and edit traders and stock (traders are placed with **rsg-gizmo**: after Save a ghost of the trader follows your aim and you can walk while placing; tick **Move trader** to move an existing one), map blips, draggable panels, Discord webhooks.
@@ -32,6 +32,11 @@ don't ask them for help with it.
   - Hand over dirty money and get clean cash back, minus the fence's cut (default 30%, adjustable per fence).
   - With grumpy-reputation, outlaws get a smaller cut and honorable players a bigger one (×0.75 to ×1.5).
   - Daily limits per character and per fence (default $100 and $500) keep big piles of dirty money hard to wash.
+- **Rumors** (with grumpy-rumors). Every trader is also an informant:
+  - Legal traders: **Ask what's new** gives a free **legal** rumor note.
+  - Fences: **Slip him $1.00 for a tip** gives an **illegal** rumor note for a bribe (dirty money first, else cash; known outlaws pay less).
+  - grumpy-rumors picks the rumor from the player's standing. If there's nothing for them, they're brushed off and pay nothing.
+  - One ask per trader per character every 30 minutes. Fences won't talk to on-duty lawmen.
 - **No money loops.** With honor discounts, selling something back could pay more than buying it. A sale never pays more per unit than the cheapest discounted price that item can be bought for at any trader.
 - **First start imports rsg-trader**: traders and stock come over automatically as legal traders.
 
@@ -58,6 +63,9 @@ don't ask them for help with it.
 | `Config.Laundering.StandingScales` | `true` | Cut × the player's underground buy multiplier |
 | `Config.Laundering.MinAmount` | `1` | Smallest dirty amount per wash |
 | `Config.Laundering.PlayerDailyLimit` / `TraderDailyLimit` | `100` / `500` | Dirty dollars per character per fence per day / per fence per day (0 = no limit) |
+| `Config.Rumors.Enabled` | `true` | Traders give rumors (option hidden while grumpy-rumors is stopped) |
+| `Config.Rumors.Kinds.legal` | legal rumors, free, 1800 s | `categories`, `price`, `cooldown` per character per trader |
+| `Config.Rumors.Kinds.illegal` | illegal rumors, $1.00 bribe, 1800 s | also `payWith` (`bloodmoney`, `cash`) and `standingScales` (× underground buy price) |
 | `Config.AdminCommand` | `'traderadmin'` | Admin panel command |
 | `Config.DefaultModel` / `DefaultBlip` | `mp_u_m_m_trader_01` / market stall | New trader defaults |
 | `Config.PlaceDistance` | `30.0` | rsg-gizmo range when placing a trader |
@@ -67,6 +75,7 @@ don't ask them for help with it.
 | Who | How |
 |---|---|
 | Players | Target a trader → **Speak with the Trader** / **Talk business** → Buy, Sell or Launder |
+| Players | Target a trader → **Ask what's new** (legal) / **Slip him $… for a tip** (fence) → a rumor note, if they have one for you |
 | Admins | `/traderadmin` → Add Trader (pick **Kind**; for fences tick **Launders dirty money** and set the cut) → Items → Add Item (pick the **Trade** mode) |
 | Admins | `/traderwebhooktest` sends a test message to every webhook channel |
 

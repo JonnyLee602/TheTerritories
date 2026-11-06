@@ -18,6 +18,8 @@ Config.SweepInterval = 300   -- seconds between removing expired notes from onli
 
 ---------------------------------------------------------------------
 -- Informants: NPCs players ask for rumors (rsg-target on the ped)
+-- grumpy-trader traders are informants too (legal traders: legal rumors; fences: illegal rumors for a bribe).
+-- Their settings live in grumpy-trader's Config.Rumors.
 -- Models: data/rdr3_discoveries/peds/peds_list.lua. Scenarios: data/rdr3_discoveries/animations
 ---------------------------------------------------------------------
 Config.SpawnDistance   = 60.0  -- peds spawn locally when a player is this close
@@ -78,6 +80,12 @@ Config.Rumors = {
         weight = 6, lifetime = 5400, cooldown = 1800,
         title = 'rumor_dig_title', text = 'rumor_dig_text',
         job = { type = 'item', group = 'solo', args = { item = 'treasure_map', amount = 1, message = 'rumor_dig_received' } },
+    },
+    {
+        id = 'harvest_hands', category = 'legal', tiers = { 'respected', 'upstanding', 'neutral' },
+        weight = 10, lifetime = 3600, cooldown = 0,
+        title = 'rumor_harvest_title', text = 'rumor_harvest_text',
+        -- no job: flavour only (legal counterpart of stage_line_gossip)
     },
     {
         id = 'lost_survey_crew', category = 'legal', tiers = { 'respected', 'upstanding', 'neutral' },

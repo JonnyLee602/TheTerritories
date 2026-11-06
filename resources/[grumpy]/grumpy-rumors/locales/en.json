@@ -5,6 +5,8 @@
     "target_ask_price": "Ask about rumors ($%s)",
 
     "got_rumor": "You heard something: %s",
+    "got_rumor_paid": "$%s changes hands. You heard something: %s",
+    "no_bribe": "\"Information ain't free, friend. $%s, or keep walking.\"",
     "ask_too_soon": "\"I already told you what I know. Come back later.\"",
     "too_many_notes": "Your pockets are full of rumors already. Act on some first.",
     "nothing_illegal": "\"Ain't got nothing for the likes of you.\"",
@@ -48,5 +50,7 @@
     "rumor_dig_received": "You copy the sketch onto a proper map: %s.",
     "rumor_survey_title": "A Missing Survey Crew",
     "rumor_survey_text": "The railroad's survey crew hasn't checked in for three days. Their boss is offering good money to anyone who finds them.",
-    "rumor_survey_blip": "Last known camp"
+    "rumor_survey_blip": "Last known camp",
+    "rumor_harvest_title": "Hands Wanted at Harvest",
+    "rumor_harvest_text": "The ranches out past Emerald are short-handed this season. Word is they pay a fair wage and feed you twice a day."
 }

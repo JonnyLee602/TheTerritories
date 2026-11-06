@@ -36,7 +36,7 @@ local function spawnPed(trader)
     SetPedCanBeTargetted(ped, false)
     SetPedFleeAttributes(ped, 0, false)
 
-    exports['rsg-target']:addLocalEntity(ped, {
+    local options = {
         {
             name = 'grumpy_trader_speak',
             icon = 'fa-solid fa-comments',
@@ -44,7 +44,21 @@ local function spawnPed(trader)
             distance = 3.0,
             onSelect = function() TraderOpenMenu(trader.traderid, 'buy') end,
         },
-    })
+    }
+    local rumor = Config.Rumors.Enabled and Config.Rumors.Kinds[trader.kind]
+    if rumor then
+        local price = tonumber(rumor.price) or 0
+        options[#options + 1] = {
+            name = 'grumpy_trader_rumor',
+            icon = price > 0 and 'fa-solid fa-sack-dollar' or 'fa-solid fa-comment-dots',
+            -- price shown is the base; known outlaws pay less (the server works it out)
+            label = price > 0 and locale('cl_target_bribe', ('%.2f'):format(price)) or locale('cl_target_rumor'),
+            distance = Config.Rumors.Distance,
+            canInteract = function() return GetResourceState('grumpy-rumors') == 'started' end,
+            onSelect = function() TriggerServerEvent('grumpy-trader:server:askRumor', trader.traderid) end,
+        }
+    end
+    exports['rsg-target']:addLocalEntity(ped, options)
 
     if Config.FadeIn then
         SetEntityAlpha(ped, 0, false)
@@ -55,7 +69,7 @@ end
 
 local function despawnPed(ped)
     if not ped or not DoesEntityExist(ped) then return end
-    exports['rsg-target']:removeLocalEntity(ped, 'grumpy_trader_speak')
+    exports['rsg-target']:removeLocalEntity(ped, { 'grumpy_trader_speak', 'grumpy_trader_rumor' })
     if Config.FadeIn then
         CreateThread(function()
             fade(ped, 255, 0, -51)
