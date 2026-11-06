@@ -51,7 +51,7 @@ RegisterNUICallback('bizPlace', function(body, cb)
     gizmo(function()
         local npc = vector3(d.npc.x + 0.0, d.npc.y + 0.0, d.npc.z + 0.0)
         local res = exports['rsg-gizmo']:Place(d.model, {
-            title = locale('biz_place_title'), maxDistance = Config.PlaceDistance, rotation = 'z', allowInterior = true,
+            title = locale('biz_place_title'), maxDistance = Config.PlaceDistance, rotation = 'z', allowInterior = true, allowWater = true,
             -- the ghost turns red outside the business (same rule as the server)
             validate = function(pos)
                 local dx, dy = pos.x - npc.x, pos.y - npc.y
@@ -98,7 +98,7 @@ RegisterNUICallback('bizMove', function(body, cb)
     local ent = id and GGC.TableEntity(id)
     if not t or not ent then return end
     gizmo(function()
-        local res = exports['rsg-gizmo']:Edit(ent, { maxDistance = Config.PlaceDistance, rotation = 'z', allowInterior = true })
+        local res = exports['rsg-gizmo']:Edit(ent, { maxDistance = Config.PlaceDistance, rotation = 'z', allowInterior = true, allowWater = true })
         if res then TriggerServerEvent('grumpy-gambling:server:bizMove', id, v(res.coords), res.heading or res.rotation.z) end
     end)
 end)

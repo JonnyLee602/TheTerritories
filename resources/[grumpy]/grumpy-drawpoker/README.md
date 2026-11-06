@@ -28,7 +28,7 @@ ensure grumpy-gambling
 ensure grumpy-drawpoker
 ```
 No database, items or images of its own. Tables: any card (PVP) table with `p_tablepoker01x`, `p_pokertable01x` or
-`p_gen_tablepoker01x` (up to 6 seats); players pick Five-Card Draw in the game picker.
+`p_gen_tablepoker01x`, `p_tablepoker04x` or `p_tablepoker04ax` (up to 6 seats); players pick Five-Card Draw in the game picker.
 
 ## Configuration (`shared/config.lua`, `Config.DrawPoker`)
 | Option | Default | Description |

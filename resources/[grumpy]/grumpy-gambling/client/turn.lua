@@ -18,13 +18,13 @@ local function lookAt(tableId, turn)
         local c = GetEntityCoords(dealer)
         tx, ty, tz = c.x, c.y, c.z + 0.6
     else
-        tx, ty, tz = t.x, t.y, t.z + Config.Cards.Height
+        tx, ty, tz = t.x, t.y, t.z + (t.cardHeight or Config.Cards.Height)
     end
     for seat, ped in pairs(npcs) do
         if seat == turn then
             local x, y, z, h = GGC.SeatWorld(t, seat)
             local r = math.rad(h)
-            TaskLookAtCoord(ped, x - math.sin(r) * 0.6, y + math.cos(r) * 0.6, z + Config.Cards.Height, -1, 2048, 3, false)
+            TaskLookAtCoord(ped, x - math.sin(r) * 0.6, y + math.cos(r) * 0.6, z + (t.cardHeight or Config.Cards.Height), -1, 2048, 3, false)
         else
             TaskLookAtCoord(ped, tx, ty, tz, -1, 2048, 3, false)
         end

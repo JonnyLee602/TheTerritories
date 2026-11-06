@@ -71,7 +71,7 @@ each facing the centre, numbered around the table. `p_tablepoker01x` (the Smithf
 **Public table** (sent to clients, returned by `GetTable`):
 `{ id, label, kind ('pvp'|'pvd'), source ('public'|'micro'), model, bound, x, y, z, h, currency ('cash'|'bloodmoney'),
 fixedTier, enabled, seats, dealer, chair, sitZ, chairYaw, state ('empty'|'setup'|'active'), game, gameLabel, tier,
-occupied = { [seat] = bool }, chips = { [seat] = bool } (has a stack), chipForward, chipHeight, version }`
+occupied = { [seat] = bool }, chips = { [seat] = bool } (has a stack), chipForward, chipHeight, cardHeight, version }`
 
 **Tier** (`Config.Tiers[id]`): `{ order, label (locale key), stage, smallBlind, bigBlind, buyInMin, buyInMax
 (× big blind), npcCapMultiplier, choosable, bloodmoney }`.
@@ -133,7 +133,10 @@ Errors: `no_table`, `table_not_started`, `not_your_table`, `hand_open`, `no_play
 | `GetBusinessCashboxes(businessId)` | `{ tableId, label, kind, currency, balance }[]` | Cashboxes of a business's tables (cents), e.g. for law screens |
 | `GetNpcWindow(cid, tableId?)` | `{ total, cap }` | What a player has won from NPCs in the window, and the cap at that table (cents) |
 
-No client exports.
+### Client exports
+| Export | Returns | Notes |
+|---|---|---|
+| `IsTableChair(entity)` | boolean | True if the object is a chair at a card table near the player (spawned by this resource, a frozen map chair at a bound table, or any object on a table seat). grumpy-sit uses it to hide Sit down there |
 
 ## 4. Events for modules and other resources (server, local `AddEventHandler`)
 | Event | Args | When |
@@ -341,7 +344,13 @@ amount)` (table items owed after an offline pack-up, given at login); tables use
   `data/rdr3_discoveries/objects/object_list.lua`). Set `spawn = true` to offer it in "Place new table"; leave it out
   for a map table that should only be bound. Restart, place or bind a table, calibrate.
 - **Spawnable models (default):** PVP `p_tablepoker01x` with `p_windsorchair03x` chairs (the Smithfields table),
-  PVD `p_blackjacktable01x`. Bind only: `p_pokertable01x`, `p_gen_tablepoker01x`, `p_blackjacktable02x`.
+  PVD `p_blackjacktable01x`. Bind only: `p_pokertable01x`, `p_gen_tablepoker01x`, `p_tablepoker04x` / `p_tablepoker04ax` (map chairs
+  `p_chairpokerfancy01x` become seats), `p_blackjacktable02x` (map chairs `p_chaircomfy04x`), `p_roulettetable01x`
+  (seed seats, players stand; no game until the roulette module).
+  Map tables built into an interior (Blackwater saloon's blackjack table) are not game objects, so the search
+  can't find them: binding then asks the admin to line up a see-through copy of the chosen model over the table, and
+  saves it as a map table. With `autoChairs` the map chairs become the seats; on a dealer table, a chair more than
+  `Config.DealerSideY` behind the centre becomes the dealer's chair (and no second chair is spawned on it).
 - **Map table not found by "bind":** stand next to it and try again; the F8 console lists model hashes of nearby objects.
   Add that model to `Models` if it's a card table.
 - **Make a calibration permanent in code:** copy the snippet from the panel into the model's entry.
@@ -373,6 +382,8 @@ amount)` (table items owed after an offline pack-up, given at login); tables use
 | "No games are installed" | No module of that table type is running; ensure modules after grumpy-gambling |
 | Table skipped on start (console) | Its model has no profile in `shared/models.lua` |
 | Chip stacks float or sit inside the table | Tune `Config.ChipStacks.Forward` / `Height`, or per model `chipForward` / `chipHeight` in `shared/models.lua` |
+| Placing or calibrating says "in water" inside a building | Fixed: every rsg-gizmo call here passes `allowInterior` and `allowWater` (custom MLOs often have a water volume under the floor) |
+| Cards float or sit inside the table | Per model `cardHeight` in `shared/models.lua` (default `Config.Cards.Height`) |
 | Can't move a table | Map (bound) tables can't move; spawned tables need nobody seated |
 | Table panel never takes the mouse | `Config.TableUI.AutoFocus`; a window (chips, picker) open takes priority; press G (Your turn) |
 | "Only a business owner can set up a gambling table" | The player must be the grumpy-pob owner (staff can't) and grumpy-pob 1.2.0+ must be running |

@@ -88,7 +88,7 @@ end)
 function GG.AutoSeats(t, chairs, radius)
     if type(chairs) ~= 'table' or #chairs < 2 or #chairs > 12 then return 0 end
     local origin = GG.Tables.Origin(t)
-    local seats = {}
+    local seats, dealer = {}, nil
     for _, c in ipairs(chairs) do
         if type(c) ~= 'table' or not GG.Finite(c.x) or not GG.Finite(c.y) or not GG.Finite(c.z) then return 0 end
         local dx, dy = t.x - c.x, t.y - c.y
@@ -96,8 +96,17 @@ function GG.AutoSeats(t, chairs, radius)
         if dist > radius + 0.5 or math.abs(c.z - t.z) > 2.0 then return 0 end
         -- heading that faces the table centre: forward = (-sin h, cos h)
         local facing = math.deg(math.atan(-dx, dy))
-        seats[#seats + 1] = Geo.ToLocal(origin, t.h, c.x, c.y, c.z, facing)
+        local loc = Geo.ToLocal(origin, t.h, c.x, c.y, c.z, facing)
+        -- a dealer table's chair behind the straight edge (+y) is the dealer's, not a player's
+        if t.kind == 'pvd' and loc.y > Config.DealerSideY and (not dealer or loc.y > dealer.y) then
+            if dealer then seats[#seats + 1] = dealer end
+            dealer = loc
+        else
+            seats[#seats + 1] = loc
+        end
     end
+    if #seats < 1 then return 0 end
+    if dealer then t.dealerOverride = { x = dealer.x, y = dealer.y, z = 0.0, h = dealer.h } end
     -- number the seats around the table in a steady order
     table.sort(seats, function(a, b) return Geo.Wrap(a.h) < Geo.Wrap(b.h) end)
     t.seatsOverride = seats

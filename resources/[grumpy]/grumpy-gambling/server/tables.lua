@@ -30,6 +30,7 @@ local function applyProfile(t)
     t.chair = base.chair
     t.chipForward = base.chipForward
     t.chipHeight = base.chipHeight
+    t.cardHeight = base.cardHeight
     t.sitZ = base.sitZ or 0.5
     t.chairYaw = base.chairYaw or 0.0
     t.seats = copyOffsets(t.seatsOverride) or copyOffsets(mo.seats) or copyOffsets(base.seats) or {}
@@ -115,7 +116,7 @@ function Tables.Public(t)
         id = t.id, label = t.label, kind = t.kind, source = t.source, model = t.model, bound = t.bound,
         x = t.x, y = t.y, z = t.z, h = t.h, currency = t.currency, fixedTier = t.fixedTier, enabled = t.enabled,
         seats = t.seats, dealer = t.dealer, chair = t.chair, sitZ = t.sitZ, chairYaw = t.chairYaw,
-        chipForward = t.chipForward, chipHeight = t.chipHeight,
+        chipForward = t.chipForward, chipHeight = t.chipHeight, cardHeight = t.cardHeight,
         state = t.state, game = t.game, gameLabel = gameLabel(t), tier = t.tier, occupied = occupied, chips = chips, npc = npc,
         npcOutfit = npcOutfit, usable = (Tables.Usable(t)), businessId = t.businessId,
         version = t.version,

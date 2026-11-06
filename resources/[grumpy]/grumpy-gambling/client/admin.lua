@@ -78,6 +78,25 @@ local function findWorldTable(kind)
     return best, bestName
 end
 
+-- The map's own chairs around a table (the profile's chair, else its ghostChair), for autoChairs
+local function mapChairs(name, centre)
+    local prof = Models[name]
+    local auto = prof.autoChairs
+    local chairModel = prof.chair or prof.ghostChair
+    if not auto or not chairModel then return nil end
+    local chairHash = joaat(chairModel)
+    local chairs = {}
+    for _, o in ipairs(GetGamePool('CObject')) do
+        if DoesEntityExist(o) and GetEntityModel(o) == chairHash then
+            local c = GetEntityCoords(o)
+            if #(vector2(c.x, c.y) - vector2(centre.x, centre.y)) <= auto.radius and #chairs < 12 then
+                chairs[#chairs + 1] = v(c)
+            end
+        end
+    end
+    return chairs
+end
+
 ---------------------------------------------------------------------
 -- NUI callbacks
 ---------------------------------------------------------------------
@@ -89,33 +108,55 @@ RegisterNUICallback('adminCreate', function(body, cb)
     }
     if body.mode == 'bind' then
         local obj, name = findWorldTable(body.kind)
-        if not obj then return GGC.Notify(locale('admin_no_world_table'), 'error') end
-        base.model = name
-        base.bound = true
-        base.coords = v(GetEntityCoords(obj))
-        base.heading = GetEntityHeading(obj)
-        -- the map's own chairs around the table become the seats (the server works out their facing)
-        local auto = Models[name].autoChairs
-        if auto and Models[name].chair then
-            local chairHash = joaat(Models[name].chair)
-            local centre = GetEntityCoords(obj)
-            base.chairs = {}
-            for _, o in ipairs(GetGamePool('CObject')) do
-                if DoesEntityExist(o) and GetEntityModel(o) == chairHash then
-                    local c = GetEntityCoords(o)
-                    if #(vector2(c.x, c.y) - vector2(centre.x, centre.y)) <= auto.radius and #base.chairs < 12 then
-                        base.chairs[#base.chairs + 1] = v(c)
-                    end
-                end
-            end
+        if obj then
+            base.model = name
+            base.bound = true
+            base.coords = v(GetEntityCoords(obj))
+            base.heading = GetEntityHeading(obj)
+            -- the map's own chairs around the table become the seats (the server works out their facing)
+            base.chairs = mapChairs(name, GetEntityCoords(obj))
+            TriggerServerEvent('grumpy-gambling:server:adminCreate', base)
+            return
         end
-        TriggerServerEvent('grumpy-gambling:server:adminCreate', base)
+        -- Some map tables are built into the interior and are not objects the game lists (Blackwater saloon's
+        -- blackjack table). Then the admin lines up a see-through copy of the chosen model over it by hand; the
+        -- table is saved as a map table (nothing is spawned) and the map chairs around it become the seats.
+        if type(body.model) ~= 'string' or not Models[body.model] or Models[body.model].kind ~= body.kind then
+            return GGC.Notify(locale('admin_no_world_table'), 'error')
+        end
+        GGC.Notify(locale('admin_bind_by_hand'), 'inform')
+        -- Start on the floor in fine mode (arrows slide it, the wheel sets height): free mode follows the camera ray
+        -- and would sit the copy on top of the real table. The floor height comes from the nearest map chair
+        -- (chair models have their origin on the floor), else from the player's feet.
+        local ped = PlayerPedId()
+        local pos = GetEntityCoords(ped)
+        local fwd = GetEntityForwardVector(ped)
+        local floorZ = pos.z - 1.0
+        local chairModel = Models[body.model].chair or Models[body.model].ghostChair
+        if chairModel then
+            local chair = GetClosestObjectOfType(pos.x, pos.y, pos.z, 4.0, joaat(chairModel), false, false, false)
+            if chair and chair ~= 0 then floorZ = GetEntityCoords(chair).z end
+        end
+        withGizmo(function()
+            local res = exports['rsg-gizmo']:Place(body.model, {
+                title = locale('admin_bind_by_hand_title'), maxDistance = Config.PlaceDistance, rotation = 'z',
+                allowInterior = true, allowWater = true, snapToGround = false, startMode = 'fine',
+                startCoords = vector3(pos.x + fwd.x * 1.5, pos.y + fwd.y * 1.5, floorZ),
+                startRotation = vector3(0.0, 0.0, GetEntityHeading(ped)),
+            })
+            if not res then return end
+            base.bound = true
+            base.coords = v(res.coords)
+            base.heading = res.heading or res.rotation.z
+            base.chairs = mapChairs(body.model, res.coords)
+            TriggerServerEvent('grumpy-gambling:server:adminCreate', base)
+        end)
         return
     end
     if type(body.model) ~= 'string' or not Models[body.model] then return end
     withGizmo(function()
         local res = exports['rsg-gizmo']:Place(body.model, {
-            title = locale('admin_place_title'), maxDistance = Config.PlaceDistance, rotation = 'z', allowInterior = true,
+            title = locale('admin_place_title'), maxDistance = Config.PlaceDistance, rotation = 'z', allowInterior = true, allowWater = true,
         })
         if not res then return end
         base.bound = false
@@ -134,7 +175,7 @@ RegisterNUICallback('adminMove', function(body, cb)
     local ent = GGC.TableEntity(id)
     if not ent then return GGC.Notify(locale('admin_go_near'), 'error') end
     withGizmo(function()
-        local res = exports['rsg-gizmo']:Edit(ent, { maxDistance = Config.PlaceDistance, rotation = 'z', allowInterior = true })
+        local res = exports['rsg-gizmo']:Edit(ent, { maxDistance = Config.PlaceDistance, rotation = 'z', allowInterior = true, allowWater = true })
         if not res then return end
         TriggerServerEvent('grumpy-gambling:server:adminMove', id, v(res.coords), res.heading or res.rotation.z)
     end)
@@ -157,7 +198,7 @@ RegisterNUICallback('adminCalibrate', function(body, cb)
             local res = exports['rsg-gizmo']:Place(chairModel, {
                 title = locale('admin_calibrate_seat', i, #t.seats),
                 startCoords = vector3(x, y, z), startRotation = vector3(0.0, 0.0, h + (t.chairYaw or 0.0)),
-                startMode = 'fine', maxDistance = 8.0, rotation = 'z', allowInterior = true,
+                startMode = 'fine', maxDistance = 8.0, rotation = 'z', allowInterior = true, allowWater = true,
             })
             if not res then return GGC.Notify(locale('admin_calibrate_cancelled'), 'inform') end
             seats[i] = { x = res.coords.x, y = res.coords.y, z = res.coords.z, h = res.heading or res.rotation.z }
@@ -171,7 +212,7 @@ RegisterNUICallback('adminCalibrate', function(body, cb)
                 local res = exports['rsg-gizmo']:Place(Config.Dealer.Chair, {
                     title = locale('admin_calibrate_dealer'),
                     startCoords = vector3(x, y, z), startRotation = vector3(0.0, 0.0, h + (Config.Dealer.ChairYaw or 0.0)),
-                    startMode = 'fine', maxDistance = 8.0, rotation = 'z', allowInterior = true,
+                    startMode = 'fine', maxDistance = 8.0, rotation = 'z', allowInterior = true, allowWater = true,
                 })
                 if not res then return GGC.Notify(locale('admin_calibrate_cancelled'), 'inform') end
                 TriggerServerEvent('grumpy-gambling:server:adminCalibrate', id, {
@@ -194,7 +235,7 @@ RegisterNUICallback('adminCalibrate', function(body, cb)
             FreezeEntityPosition(ghost, true)
             local res = exports['rsg-gizmo']:Edit(ghost, {
                 title = locale('admin_calibrate_dealer'),
-                startMode = 'fine', maxDistance = 8.0, rotation = 'z', allowInterior = true,
+                startMode = 'fine', maxDistance = 8.0, rotation = 'z', allowInterior = true, allowWater = true,
             })
             if DoesEntityExist(ghost) then DeleteEntity(ghost) end
             if not res then return GGC.Notify(locale('admin_calibrate_cancelled'), 'inform') end

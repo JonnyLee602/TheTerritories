@@ -49,6 +49,8 @@
   "admin_calibrate_bad": "A chair or the dealer was placed too far from the table",
   "admin_calibrated": "Calibration saved",
   "admin_calibration_reset": "Calibration reset",
+  "admin_bind_by_hand": "No table object found here: slide the see-through table over the map table with the arrows (wheel = height, Shift = turn), then confirm. Don't snap to ground: it lands on the table top",
+  "admin_bind_by_hand_title": "Line up over the map table",
   "admin_no_world_table": "No known table model within reach. Model hashes of nearby objects were printed to F8",
   "admin_place_title": "Place the table",
   "admin_go_near": "Go to the table first",

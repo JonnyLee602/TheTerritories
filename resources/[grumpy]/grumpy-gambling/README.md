@@ -173,7 +173,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `Npc.Drunk` / `Tilt` | 21:00–03:00 | Drunk hours (rsg-weather time) and modifiers; tilt trigger and effects |
 | `Npc.Sharp` | 15% of back-room NPCs | Cardsharps: how often they cheat, how often it shows, call-out cooldown |
 | `Npc.Regulars` | 5 regulars | Named NPCs: look, personality, skill, home saloon, tiers |
-| `ChipStacks.Enabled` / `Models` / `Forward` / `Height` | `true` / one per tier / `0.6` / `0.80` | Chip stack props in front of seats with chips; a model can override `chipForward` / `chipHeight` |
+| `ChipStacks.Enabled` / `Models` / `Forward` / `Height` | `true` / one per tier / `0.6` / `0.80` | Chip stack props in front of seats with chips; a model can override `chipForward` / `chipHeight` (and `cardHeight` for cards) |
 | `Money.SavePlayer` / `BuyInStep` | `true` / `smallBlind` | Save the player after a buy-in or cash-out; buy-in slider step |
 | `Rake.Target` | pvp `3.0`, pvd `2.5` | Average loss per player-hour: big blinds (PVP), minimum bets (PVD) |
 | `Rake.Seed` / `MinRate` / `MaxRate` | see file | Starting rates per tier, and the tuner's bounds |

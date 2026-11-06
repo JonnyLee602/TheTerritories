@@ -61,7 +61,11 @@ local function spawnDealer(t)
     local x, y, z, h = Geo.ToWorld(GGC.Origin(t), t.h, seated and { x = off.x, y = off.y, z = 0.0, h = off.h } or off)
     local chair
     if seated and Config.Dealer.Chair then
-        chair = spawnObject(Config.Dealer.Chair, x, y, z, h + (Config.Dealer.ChairYaw or 0.0))
+        -- a map table may already have a chair on the dealer's spot: use it instead of stacking a second one
+        local existing = t.bound and GetClosestObjectOfType(x, y, z, 0.5, joaat(Config.Dealer.Chair), false, false, false)
+        if not existing or existing == 0 then
+            chair = spawnObject(Config.Dealer.Chair, x, y, z, h + (Config.Dealer.ChairYaw or 0.0))
+        end
     end
     local hash = GGC.LoadModel(Config.Dealer.Model)
     if not hash then return nil, chair end
@@ -296,7 +300,7 @@ end)
 
 -- Where dealt cards come from and collected cards go: in front of the dealer, or the middle of a card table
 local function deckPoint(t)
-    local z = t.z + Config.Cards.Height
+    local z = t.z + (t.cardHeight or Config.Cards.Height)
     if t.kind == 'pvd' and t.dealer then
         local off = t.dealer
         local x, y, _, h = Geo.ToWorld(GGC.Origin(t), t.h, { x = off.x, y = off.y, z = 0.0, h = off.h })
@@ -346,7 +350,7 @@ local function updateProps(t, w, extra)
             local down = p.card and p.card.down == true
             local model = p.card and cardModel(t, down and { r = 'K', s = 's' } or p.card) or p.model
             local x, y = ax + fx * p.x + rx * p.y, ay + fy * p.x + ry * p.y
-            local z = az + Config.Cards.Height + p.z
+            local z = az + (t.cardHeight or Config.Cards.Height) + p.z
             want[p.key] = { model = model, card = p.card ~= nil, down = down, x = x, y = y, z = z, h = ah + p.h,
                 ry = down and 180.0 or 0.0, sig = ('%s|%.3f|%.3f|%.3f|%.1f'):format(model, x, y, z, ah + p.h) }
         end
@@ -590,6 +594,28 @@ CreateThread(function()
         Wait(sleep)
     end
 end)
+
+-- Other resources (grumpy-sit) ask whether a chair belongs to a card table, so they leave it alone.
+-- True for chairs this resource spawned, map chairs it froze at bound tables, and any object sitting on
+-- a seat of a table spawned near the player.
+local function isTableChair(entity)
+    if type(entity) ~= 'number' or entity == 0 or not DoesEntityExist(entity) then return false end
+    local c = GetEntityCoords(entity)
+    local r = Config.Seating.FreezeWorldChairRadius
+    for id, w in pairs(world) do
+        for _, e in ipairs(w.chairs) do if e == entity then return true end end
+        for _, e in ipairs(w.frozen) do if e == entity then return true end end
+        local t = GGC.Tables[id]
+        if t and t.seats then
+            for i = 1, #t.seats do
+                local x, y, z = GGC.SeatWorld(t, i)
+                if x and (c.x - x) ^ 2 + (c.y - y) ^ 2 < r * r and math.abs(c.z - z) < 1.5 then return true end
+            end
+        end
+    end
+    return false
+end
+exports('IsTableChair', isTableChair)
 
 -- Admin tools need the spawned table entity (move with rsg-gizmo)
 function GGC.TableEntity(id)

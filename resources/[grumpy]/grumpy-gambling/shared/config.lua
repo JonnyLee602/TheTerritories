@@ -10,6 +10,8 @@ Config.DevGames = false                    -- dev servers only: the /gga (type a
 Config.AdminCommand = 'gambling'           -- /gambling opens the admin panel
 Config.AdminPermission = 'admin'           -- rsg-core permission level
 Config.PlaceDistance = 10.0                -- rsg-gizmo range when placing or moving a table
+Config.DealerSideY = 0.45                -- binding a dealer table: a map chair further than this behind the table's
+                                          -- centre (towards its straight edge) is the dealer's chair, not a player's
 Config.BindSearchRadius = 3.0              -- "bind nearest world table" looks this far around the admin
 Config.Micro = { Max = 2 }                 -- the doctrine's practice tables: exactly two on the server
 
@@ -57,7 +59,7 @@ Config.ChipStacks = {
     },
     Forward = 0.6,                         -- metres from the chair toward the table (NT puts bet chips ~0.68 m out)
     Height = 0.80,                         -- metres above the floor, about the table top (a model can override both:
-                                           -- chipForward / chipHeight in shared/models.lua)
+                                           -- chipForward / chipHeight / cardHeight in shared/models.lua)
 }
 
 -- Seated animations (players and NPCs). The chair scenario alone leaves everyone frozen with their hands on the

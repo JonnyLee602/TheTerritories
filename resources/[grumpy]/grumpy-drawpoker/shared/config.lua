@@ -33,5 +33,5 @@ C.Timers = {                     -- milliseconds
 -- showdown; folded hands are mucked. The core puts the pot in the middle.
 C.Layout = { x = 0.78, y = -0.09, step = 0.045, rise = 0.0006 }
 
-C.Models = { 'p_tablepoker01x', 'p_pokertable01x', 'p_gen_tablepoker01x' }
+C.Models = { 'p_tablepoker01x', 'p_pokertable01x', 'p_gen_tablepoker01x', 'p_tablepoker04x', 'p_tablepoker04ax' }
 C.MaxSeats = 6
