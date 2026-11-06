@@ -17,7 +17,7 @@
 | `shared/zone.lua` | `BackroomZone.Valid/Contains/Centre`: polygon extruded from `minZ` to `maxZ`, used by the server to decide who is inside |
 | `server/main.lua` | Rooms in memory + DB, `GlobalState.grumpyBackrooms`, the bribe, the 1 s ticker (warnings, closing), showing out, rsg-doorlock door control, admin callbacks, exports |
 | `client/main.lua` | Doorman peds (spawn within range, rsg-target option), bribe menu (rsg-menubase), rsg-core poly zones for the "time left" notice, the show-out (fade, stand up from grumpy-sit, teleport) |
-| `client/reup.lua` + `html/` | Closing-time re-up panel: NUI without focus, upper right; arrow up/down (or a tap of the key) = pick a length, hold the key = `server:reup`; all keys are ignored while another UI has NUI focus (`IsNuiFocused`); hides on timeout, leaving the zone, death, payment (`client:reupDone`) or show-out |
+| `client/reup.lua` + `html/` | Closing-time re-up panel, upper right. Takes NUI focus (cursor): click a length, Pay → NUI `reupPay` → `server:reup`; Not now / Esc → `reupClose`. Closes and releases focus on timeout, leaving the zone, death, payment (`client:reupDone`) or show-out |
 | `client/admin.lua` | `/backroom` list + editor, rsg-gizmo doorman placement (local ghost ped + `Edit()`), door picker, corner capture, preview lines |
 | `integrations/rsg-doorlock.md` | The `SetDoorState` hook for rsg-doorlock |
 
@@ -94,5 +94,6 @@ grumpy_backroom_rooms (id PK, name VARCHAR(48), npc_model VARCHAR(64), npc JSON,
 | Door doesn't open for someone who just joined | Hook missing (fallback mode) |
 | "Kick-out point is inside the zone" | Move the point outside the red lines |
 | People on the stairs/balcony aren't shown out | Zone too low or a corner missing: raise the height or add corners |
-| Re-up keys / arrows do nothing | The card table has the mouse (your turn): press Esc, or wait for the next warning |
+| Cursor stuck after the panel | Shouldn't happen (every close path calls `SetNuiFocus(false, false)`); `restart grumpy-backroom` releases it |
+| Can't click the card table while the panel shows | The panel has the cursor: pay or press Not now / Esc |
 | Doorman never appears | Room not enabled or incomplete (list says "Not set up") |

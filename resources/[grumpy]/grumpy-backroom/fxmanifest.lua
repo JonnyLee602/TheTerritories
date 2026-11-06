@@ -6,7 +6,7 @@ lua54 'yes'
 author 'Grumpy'
 name 'grumpy-backroom'
 description 'Back-room card rooms: bribe the doorman, the rsg-doorlock doors open for a while, everyone inside is shown out when time runs out.'
-version '0.2.2'
+version '0.3.0'
 
 shared_scripts {
     '@rsg-core/shared/locale.lua',

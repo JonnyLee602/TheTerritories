@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- closing-time re-up panel: upper right, display only (never takes the mouse) -->
+    <!-- closing-time re-up panel: upper right, takes the cursor while it shows -->
     <div id="reup" class="panel hidden">
         <div class="head">
             <div class="title" id="r-title">Back Room</div>
@@ -18,7 +18,10 @@
         <div class="divider">&#10022;</div>
         <div class="closes"><span id="r-closes">Closes in</span> <b id="r-left">0:00</b></div>
         <div id="r-options" class="options"></div>
-        <div class="hold"><div id="r-hold" class="hold-fill"></div></div>
+        <div class="actions">
+            <button id="r-later" class="wood-btn muted">Not now</button>
+            <button id="r-pay" class="wood-btn">Pay</button>
+        </div>
         <div class="hint" id="r-hint"></div>
     </div>
     <script src="script.js"></script>
