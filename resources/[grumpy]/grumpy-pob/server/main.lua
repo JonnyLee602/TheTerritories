@@ -282,6 +282,28 @@ end)
 ---------------------------------------------------------------------
 exports('GetBusinesses', function() return POB.PublicList() end)
 exports('GetBusiness', function(id) local b = POB.Biz(id) return b and POB.Public(b) or nil end)
+-- For other resources that build on businesses (e.g. grumpy-gambling's tables). Server only.
+-- Businesses a character currently owns: { id, label, type, npc = { x, y, z }, backroom = bool }
+exports('GetOwnedBusinesses', function(cid)
+    local list = {}
+    for _, b in pairs(POB.Businesses) do
+        if b.owner and b.owner.cid == cid then
+            list[#list + 1] = { id = b.id, label = b.label, type = b.type, npc = b.points and b.points.npc or nil,
+                backroom = POB.Launder ~= nil and POB.Launder.HasBackroom(b) or false }
+        end
+    end
+    return list
+end)
+exports('IsOwner', function(id, cid)
+    local b = POB.Biz(id)
+    return b ~= nil and b.owner ~= nil and b.owner.cid == cid
+end)
+exports('HasBackroom', function(id)
+    local b = POB.Biz(id)
+    return b ~= nil and POB.Launder ~= nil and POB.Launder.HasBackroom(b) or false
+end)
+exports('IsReady', function() return POB.Ready end)
+
 exports('GetBusinessByJob', function(job)
     for _, b in pairs(POB.Businesses) do if b.job == job then return POB.Public(b) end end
     return nil

@@ -92,6 +92,7 @@ function managerTabs(d) {
   if (p.rename || d.appearance || (d.hotel && p.hotelRate) || (d.trainingPrices && p.prices) || d.wages) tabs.push(['settings', t('ui_tab_settings')]);
   if (p.recipes && (d.recipeRules || (d.typeRecipes && d.typeRecipes.length))) tabs.push(['recipes', t('ui_tab_recipes')]);
   if (d.backroom) tabs.push(['backroom', t('ui_tab_backroom')]);
+  if (d.gambling) tabs.push(['gambling', t('ui_tab_gambling')]);
   return tabs;
 }
 const mgr = (op, extra) => post('manager', Object.assign({ op, id: S.data.id }, extra));
@@ -103,7 +104,7 @@ function renderManager(d) {
   if (!tabs.find(x => x[0] === S.tab)) S.tab = 'overview';
   setTabs(tabs, S.tab, (k) => { S.tab = k; S.recipe = null; renderManager(S.data); });
   clear();
-  ({ overview: mOverview, stock: mStock, staff: mStaff, applications: mApps, ledger: mLedger, settings: mSettings, recipes: mRecipes, backroom: mBackroom })[S.tab](d);
+  ({ overview: mOverview, stock: mStock, staff: mStaff, applications: mApps, ledger: mLedger, settings: mSettings, recipes: mRecipes, backroom: mBackroom, gambling: mGambling })[S.tab](d);
 }
 
 function mOverview(d) {
@@ -199,6 +200,22 @@ function launderRows(rows, showSeized) {
   if (!rows || !rows.length) { add(`<div class="empty">${esc(t('ui_br_no_records'))}</div>`); return; }
   rows.forEach(r => add(`<div class="row"><div class="row-text"><div class="row-title">${money(r.dirty)} → ${money(r.clean)}${r.name ? ' · ' + esc(r.name) : ''}</div>
     <div class="muted">${esc(date(r.ts))}</div></div>${showSeized && r.seized ? `<span class="pill bad">${esc(t('ui_br_seized'))}</span>` : ''}</div>`));
+}
+
+function mGambling(d) {
+  const g = d.gambling;
+  add(`<div class="muted" style="text-align:center">${esc(t('ui_gt_pitch'))}</div>`);
+  add(`<div class="stat"><span>${esc(t('ui_gt_balance'))}</span><span>${money(g.balance)}</span></div>`);
+  g.tables.forEach(x => {
+    const desc = t(x.kind === 'pvp' ? 'ui_gt_desc_pvp' : 'ui_gt_desc_pvd');
+    const count = t('ui_gt_count', x.placed, x.max) + (x.carried ? ' · ' + t('ui_gt_carried', x.carried) : '');
+    const r = add(`<div class="row"><div class="row-text"><div class="row-title">${esc(x.label)} · ${money(x.price)}</div>
+      <div class="muted">${esc(desc)}</div><div class="muted">${esc(count)}</div></div>
+      <button class="wood-btn small"${x.canBuy ? '' : ' disabled'}>${esc(t('ui_gt_buy'))}</button></div>`);
+    r.querySelector('button').onclick = () => confirmBox(t('ui_gt_buy_confirm', x.label, money(x.price)), () => mgr('buyTable', { kind: x.kind }));
+  });
+  add(`<div class="muted">${esc(t('ui_gt_paid_from'))}</div>`);
+  add(`<div class="muted">${esc(t(g.backroom ? 'ui_gt_note_backroom' : 'ui_gt_note'))}</div>`);
 }
 
 function mBackroom(d) {

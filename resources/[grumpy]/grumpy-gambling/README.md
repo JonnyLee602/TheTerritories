@@ -3,15 +3,15 @@
 The gambling core for The Territories: card tables, seating, stake tiers and (in later phases) stacks, rake, NPC players
 and business tables, shared by small **game modules** (blackjack, poker, faro, …) that only define rules and odds.
 
-Version 0.5.0 (**phase 5 of 7: NPC players**) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
+Version 0.6.0 (**phase 6 of 7: business tables**) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
 developers and [DESIGN.md](DESIGN.md) for the full design.
 
 This is a community script. It is **not** made or supported by the RSG authors.
 
 **Dependencies:** `rsg-core`, `rsg-target`, `rsg-gizmo`, `oxmysql`
 
-> **Status.** Phases 1–5 are built: tables and seating, chips/hands/rake/ledger, the **module library** game modules
-> are written with (`lib/`), the **table UI**, and **NPC players**. No real game modules are released yet (blackjack,
+> **Status.** Phases 1–6 are built: tables and seating, chips/hands/rake/ledger, the **module library** game modules
+> are written with (`lib/`), the **table UI**, **NPC players**, and **business tables** for grumpy-pob owners. No real game modules are released yet (blackjack,
 > poker, faro … come next). Dev servers: `grumpy-gambling-test` adds two test games, `/ggbot` overrides the NPC count,
 > and `Config.DevGames = true` adds placeholder games for trying chips.
 
@@ -74,6 +74,21 @@ This is a community script. It is **not** made or supported by the RSG authors.
     over a rolling 90 minutes (20× the minimum buy-in at Micro and Low, 10× at Mid, 5× at High). At the cap the NPCs
     call it a night at your table until the window frees up; games with real players carry on.
   - At dealer tables (PVD) NPC bets are scenery: they never touch the house's money.
+- **Business tables** (needs grumpy-pob 1.2.0+): the owner buys tables in grumpy-pob's Manage business → **Gambling**
+  tab (paid from the business account), then uses a **Card Table** (`gambling_table_pvp`) or
+  **Dealer's Table** (`gambling_table_pvd`) item inside their business (within 25 m of its clerk; 2 of each per
+  business), names it, picks cash or bloodmoney (bloodmoney needs the business's back room), and places it with
+  rsg-gizmo (the ghost turns red outside the business).
+  - Each table has a **cashbox** owned by the placer, in the table's money. Card tables need nothing: the box collects
+    half the rake. At dealer tables the **box is the house**: it pays winners and keeps losses, and only stakes it can
+    cover (20 max bets) are offered; an empty box keeps the table closed.
+  - **Manage table** (target the middle of your table): put money in or take it out, see what the box earned, choose
+    the stakes on offer, turn NPC players on or off, rename, close/open, move, or **pack up** (box to your pocket,
+    item back).
+  - **Losing the business:** unpaid tax repossesses the tables (clean boxes go to the government account, dirty ones
+    are destroyed, no item back). Losing it any other way closes them: empty and pack up within 7 days, or it's done
+    for you (paid at your next login). Buying the business back reopens them. A law seizure of the business's books
+    also seizes its dirty cashboxes. Moving the business's clerk away closes tables left outside until they're moved.
 - **Module library** (`lib/`): cards and shoes, a poker hand evaluator, a no-limit betting engine (blinds, min-raise,
   short all-ins that don't reopen the betting, uncalled bets), and server wrappers for the core (register a game,
   table events, hands, views, timers). A game module is a small resource that loads these files; see DOCS.md.
@@ -118,6 +133,12 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `Pvd.MaxBetMultiplier` | `10` | Dealer games: max bet = 10 × min bet |
 | `DevGames` | `false` | Dev servers: placeholder games, `/gga <action> [dollars]` to act, `/ggbot [n|clear|auto]` (admin) to override the NPC count |
 | `TableUI.AutoFocus` / `FeedLines` | `true` / `8` | Take the mouse on your turn; feed lines shown |
+| `Business.Items` / `Models` | `gambling_table_pvp` / `pvd` | The two items and the models they place |
+| `Business.MaxDistanceFromNpc` | `25.0` | Tables must stand this close to the business's clerk |
+| `Business.MaxTables` | 2 + 2 | Per business |
+| `Business.BackroomForBloodmoney` | `true` | Bloodmoney tables need grumpy-pob's back room |
+| `Business.PvdCoverMaxBets` | `20` | A dealer table offers a stake only if its box holds this many max bets |
+| `Business.AbandonDays` | `7` | A closed table of a lost business is packed up after this |
 | `Npc.Enabled` / `MaxPerTable` | `true` / `5` | NPC players on or off; most NPCs at one table |
 | `Npc.CapWindowMinutes` | `90` | The win-cap window (cap multipliers are in `Tiers`) |
 | `Npc.Personas` / `Mix` / `TierMods` | see config | Personalities, who sits at which tier, how tiers shift them |

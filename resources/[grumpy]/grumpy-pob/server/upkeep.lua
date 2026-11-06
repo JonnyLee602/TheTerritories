@@ -10,8 +10,10 @@ function Upkeep.TaxAmount(biz)
     return POB.Type(biz).tax or Config.Tax.Default
 end
 
--- Puts a business back on the market. reason = locale text for the ledger / owner message.
-function POB.Repossess(biz, reason)
+-- Puts a business back on the market. reason = locale text for the ledger / owner message. kind = why, for other
+-- resources ('tax' unpaid tax, 'admin' an admin reset or gave it away, 'deleted' the business was deleted).
+-- Fires grumpy-pob:server:ownerChanged (id, oldCid, nil, kind).
+function POB.Repossess(biz, reason, kind)
     if not biz.owner then return end
     local oldOwner = biz.owner
     POB.Jobs.RemoveAll(biz)
@@ -29,6 +31,7 @@ function POB.Repossess(biz, reason)
     local src = POB.SrcByCid(oldOwner.cid)
     if src then POB.Notify(src, locale('repossessed_owner', biz.label), 'error') end
     print(('[grumpy-pob] business %d "%s" repossessed from %s (%s)'):format(biz.id, biz.label, oldOwner.name, reason or 'tax'))
+    TriggerEvent('grumpy-pob:server:ownerChanged', biz.id, oldOwner.cid, nil, kind or 'tax')
 end
 
 -- Tries to pay the current bill. Returns true when nothing is owed afterwards.
@@ -50,7 +53,7 @@ function Upkeep.TryTax(biz)
         POB.SaveBiz(biz)
     end
     if now - biz.taxOwedSince >= Config.Tax.GraceDays * 86400 then
-        POB.Repossess(biz, locale('ledger_repossessed_tax', biz.label))
+        POB.Repossess(biz, locale('ledger_repossessed_tax', biz.label), 'tax')
         return false
     end
     local daysLeft = math.ceil((biz.taxOwedSince + Config.Tax.GraceDays * 86400 - now) / 86400)

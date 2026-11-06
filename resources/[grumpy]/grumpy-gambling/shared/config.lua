@@ -338,3 +338,22 @@ Config.Rake = {
     -- business tables (phase 6): share of the rake that goes to the owner's cashbox; the rest is destroyed
     BusinessShare = { pvp = 0.5, pvd = 0.0 },
 }
+
+---------------------------------------------------------------------
+-- Business tables (DESIGN.md §9): POB owners place tables in their business with two items. Each table has a
+-- cashbox (the placer's, same money as the table) that collects the business share of the rake (Rake.BusinessShare)
+-- and, at dealer tables, is the house: it pays players' wins and keeps their losses.
+---------------------------------------------------------------------
+Config.Business = {
+    Enabled = true,
+    Items = { pvp = 'gambling_table_pvp', pvd = 'gambling_table_pvd' }, -- add to rsg-core/shared/items.lua (README)
+    Models = { pvp = 'p_tablepoker01x', pvd = 'p_blackjacktable01x' },  -- placed models (spawnable profiles)
+    MaxDistanceFromNpc = 25.0,             -- metres from the business's NPC (grumpy-pob points.npc)
+    MaxTables = { pvp = 2, pvd = 2 },      -- per business
+    BackroomForBloodmoney = true,          -- bloodmoney tables need the business's back room (grumpy-pob laundering)
+    PvdCoverMaxBets = 20,                  -- a dealer table offers a tier only if its box holds this many max bets
+    AbandonDays = 7,                       -- a table whose owner lost the business is packed up after this (box and
+                                           -- item owed to the owner at their next login)
+    ManageDistance = 3.0,                  -- the owner must be this close to manage the table
+    PobResource = 'grumpy-pob',
+}

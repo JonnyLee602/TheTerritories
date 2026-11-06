@@ -1,6 +1,6 @@
 # grumpy-gambling — developer docs
 
-Version 0.5.0, phases 1–5 (foundation, money, module library, table UI, NPC players). The full design, including later phases, is in [DESIGN.md](DESIGN.md).
+Version 0.6.0, phases 1–6 (foundation, money, module library, table UI, NPC players, business tables). The full design, including later phases, is in [DESIGN.md](DESIGN.md).
 
 ## Contents
 1. Architecture
@@ -39,6 +39,8 @@ Version 0.5.0, phases 1–5 (foundation, money, module library, table UI, NPC pl
 | `client/seat.lua` | Seated scenario, stand / choose-game / chips prompts, picker and chips callbacks |
 | `client/view.lua` | Latest table view and feed for this player; dev `/gga` command (`Config.DevGames`) |
 | `client/table.lua` | Table panel bridge: shows the view, takes the mouse on your turn (`GGC.MyTurn`), Esc / G focus, `act` callback |
+| `server/business.lua` | Business tables: items, placement checks, cashbox, owner panel, grumpy-pob events (owner changes, repossession, seizure, NPC moves), abandonment, owed items |
+| `client/business.lua` | Placing from the item (form + rsg-gizmo with a live NPC-distance check), the owner's panel, `GGC.MyTables` |
 | `client/anim.lua` | Seated animations: idle loop over the chair scenario for the local player and local NPC peds, one-off cue clips |
 | `server/npc.lua` | NPC players: seating rule, profiles (persona + tier + drunk + tilt), win-cap window, chatter, tells, regulars' memory, cardsharp call-outs; dev `/ggbot` |
 | `lib/npc_brain.lua` | Poker brain (strength, decisions, opponent tracker), PVD bet sizing, think time, cardsharp card swap |
@@ -123,6 +125,8 @@ Errors: `no_table`, `table_not_started`, `not_your_table`, `hand_open`, `no_play
 | `NpcEvent(tableId, seat, event)` | bool | `strong` / `bluff` (maybe a tell), `sleight` (a sharp cheated), or a move id for a chance of chatter |
 | `ResolveCallOut(tableId, seat, caught)` | bool | Answer to a `callOut`: true = the NPC cheated this hand (cancel the hand first) |
 | `SeatCue(tableId, seat, cue)` | bool | Plays a `Config.Anim.Cues` clip on a seat for everyone near the table; an NPC move may also get a chatter line |
+| `GetTableLimits(businessId)` | `{ pvp = { item, placed, max }, pvd = ... }` | For grumpy-pob's Gambling tab |
+| `GetBusinessCashboxes(businessId)` | `{ tableId, label, kind, currency, balance }[]` | Cashboxes of a business's tables (cents), e.g. for law screens |
 | `GetNpcWindow(cid, tableId?)` | `{ total, cap }` | What a player has won from NPCs in the window, and the cap at that table (cents) |
 
 No client exports.
@@ -155,6 +159,11 @@ Phase 3 adds the hand API and wraps these in the module library (DESIGN.md §11)
 | `grumpy-gambling:client:chips` / `chipsClosed` | client | Chips window (amounts in cents) |
 | `grumpy-gambling:server:action` (`actionId, cents?`) | server | Seated player at an active table; 250 ms rate limit |
 | `grumpy-gambling:server:callOut` (`tableId, seat`) | server | Seated at that bloodmoney table, an NPC seat, a hand in play, not blocked by a wrong call |
+| `grumpy-gambling:server:bizCreate` (`{ kind, businessId, label, currency, coords, heading }`) | server | Owner of that business, item in inventory, within `MaxDistanceFromNpc` of its clerk, under `MaxTables`, back room for bloodmoney; the item is removed after the table is saved |
+| `grumpy-gambling:server:bizAction` (`tableId, action, value`) | server | Table owner within `ManageDistance + 2`: `deposit`/`withdraw` (dollars), `toggle`, `npcs`, `tiers` ({ id = true }), `rename`, `packup` |
+| `grumpy-gambling:server:bizMove` (`tableId, coords, heading`) | server | Owner, nobody seated, still inside the business |
+| `grumpy-gambling:server:bizPanel` / `bizMine` | callback | Owner panel data / the caller's table ids |
+| `grumpy-gambling:client:bizPlace` / `bizPanel` / `myTables` | client | Place form, panel refresh, owned table ids |
 | `grumpy-gambling:client:seatCue` (`tableId, seat, cue`) | client | Plays a clip on that seat: your own ped if it's your seat (synced by the network), else the local NPC ped |
 | `grumpy-gambling:client:view` (`tableId, public, private, seat`) / `message` (`tableId, text`) | client | Table view and feed |
 | NUI `act` (`{ id, amount }`) / `tableBlur` | NUI → client | A move from the action bar (sent as `server:action`); Esc on the table |
@@ -243,6 +252,11 @@ database. Seats, game and tier are runtime only: a restart empties every table a
   destroyed when it leaves, or its win after leaving; at dealer tables also an NPC's scenery win or loss, note
   `pvd scenery`), `rake_box`/`paid_pending` 0. With no hand open, the sum of the ledger equals the
   stacks plus cashboxes.
+- **Business cashboxes** (`grumpy_gambling_cashboxes`): the box's rake share and (dealer tables) the house result are
+  written in the hand's settle transaction (`grumpy_gambling_box_stats` keeps the totals for the owner). Deposits and
+  withdrawals are conditional updates (never below zero; open hands' reserved cover can't be withdrawn). Ledger:
+  `box_in` +, `box_out` -, `box_gov` - (repossessed clean box to the government account), `box_sink` - (repossessed
+  dirty box destroyed), `box_seized` - (law seizure). The ledger still sums to stacks + boxes.
 - **NPC money:** created when an NPC sits, destroyed when it leaves. At PVP the chips are real in the pot (players can
   win them, up to the cap). At PVD, NPC bets never reach the house: no rake, no cover, no house result.
 - **NPC win cap:** each hand with NPCs adds rows to `grumpy_gambling_npc_window` inside the settle transaction: what
@@ -289,7 +303,10 @@ Money tables (cents in `_c` columns): `grumpy_gambling_stacks` (one row per seat
 (owed, paid at login), `grumpy_gambling_hands` (settled hands), `grumpy_gambling_ledger`, `grumpy_gambling_cashboxes`
 (phase 6), `grumpy_gambling_rake_remainder`, `grumpy_gambling_rake_stats` (tuner input), `grumpy_gambling_rake_rates`
 (tuner output). NPCs: `grumpy_gambling_npc_window (id, citizenid, ts, amount_c)` (purged after the window) and
-`grumpy_gambling_regular_memory (regular_id, citizenid, hands, net_c, last_seen)` (saved as increments).
+`grumpy_gambling_regular_memory (regular_id, citizenid, hands, net_c, last_seen)` (saved as increments). Business:
+`grumpy_gambling_box_stats (table_id, rake_c, house_c, hands)`, `grumpy_gambling_pending_items (citizenid, item,
+amount)` (table items owed after an offline pack-up, given at login); tables use `business_id`, `owner_cid` and
+`settings` (`npcs`, `tiers`, `orphaned` time, `outOfRange`).
 
 ## 10. Server owner how-tos
 - **Add a table model:** add an entry to `Models` in `shared/models.lua` (verify the model in
@@ -301,6 +318,11 @@ Money tables (cents in `_c` columns): `grumpy_gambling_stacks` (one row per seat
   Add that model to `Models` if it's a card table.
 - **Make a calibration permanent in code:** copy the snippet from the panel into the model's entry.
 - **Move a map table's seats:** calibrate that table (bound tables keep their own calibration).
+- **Give a business owner a table:** add the items to `rsg-core/shared/items.lua` (see README) with images
+  `gambling_table_pvp.png` / `gambling_table_pvd.png` in rsg-inventory. Owners buy them from grumpy-pob's Gambling
+  tab (`Config.Gambling.Prices` there); admins can also `/giveitem <id> gambling_table_pvp 1`.
+- **A table of a lost business:** it shows "closed: its owner no longer runs the business". The placer can empty it
+  and pack up; after `AbandonDays` the server does it. Deleting it from `/gambling` packs it up for its owner.
 - **Add a regular:** add an entry to `Config.Npc.Regulars.List` (unique `id`, a model from
   `data/rdr3_discoveries/peds/peds_list.lua`, an `outfit` number, a persona, `home` coords + radius and/or
   `roams = true`, optional `tiers`). Regulars are only at one table at a time.
@@ -325,6 +347,10 @@ Money tables (cents in `_c` columns): `grumpy_gambling_stacks` (one row per seat
 | Chip stacks float or sit inside the table | Tune `Config.ChipStacks.Forward` / `Height`, or per model `chipForward` / `chipHeight` in `shared/models.lua` |
 | Can't move a table | Map (bound) tables can't move; spawned tables need nobody seated |
 | Table panel never takes the mouse | `Config.TableUI.AutoFocus`; a window (chips, picker) open takes priority; press G (Your turn) |
+| "Only a business owner can set up a gambling table" | The player must be the grumpy-pob owner (staff can't) and grumpy-pob 1.2.0+ must be running |
+| "The table must stand inside your business" | Use the item within `MaxDistanceFromNpc` (+5 m) of the business's clerk; the ghost must stay inside that range |
+| Dealer table says the house can't cover bets | Put money in its cashbox (Manage table); each stake needs `PvdCoverMaxBets` × its max bet |
+| No "Manage table" option | Only the placer sees it, from the middle of the table, while not seated |
 | No NPCs sit down | `Config.Npc.Enabled`; the table needs a started game and a real player; a player at the NPC cap gets none (`GetNpcWindow`); one seat always stays free |
 | NPCs look the same everywhere / invisible | Outfit numbers pick a preset per model; a model with no presets falls back to a random outfit |
 | No tells | `Config.Npc.Tells.Chance` × the persona's `tells`, only when strength ≥ `Tells.Strong` or bluffing; High-tier NPCs and sharks show fewer by design. `Config.Debug` prints each cue in F8 |

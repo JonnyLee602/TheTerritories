@@ -1,5 +1,5 @@
 -- grumpy-gambling tables. Created automatically on start unless Config.AutoDatabase = false.
--- Phases 1–2: tables, money. Phase 5: NPC win-cap window and regulars' memory. Business tables come in phase 6.
+-- Phases 1–2: tables, money. Phase 5: NPC win-cap window and regulars' memory. Phase 6: business tables.
 -- Money columns ending in _c are integer cents.
 
 CREATE TABLE IF NOT EXISTS `grumpy_gambling_tables` (
@@ -145,4 +145,24 @@ CREATE TABLE IF NOT EXISTS `grumpy_gambling_regular_memory` (
   `net_c` BIGINT NOT NULL DEFAULT 0,
   `last_seen` INT NOT NULL DEFAULT 0,
   PRIMARY KEY (`regular_id`, `citizenid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Business tables (DESIGN.md §9): what each cashbox has earned, shown to its owner. rake_c = the box's share of the
+-- rake, house_c = the house result at dealer tables (+ the box won).
+CREATE TABLE IF NOT EXISTS `grumpy_gambling_box_stats` (
+  `table_id` INT NOT NULL,
+  `rake_c` BIGINT NOT NULL DEFAULT 0,
+  `house_c` BIGINT NOT NULL DEFAULT 0,
+  `hands` INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`table_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table items owed to an owner who was offline when their table was packed up; given at their next login.
+CREATE TABLE IF NOT EXISTS `grumpy_gambling_pending_items` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `citizenid` VARCHAR(50) NOT NULL,
+  `item` VARCHAR(50) NOT NULL,
+  `amount` INT NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`),
+  KEY `player` (`citizenid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

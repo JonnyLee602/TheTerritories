@@ -72,6 +72,7 @@ RegisterNetEvent('grumpy-pob:server:buy', function(id)
         MySQL.update.await('DELETE FROM grumpy_pob_applications WHERE business_id = ? AND citizenid = ?', { biz.id, who.cid })
         POB.Refresh(biz)
         POB.Notify(src, locale('bought_business', biz.label, price), 'success')
+        TriggerEvent('grumpy-pob:server:ownerChanged', biz.id, nil, who.cid, 'bought')
         print(('[grumpy-pob] %s (%s) bought business %d "%s" for $%s'):format(who.name, who.cid, biz.id, biz.label, price))
     end)
 end)
@@ -193,6 +194,7 @@ RSGCore.Functions.CreateCallback('grumpy-pob:server:manager', function(source, c
     end
     if t.hotel then data.hotelRate, data.hotelMax, data.rooms = POB.Hotel.Rate(biz), t.hotel.maxRate, biz.rooms end
     if POB.Launder then data.backroom = POB.Launder.ManagerData(src, biz, Player) end -- owner only
+    if POB.Gambling then data.gambling = POB.Gambling.ManagerData(src, biz, Player) end -- owner only
     if perms.recipes then
         data.recipeRules = POB.Recipes.Rules(biz)
         data.recipes = POB.Recipes.ListFor(biz)

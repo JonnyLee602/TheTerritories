@@ -2,7 +2,7 @@
 
 Player owned businesses for RedM. Admins build saloons, restaurants, hotels and stables in game with `/pob`. Players buy them at the open sign, hire staff, stock the shop, craft, pay wages and tax, and keep the takings in a business account.
 
-Version 1.1.0 · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for developer and server owner details.
+Version 1.2.0 · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for developer and server owner details.
 
 This is a community script. It is **not** made or supported by the RSG authors.
 
@@ -35,6 +35,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
   - Pictures: pick an existing item picture, or **upload** one to Fivemanage from the menu (file picker or Ctrl+V).
   - **Approval**: in game (`/pob` → Approvals), on **Discord** (bot posts the recipe, approvers react ✅ / ❌), or automatically after 15 minutes when no admin is online. Auto-approved items use the base picture until a person approves the custom one.
 - **Back room (laundering), owner only.** The owner can buy a back room once ($750 from the business account, shown as "Renovations"). Then only the owner can wash **dirty money** (bloodmoney) at the manager desk: 15% disappears, the rest goes into the business account as **"Private sale"** lines, so staff never see what's going on. Standing doesn't affect it. A front can only wash as much per week as its books can explain: its honest income (sales, rent, training) over the last 7 days, at least $350. Lost on repossession or sale.
+- **Gambling tables, owner only** (with grumpy-gambling 0.6.0+). The manager's **Gambling** tab sells the table items: a **Card Table** ($150) and a **Dealer's Table** ($250), paid from the business account ("Furnishings"). The owner uses the item inside the business to set it up; grumpy-gambling handles the rest (placing, cashbox, repossession). At most 2 of each per business, counting those already placed and carried.
 - **The law can audit fronts.** Each wash may tip off on-duty lawmen ("dirty money is changing hands at …"). A lawman of grade 2+ issues a **books warrant** at the manager desk; any on-duty lawman holding it can **Inspect the books** there, see the real laundering records from the last 14 days, and **seize** the laundered money from the account into the government account. The owner is told.
 - **Hotel businesses** use grumpy-hotel: the NPC rents rooms, owners set the rate, rent goes into the account.
 - **Stable businesses** use rsg-stables: only staff can keep horses there (40 per employee instead of the normal limit, not counted toward the owned-horse cap). Customers request **horse training** at the NPC; an on-duty trainer accepts, trains the horse, and the price is split **40% business / 60% trainer**. Staff horses train free.
@@ -109,6 +110,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `Laundering.WindowDays` / `Floor` / `SalesShare` | `7` / `350` / `1.0` | Weekly allowance = max(Floor, SalesShare × honest income over WindowDays) |
 | `Laundering.Tip.*` | on, 5% per $100, max 50%, 60–300 s | Chance a wash tips off on-duty law |
 | `Laundering.KeepDays` | `60` | Laundering records are deleted after this |
+| `Gambling.Enabled` / `Prices` | `true` / pvp `150`, pvd `250` | The Gambling tab (needs grumpy-gambling) and its table prices (clean $, from the account) |
 | `Audit.Enabled` / `Item` | `true` / `books_warrant` | Law audits |
 | `Audit.JobTypes` / `MinGrade` / `RequireOnDuty` | `{ leo = true }` / `2` / `true` | Who counts as law; grade needed to issue a warrant |
 | `Audit.Minutes` / `Cooldown` | `60` / `30` | Warrant lifetime / seconds between warrants per officer |
@@ -129,6 +131,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 - **Apply**: target the sign of an owned business → write an application.
 - **Staff**: target the manager desk → **Clock in / out** and **Manage business**. On duty, target the NPC → **Stock the shelves**; use crafting stations and stashes.
 - **Customers**: target the NPC → **Browse goods**, **Rent a room** or **Horse training**.
+- **Owners**: Manage business → **Gambling** tab → buy a table, then use the item inside the business to place it.
 - **Owners**: Manage business → **Back room** tab → build it, then wash dirty money you carry. Outlaws hand you their dirty money in person; what you pay them back is up to you.
 - **Lawmen** (on duty): at the manager desk → **Issue a books warrant** (grade 2+), then **Inspect the books** while holding it → **Seize**.
 - **Trainers** (stables, on duty): target the NPC → **Training requests** → accept, then stand by the horse until the bar finishes.

@@ -1,7 +1,7 @@
 # grumpy-gambling — core design
 
-Status: **phases 1–4 built and tested in game; phase 5 (NPC players) built** 2026-11-05 as v0.5.0 (tested in
-Lua 5.4, not yet played in game); phases 6–7 to do. Phase 3 was tested in real Lua 5.4 (`tests/`, incl. the test games
+Status: **phases 1–5 built and tested in game; phase 6 (business tables) built** 2026-11-06 as v0.6.0 (tested in
+Lua 5.4 with a fake grumpy-pob, not yet played in game); phase 7 to do. Phase 3 was tested in real Lua 5.4 (`tests/`, incl. the test games
 playing full hands through the core). Phase 3 adds
 `server/play.lua` (views, action relay, stakes) and the dev-only `grumpy-gambling-test` resource; `lib/flow.lua`
 became timers in `lib/server.lua`, and the NPC brain moves to phase 5. Layout additions to §4.2:
@@ -465,11 +465,32 @@ Re-checked when an admin edits the business: tables now out of range close until
 | Law audit (books warrant) | — | Dirty boxes can be **seized** (destroyed), shown on grumpy-pob's audit screen |
 | Later: grumpy-robbery | — | Dirty boxes crackable by outlaws (exposed wealth, doctrine rule 2) |
 
+**As built (phase 6):**
+- Placement as in §9.2; the client's gizmo `validate` turns the ghost red past `MaxDistanceFromNpc`; the item is used
+  from within that range + 5 m of the clerk; tables start with NPCs on.
+- Dealer tables offer a tier only when the box holds `PvdCoverMaxBets` (20) × its max bet, and stay closed when no
+  tier is covered. Owner settings: open/closed, stakes offered, NPCs on/off, name. (Allowed games and a stop-loss were
+  left out: the stakes filter and the cover rule do that job.)
+- Losing the business: any reason but tax → the tables close (`settings.orphaned`), the box can still be emptied and
+  the table packed up; buying the business back reopens them; after `AbandonDays` (7) the server packs up (money to
+  pending, item to `grumpy_gambling_pending_items`, given at login). Tax → `Biz.Repossess`: clean box to
+  `AddGovMoney`, dirty box destroyed, no item. A law seizure (books warrant) destroys the business's dirty boxes
+  (what isn't covering bets in play). The audit screen does not list cashboxes yet (`GetBusinessCashboxes` is there
+  for it).
+- An admin moving the clerk closes tables now outside the range until the owner moves them (owner Move = gizmo
+  `Edit`, nobody seated). An admin deleting a business table packs it up for its owner.
+- Item images (`gambling_table_pvp.png`, `gambling_table_pvd.png`) still to be made. Sold in grumpy-pob's manager
+  "Gambling" tab (owner only, from the business account, user's request 2026-11-06) at $150 / $250 (draft: no
+  doctrine band yet; between a heavy rifle and the $750 back room).
+
 ### 9.5 grumpy-pob changes needed (version bump, README/DOCS)
 - Export: businesses owned by a citizenid, with id, label, NPC point and back-room flag.
 - Export: is this player the owner of business X.
 - Server events: ownership changed (id, old cid, new cid, reason) and repossessed (id).
 - Audit screen hook to list and seize dirty cashboxes (phase 2 of POB integration).
+- As built in grumpy-pob 1.2.0: `GetOwnedBusinesses(cid)`, `IsOwner(id, cid)`, `HasBackroom(id)`, `IsReady()`;
+  events `ownerChanged(id, oldCid, newCid, reason)` (`bought`/`tax`/`admin`/`deleted`), `businessChanged(id)`,
+  `seized(id, lawSrc)`.
 
 ## 10. Client: world, seating, NUI
 - **Spawning:** tables, chairs, dealer peds and NPC players are **local entities**, spawned within

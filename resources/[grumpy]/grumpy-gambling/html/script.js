@@ -262,16 +262,106 @@ function renderChips() {
   $('content').replaceChildren(...nodes);
 }
 
+
+// ---------------------------------------------------------------- business tables (phase 6). Amounts in cents.
+function renderBizPlace() {
+  $('title').textContent = data.business || '';
+  $('subtitle').textContent = tr(data.kind === 'pvp' ? 'ui_biz_place_pvp' : 'ui_biz_place_pvd');
+  $('tabs').classList.add('hidden');
+  $('btn-back').style.visibility = 'hidden';
+  if (st.label == null) st.label = data.label || '';
+  if (!st.currency) st.currency = 'cash';
+  const name = el('input', { type: 'text', maxlength: 60, value: st.label, oninput: (e) => { st.label = e.target.value; } });
+  const nodes = [field(tr('ui_label'), name)];
+  if (data.currencies.length > 1) {
+    nodes.push(field(tr('ui_currency'), select(data.currencies.map((c) => ({ value: c, label: tr('ui_' + c) })), st.currency,
+      (v) => { st.currency = v; render(); })));
+  } else if (!data.backroom) {
+    nodes.push(el('div', { class: 'note', text: tr('ui_biz_backroom_note') }));
+  }
+  nodes.push(el('div', { class: 'note', text: tr('ui_biz_place_note', String(Math.floor(data.maxDistance))) }));
+  if (data.kind === 'pvd') nodes.push(el('div', { class: 'note', text: tr('ui_biz_pvd_note') }));
+  nodes.push(button(tr('ui_biz_place'), () => post('bizPlace', { label: st.label, currency: st.currency })));
+  $('content').replaceChildren(...nodes);
+}
+
+function renderBiz() {
+  const d = data;
+  $('title').textContent = d.label || '';
+  $('subtitle').textContent = tr(d.kind === 'pvp' ? 'ui_biz_kind_pvp' : 'ui_biz_kind_pvd') + ' · ' + tr('ui_' + d.currency);
+  $('tabs').classList.add('hidden');
+  $('btn-back').style.visibility = 'hidden';
+  const act = (action, value) => post('bizAction', { id: d.id, action, value });
+  const pills = [];
+  pills.push(el('span', { class: 'pill ' + (d.usable ? 'good' : 'warn'), text: d.usable ? tr('ui_biz_open') : (d.status || tr('ui_biz_closed')) }));
+  if (d.playing) pills.push(el('span', { class: 'pill', text: tr('ui_biz_seated', String(d.seated)) }));
+  const nodes = [el('div', { class: 'pills' }, pills)];
+  if (d.orphaned) nodes.push(el('div', { class: 'note', text: tr('ui_biz_orphaned', String(d.abandonDays)) }));
+
+  // the box
+  nodes.push(el('div', { class: 'section-label', text: tr('ui_biz_box') }));
+  nodes.push(el('div', { class: 'info' }, [
+    el('div', {}, [el('b', { text: tr('ui_biz_balance') }), ' ' + fmtC(d.box)]),
+    el('div', {}, [el('b', { text: tr('ui_biz_rake') }), ' ' + fmtC(d.rake)]),
+    d.kind === 'pvd' ? el('div', {}, [el('b', { text: tr('ui_biz_house') }), ' ' + fmtC(d.house)]) : null,
+    el('div', {}, [el('b', { text: tr('ui_biz_hands') }), ' ' + String(d.hands)]),
+  ]));
+  if (d.withdrawable < d.box) nodes.push(el('div', { class: 'note', text: tr('ui_biz_reserved', fmtC(d.box - d.withdrawable)) }));
+  const amount = el('input', { type: 'number', min: 0.01, step: 0.01, placeholder: '0.00', value: st.boxAmount || '',
+    oninput: (e) => { st.boxAmount = e.target.value; } });
+  nodes.push(field(tr('ui_amount'), amount));
+  nodes.push(el('div', { class: 'btn-grid' }, [
+    button(tr('ui_biz_deposit'), () => act('deposit', Number(st.boxAmount)), '', d.orphaned),
+    button(tr('ui_biz_withdraw'), () => act('withdraw', Number(st.boxAmount)), 'muted', d.withdrawable <= 0),
+    button(tr('ui_biz_withdraw_all'), () => act('withdraw', d.withdrawable / 100), 'muted', d.withdrawable <= 0),
+  ]));
+  nodes.push(el('div', { class: 'note', text: tr(d.kind === 'pvd' ? 'ui_biz_box_note_pvd' : 'ui_biz_box_note_pvp') }));
+
+  if (!d.orphaned) {
+    // settings
+    nodes.push(el('div', { class: 'section-label', text: tr('ui_biz_settings') }));
+    nodes.push(el('div', { class: 'list' }, d.tiers.map((t) => row({
+      icon: t.label.charAt(0), title: t.label,
+      desc: d.kind === 'pvd' ? tr(t.covered ? 'ui_biz_tier_covered' : 'ui_biz_tier_needs', fmtC(t.cover)) : null,
+      pills: [{ text: t.on ? tr('ui_on') : tr('ui_off'), cls: t.on ? 'good' : '' }],
+      onclick: () => {
+        const tiers = {};
+        for (const x of d.tiers) tiers[x.id] = x.id === t.id ? !x.on : x.on;
+        act('tiers', tiers);
+      },
+    }))));
+    nodes.push(row({ icon: 'N', title: tr('ui_biz_npcs'), desc: tr('ui_biz_npcs_desc'),
+      pills: [{ text: d.npcs ? tr('ui_on') : tr('ui_off'), cls: d.npcs ? 'good' : '' }], onclick: () => act('npcs', !d.npcs) }));
+    const label = el('input', { type: 'text', maxlength: 60, value: st.rename != null ? st.rename : d.label,
+      oninput: (e) => { st.rename = e.target.value; } });
+    nodes.push(field(tr('ui_label'), label));
+    nodes.push(el('div', { class: 'btn-grid' }, [
+      button(tr('ui_rename'), () => act('rename', st.rename || d.label), 'muted'),
+      button(d.open ? tr('ui_biz_close') : tr('ui_biz_reopen'), () => act('toggle')),
+      button(tr('ui_biz_move'), () => post('bizMove', { id: d.id }), 'muted', d.seated > 0),
+    ]));
+  }
+  nodes.push(el('div', { class: 'section-label', text: tr('ui_biz_packup') }));
+  nodes.push(el('div', { class: 'note', text: tr('ui_biz_packup_note') }));
+  nodes.push(button(tr('ui_biz_packup'), () => openModal(tr('ui_biz_packup'), [el('div', { text: tr('ui_biz_packup_confirm', fmtC(d.box)) })], [
+    button(tr('ui_cancel'), closeModal, 'muted'),
+    button(tr('ui_biz_packup'), () => { closeModal(); act('packup'); }, 'danger'),
+  ]), 'danger', d.seated > 0));
+  $('content').replaceChildren(...nodes);
+}
+
 // ---------------------------------------------------------------- shell
 function render() {
   if (!view || !data) return;
   if (view === 'admin') renderAdmin();
   else if (view === 'setup') renderSetup();
   else if (view === 'chips') renderChips();
+  else if (view === 'bizPlace') renderBizPlace();
+  else if (view === 'biz') renderBiz();
 }
 
 function resetState() {
-  st = { tab: 'tables', detail: null, game: null, tier: null, amount: null,
+  st = { tab: 'tables', detail: null, game: null, tier: null, amount: null, label: null, currency: null, boxAmount: '', rename: null,
     form: { label: '', kind: 'pvp', source: 'public', currency: 'cash', model: '' } };
 }
 

@@ -79,6 +79,10 @@ Items on this server have no food/drink categories: food and drink are `category
 | `GetGovBalance()` | number | |
 | `AddGovMoney(amount, note)` | bool | |
 | `RemoveGovMoney(amount, note)` | bool | Fails when the balance is too low |
+| `GetOwnedBusinesses(cid)` | `{ id, label, type, npc, backroom }[]` | Businesses a character owns now (1.2.0, for grumpy-gambling) |
+| `IsOwner(id, cid)` | bool | Is this character the current owner (1.2.0) |
+| `HasBackroom(id)` | bool | The current owner bought the back room (1.2.0) |
+| `IsReady()` | bool | Businesses are loaded (1.2.0) |
 
 Public business: `{ id, type, label, owned, price, job, npcModel, blip, points, shop, crafting, hotel, stable, training, shopId, hotelId }`.
 
@@ -90,6 +94,13 @@ Callbacks (rsg-core, all re-validated): `signInfo`, `canShop`, `manager`, `ledge
 Server net events (`grumpy-pob:server:*`, all validated): `requestSync`, `buy`, `apply`, `duty`, `money`, `hire`, `application`, `fire`, `setGrade`, `rename`, `appearance`, `wages`, `setPrice`, `takeStock`, `openStock`, `openStash`, `craftFinish`, `deleteRecipe`, `requestTraining`, `cancelTraining`, `finishTraining`, `setTrainingPrice`, `setHotelRate`, `govMoney`, `buyBackroom`, `launder`, `issueBooksWarrant`, `seize`, `adminSave`, `adminDelete`, `adminReset`, `adminSetOwner`, `adminTeleport`, `adminRecipeDecide`.
 
 Client events (sent by the server): `sync(list)`, `refresh(which)`, `auditRefresh(id)`, `employmentChanged`, `openAdmin`, `openGov`.
+
+Server-only events grumpy-pob fires (1.2.0, local `AddEventHandler`; used by grumpy-gambling's business tables):
+- `grumpy-pob:server:ownerChanged(id, oldCid, newCid, reason)`: someone bought the business (`bought`), it was
+  repossessed (`tax`), an admin reset it or gave it away (`admin`), or it was deleted (`deleted`). A repossession fires
+  with `newCid = nil`; a new owner fires again with `oldCid = nil`.
+- `grumpy-pob:server:businessChanged(id)`: an admin saved the business (its points, e.g. the NPC, may have moved).
+- `grumpy-pob:server:seized(id, lawSrc)`: an officer seized laundered money from the books.
 
 Server-only events grumpy-pob listens to (from the patches, clients can't trigger them):
 - `rsg-stores:server:externalSale(shopId, src, lines, total)`
@@ -157,6 +168,9 @@ seized so they can't be taken twice.
 - **Admin**: every admin event re-checks `Config.AdminPermission`; form values are sanitised and coordinates range-checked. The sign position is checked with `rsg-gizmo:IsPlacementValid`.
 - **Recipes**: names/descriptions are sanitised and filtered (`BlockedWords`); bases and ingredients must be in the type's lists. Uploaded images are verified with Fivemanage by id (the URL from the client is never used) and must start with `AllowedPrefix`. The Fivemanage token stays on the server; the client only gets a short-lived presigned upload URL.
 - **Discord**: only reactions from members with an `ApproverRoles` role count; the bot's own reactions are ignored.
+- **Gambling tables**: owner only (citizenid), at the manager desk, under the per-business money lock; the limit
+  (placed + carried < grumpy-gambling's per-business max) and inventory space are checked before the account is
+  charged; if the item can't be given the money goes back. Net event `grumpy-pob:server:buyGamblingTable(id, kind)`.
 - **Laundering**: owner only, checked by citizenid (not just the owner grade), at the manager desk, under the per-business money lock. The allowance can't be raised by laundering itself. Staff only ever see anonymous "Private sale" lines; manager data includes the back room only for the owner.
 - **Audits**: law status, distance and a matching unexpired warrant (business + current owner) are checked on every audit and seizure. Seizing marks records so the same money can't be seized twice.
 - **Other scripts** calling `AddBusinessMoney` / `RemoveGovMoney` must validate their own players first.

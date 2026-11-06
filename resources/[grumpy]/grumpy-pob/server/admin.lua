@@ -153,6 +153,7 @@ RegisterNetEvent('grumpy-pob:server:adminSave', function(id, data)
         end
         POB.Broadcast()
         POB.Notify(src, locale('admin_saved', biz.label), 'success')
+        TriggerEvent('grumpy-pob:server:businessChanged', biz.id) -- points may have moved (e.g. the NPC)
     else
         local t = Config.Types[f.type]
         local biz = POB.InsertBiz({
@@ -179,7 +180,7 @@ RegisterNetEvent('grumpy-pob:server:adminDelete', function(id)
     local src = source
     local biz = admin(src) and POB.Biz(id)
     if not biz or POB.Cooldown(src, 'adminDelete', 1500) then return end
-    if biz.owner then POB.Repossess(biz, locale('ledger_deleted')) end
+    if biz.owner then POB.Repossess(biz, locale('ledger_deleted'), 'deleted') end
     Acc.Drain(POB.AccountId(biz), Acc.GOV, 'deleted', locale('ledger_deleted'))
     POB.Craft.WipeStashes(biz)
     POB.Shop.RemoveStore(biz)
@@ -207,7 +208,7 @@ RegisterNetEvent('grumpy-pob:server:adminReset', function(id)
     local src = source
     local biz = admin(src) and POB.Biz(id)
     if not biz or not biz.owner or POB.Cooldown(src, 'adminReset', 1500) then return end
-    POB.Repossess(biz, locale('ledger_reset_admin', GetPlayerName(src)))
+    POB.Repossess(biz, locale('ledger_reset_admin', GetPlayerName(src)), 'admin')
     POB.Notify(src, locale('admin_reset', biz.label), 'success')
     TriggerClientEvent('grumpy-pob:client:refresh', src, 'admin')
 end)
@@ -218,7 +219,7 @@ RegisterNetEvent('grumpy-pob:server:adminSetOwner', function(id, target)
     target = POB.Int(target)
     local T = target and RSGCore.Functions.GetPlayer(target)
     if not biz or not T or POB.Cooldown(src, 'adminOwner', 1500) then return end
-    if biz.owner then POB.Repossess(biz, locale('ledger_reset_admin', GetPlayerName(src))) end
+    if biz.owner then POB.Repossess(biz, locale('ledger_reset_admin', GetPlayerName(src)), 'admin') end
     if not POB.Jobs.Give(target, biz, Config.OwnerGrade, true) then return POB.Notify(src, locale('cannot_take_job'), 'error') end
     local who = Acc.Who(T)
     biz.owner = { cid = who.cid, name = who.name }
@@ -230,6 +231,7 @@ RegisterNetEvent('grumpy-pob:server:adminSetOwner', function(id, target)
     POB.Refresh(biz)
     POB.Notify(src, locale('admin_owner_set', who.name, biz.label), 'success')
     POB.Notify(target, locale('you_own', biz.label), 'success')
+    TriggerEvent('grumpy-pob:server:ownerChanged', biz.id, nil, who.cid, 'admin')
     TriggerClientEvent('grumpy-pob:client:refresh', src, 'admin')
 end)
 

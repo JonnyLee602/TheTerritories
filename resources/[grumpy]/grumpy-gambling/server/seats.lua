@@ -41,7 +41,8 @@ RegisterNetEvent('grumpy-gambling:server:sit', function(tableId, seat)
     local t = GG.Tables.Get(tableId)
     seat = GG.Int(seat, 1, 12)
     if not t or not seat or not t.seats[seat] then return end
-    if not t.enabled then return GG.Notify(src, locale('table_closed'), 'error') end
+    local usable, why = GG.Tables.Usable(t)
+    if not usable then return GG.Notify(src, locale(why), 'error') end
     if seatOf(src) then return GG.Notify(src, locale('already_seated'), 'error') end
     if t.occupants[seat] then return GG.Notify(src, locale('seat_taken'), 'error') end
     if Player.PlayerData.metadata and Player.PlayerData.metadata.isdead then return end

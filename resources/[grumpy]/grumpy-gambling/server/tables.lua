@@ -117,7 +117,7 @@ function Tables.Public(t)
         seats = t.seats, dealer = t.dealer, chair = t.chair, sitZ = t.sitZ, chairYaw = t.chairYaw,
         chipForward = t.chipForward, chipHeight = t.chipHeight,
         state = t.state, game = t.game, gameLabel = gameLabel(t), tier = t.tier, occupied = occupied, chips = chips, npc = npc,
-        npcOutfit = npcOutfit,
+        npcOutfit = npcOutfit, usable = (Tables.Usable(t)), businessId = t.businessId,
         version = t.version,
     }
 end
@@ -160,9 +160,10 @@ GG.AfterLoad(Tables.Load)
 function Tables.Insert(d, src)
     local Player = GG.Core.Functions.GetPlayer(src)
     local id = MySQL.insert.await([[INSERT INTO grumpy_gambling_tables
-        (label, kind, source, model, bound, x, y, z, h, currency, fixed_tier, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)]], {
+        (label, kind, source, model, bound, x, y, z, h, currency, fixed_tier, business_id, owner_cid, settings, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)]], {
         d.label, d.kind, d.source, d.model, d.bound and 1 or 0, d.x, d.y, d.z, d.h, d.currency, d.fixedTier,
+        d.businessId, d.ownerCid, d.settings and json.encode(d.settings) or nil,
         Player and Player.PlayerData.citizenid or nil,
     })
     if not id then return nil end
@@ -180,6 +181,23 @@ end
 
 function Tables.SaveMeta(t)
     MySQL.update.await('UPDATE grumpy_gambling_tables SET label = ?, enabled = ? WHERE id = ?', { t.label, t.enabled and 1 or 0, t.id })
+end
+
+function Tables.SaveSettings(t)
+    MySQL.update.await('UPDATE grumpy_gambling_tables SET settings = ? WHERE id = ?', { json.encode(t.settings or {}), t.id })
+end
+
+-- Can players sit and play? (closed by an admin or its owner, its owner lost the business, or it's out of range)
+function Tables.Usable(t)
+    if not t.enabled then return false, 'table_closed' end
+    local s = t.settings or {}
+    if s.orphaned then return false, 'biz_table_orphaned' end
+    if s.outOfRange then return false, 'biz_table_out_of_range' end
+    -- a dealer table whose box can't cover even the lowest tier can't open
+    if t.source == 'business' and t.kind == 'pvd' and t.state == 'empty' and #Tables.AllowedTiers(t) == 0 then
+        return false, 'biz_table_unfunded'
+    end
+    return true
 end
 
 function Tables.SaveCalibration(t)
@@ -207,6 +225,8 @@ function Tables.SaveModelOverride(model, data, src)
 end
 
 function Tables.Delete(t)
+    -- business tables are packed up (the box and the item go back to their owner)
+    if t.source == 'business' and GG.Biz and not t.packing then return GG.Biz.PackUp(t, nil, 'admin') end
     GG.Seats.StandAll(t, 'table_removed')
     MySQL.query.await('DELETE FROM grumpy_gambling_tables WHERE id = ?', { t.id })
     Tables.byId[t.id] = nil
@@ -226,6 +246,7 @@ function Tables.AllowedTiers(t)
         else
             ok = tier.choosable and (t.currency ~= 'bloodmoney' or tier.bloodmoney)
         end
+        if ok and t.source == 'business' and GG.Biz then ok = GG.Biz.TierAllowed(t, id, tier) end
         if ok then
             list[#list + 1] = {
                 id = id, label = locale(tier.label), stage = tier.stage, order = tier.order,

@@ -109,7 +109,7 @@ local function seatOptions(id, i)
             distance = Config.InteractDistance,
             canInteract = function()
                 local t = GGC.Tables[id]
-                if not t or not t.enabled or GGC.Seat then return false end
+                if not t or not t.enabled or t.usable == false or GGC.Seat then return false end
                 if t.occupied and t.occupied[i] then return false end
                 return not IsEntityDead(PlayerPedId())
             end,
@@ -265,6 +265,23 @@ local function spawn(t)
             radius = Config.SeatZoneRadius,
             debug = Config.Debug,
             options = seatOptions(t.id, i),
+        })
+    end
+    -- business tables: the owner manages theirs from the middle of the table
+    if t.businessId then
+        local id = t.id
+        w.zones[#w.zones + 1] = exports['rsg-target']:addSphereZone({
+            coords = vector3(t.x, t.y, t.z + (t.chipHeight or Config.ChipStacks.Height)),
+            radius = 0.7,
+            debug = Config.Debug,
+            options = { {
+                name = ('grumpy-gambling:manage:%d'):format(id),
+                icon = 'fa-solid fa-cash-register',
+                label = locale('target_manage'),
+                distance = Config.Business.ManageDistance,
+                canInteract = function() return GGC.MyTables[id] == true and not GGC.Seat and not GGC.uiOpen end,
+                onSelect = function() GGC.OpenBizPanel(id) end,
+            } },
         })
     end
 end

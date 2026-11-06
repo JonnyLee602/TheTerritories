@@ -1,6 +1,6 @@
 -- In-memory replacement for server/db.lua (same functions), loaded after the server files (tests only).
 local F = { stacks = {}, pending = {}, ledger = {}, cashboxes = {}, remainders = {}, rates = {}, stats = {}, hands = {},
-    window = {}, memory = {},
+    window = {}, memory = {}, boxStats = {}, items = {}, itemSeq = 0,
     failSettle = false }
 FakeDB = F
 local DB = GG.DB
@@ -26,6 +26,21 @@ function DB.PendingTake(cid)
 end
 function DB.Ledger(e) F.ledger[#F.ledger + 1] = e end
 function DB.CashboxGet(tableId) return F.cashboxes[tableId] or 0 end
+function DB.CashboxAdjust(tableId, currency, delta)
+    local cur = F.cashboxes[tableId] or 0
+    if cur + delta < 0 then return false end
+    F.cashboxes[tableId] = cur + delta
+    return true
+end
+function DB.CashboxDelete(tableId) F.cashboxes[tableId] = nil; F.boxStats[tableId] = nil end
+function DB.BoxStats(tableId) local b = F.boxStats[tableId] or {}; return { rake = b.rake or 0, house = b.house or 0, hands = b.hands or 0 } end
+function DB.PendingItemAdd(cid, item, amount) F.itemSeq = F.itemSeq + 1; F.items[F.itemSeq] = { cid = cid, item = item, amount = amount or 1 } end
+function DB.PendingItems(cid)
+    local out = {}
+    for id, r in pairs(F.items) do if r.cid == cid then out[#out + 1] = { id = id, item = r.item, amount = r.amount } end end
+    return out
+end
+function DB.PendingItemDone(id) F.items[id] = nil end
 function DB.RemaindersAll() return {} end
 function DB.RatesAll() return {} end
 function DB.RateSet(kind, tier, game, rate) F.rates[kind .. ':' .. tier .. ':' .. game] = rate end
@@ -54,6 +69,11 @@ function DB.Settle(s)
     for _, p in ipairs(s.pending or {}) do DB.PendingAdd(p.cid, p.currency, p.amount) end
     if s.remainder then F.remainders[s.remainder.tableId] = s.remainder.value end
     if s.cashbox then F.cashboxes[s.cashbox.tableId] = (F.cashboxes[s.cashbox.tableId] or 0) + s.cashbox.delta end
+    if s.boxStats then
+        local b = F.boxStats[s.boxStats.tableId] or { rake = 0, house = 0, hands = 0 }
+        b.rake, b.house, b.hands = b.rake + s.boxStats.rake, b.house + s.boxStats.house, b.hands + 1
+        F.boxStats[s.boxStats.tableId] = b
+    end
     F.hands[#F.hands + 1] = s.hand
     for _, e in ipairs(s.ledger) do F.ledger[#F.ledger + 1] = e end
     for _, w in ipairs(s.npcWindow or {}) do F.window[#F.window + 1] = { cid = w.cid, ts = w.ts, amount = w.amount } end

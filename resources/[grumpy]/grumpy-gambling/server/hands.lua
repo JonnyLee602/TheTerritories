@@ -321,6 +321,7 @@ function Hands.Settle(handId, result)
         stacks = stacks, pending = pending, ledger = ledger, npcWindow = npcWindow,
         remainder = { tableId = t.id, value = r.rem },
         cashbox = cashbox and { tableId = t.id, currency = h.currency, delta = boxDelta } or nil,
+        boxStats = cashbox and { tableId = t.id, rake = boxShare, house = -r.house } or nil,
         hand = { id = h.id, tableId = t.id, game = h.game, tier = h.tier, currency = h.currency, startedAt = h.startedAt,
             wagered = r.wagered, rake = r.rake, house = r.house, data = { rate = h.rate, seats = data } },
     })

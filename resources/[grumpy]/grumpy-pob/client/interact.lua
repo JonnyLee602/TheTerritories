@@ -121,6 +121,7 @@ local managerEvents = {
     rename      = function(b) TriggerServerEvent('grumpy-pob:server:rename', b.id, b.label) end,
     appearance  = function(b) TriggerServerEvent('grumpy-pob:server:appearance', b.id, b.data) end,
     wages       = function(b) TriggerServerEvent('grumpy-pob:server:wages', b.id, b.wages) end,
+    buyTable    = function(b) TriggerServerEvent('grumpy-pob:server:buyGamblingTable', b.id, b.kind) end,
     trainPrice  = function(b) TriggerServerEvent('grumpy-pob:server:setTrainingPrice', b.id, b.stat, b.price) end,
     hotelRate   = function(b) TriggerServerEvent('grumpy-pob:server:setHotelRate', b.id, b.rate) end,
     delRecipe   = function(b) TriggerServerEvent('grumpy-pob:server:deleteRecipe', b.id, b.recipe) end,

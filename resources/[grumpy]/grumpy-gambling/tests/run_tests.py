@@ -47,6 +47,8 @@ DEPS = {
                                '../grumpy-gambling-test/server/showdown.lua', '../grumpy-gambling-test/server/highcard.lua',
                                'lua:Fake.resource = "grumpy-gambling"'],
 }
+# business tables: the test games plus server/business.lua
+DEPS['test_business.lua'] = DEPS['test_play.lua'][:1 + DEPS['test_play.lua'].index('server/play.lua')] + ['server/business.lua'] +     DEPS['test_play.lua'][1 + DEPS['test_play.lua'].index('server/play.lua'):]
 # NPC system: the same, with NPCs on
 DEPS['test_npc.lua'] = [d for d in DEPS['test_play.lua'] if d != 'lua:Config.Npc.Enabled = false']
 if __name__ == '__main__':

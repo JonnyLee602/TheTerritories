@@ -153,6 +153,16 @@ Config.Laundering = {
 -- owner), then any on-duty lawman holding it can inspect the real books at the manager desk and seize
 -- laundered money from the business account into the government account.
 ---------------------------------------------------------------------
+-- Gambling tables (grumpy-gambling 0.6.0+): the owner buys the table items from the manager's "Gambling" tab and
+-- places them in the business. Paid from the business account to the government ("Furnishings" in the ledger).
+-- grumpy-gambling sets the per-business limits. Prices: no doctrine band yet; set against the back room ($750) and
+-- a town business ($1,500 – $3,000). A card table earns the box half the rake (about $0.25 – $3 per player-hour).
+Config.Gambling = {
+    Enabled  = true,
+    Resource = 'grumpy-gambling',
+    Prices   = { pvp = 150, pvd = 250 },   -- clean $: Card Table, Dealer's Table
+}
+
 Config.Audit = {
     Enabled       = true,
     Item          = 'books_warrant', -- add to rsg-core/shared/items.lua (see README)

@@ -66,6 +66,43 @@ function DB.CashboxGet(tableId)
     return math.tointeger(MySQL.scalar.await('SELECT balance_c FROM grumpy_gambling_cashboxes WHERE table_id = ?', { tableId })) or 0
 end
 
+-- Moves money in or out of a cashbox (+ in, - out). Never below zero: returns false when the box can't pay.
+function DB.CashboxAdjust(tableId, currency, delta)
+    if delta >= 0 then
+        MySQL.query.await([[INSERT INTO grumpy_gambling_cashboxes (table_id, currency, balance_c) VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE balance_c = balance_c + VALUES(balance_c)]], { tableId, currency, delta })
+        return true
+    end
+    local r = MySQL.update.await('UPDATE grumpy_gambling_cashboxes SET balance_c = balance_c + ? WHERE table_id = ? AND balance_c >= ?',
+        { delta, tableId, -delta })
+    return (tonumber(r) or 0) > 0
+end
+
+function DB.CashboxDelete(tableId)
+    MySQL.query.await('DELETE FROM grumpy_gambling_cashboxes WHERE table_id = ?', { tableId })
+    MySQL.query.await('DELETE FROM grumpy_gambling_box_stats WHERE table_id = ?', { tableId })
+end
+
+function DB.BoxStats(tableId)
+    local r = MySQL.single.await('SELECT rake_c, house_c, hands FROM grumpy_gambling_box_stats WHERE table_id = ?', { tableId })
+    return { rake = r and math.tointeger(r.rake_c) or 0, house = r and math.tointeger(r.house_c) or 0, hands = r and r.hands or 0 }
+end
+
+function DB.PendingItemAdd(cid, item, amount)
+    MySQL.insert.await('INSERT INTO grumpy_gambling_pending_items (citizenid, item, amount) VALUES (?, ?, ?)', { cid, item, amount or 1 })
+end
+
+-- { { id, item, amount } } owed to a player (not removed: call PendingItemDone for each one given)
+function DB.PendingItems(cid)
+    local out = {}
+    for _, r in ipairs(MySQL.query.await('SELECT id, item, amount FROM grumpy_gambling_pending_items WHERE citizenid = ?', { cid }) or {}) do
+        out[#out + 1] = { id = r.id, item = r.item, amount = r.amount }
+    end
+    return out
+end
+
+function DB.PendingItemDone(id) MySQL.query.await('DELETE FROM grumpy_gambling_pending_items WHERE id = ?', { id }) end
+
 function DB.RemaindersAll()
     local out = {}
     for _, r in ipairs(MySQL.query.await('SELECT table_id, remainder FROM grumpy_gambling_rake_remainder') or {}) do
@@ -168,6 +205,11 @@ function DB.Settle(s)
         q[#q + 1] = { query = [[INSERT INTO grumpy_gambling_cashboxes (table_id, currency, balance_c) VALUES (?, ?, ?)
             ON DUPLICATE KEY UPDATE balance_c = balance_c + VALUES(balance_c)]],
             values = { s.cashbox.tableId, s.cashbox.currency, s.cashbox.delta } }
+    end
+    if s.boxStats then
+        q[#q + 1] = { query = [[INSERT INTO grumpy_gambling_box_stats (table_id, rake_c, house_c, hands) VALUES (?, ?, ?, 1)
+            ON DUPLICATE KEY UPDATE rake_c = rake_c + VALUES(rake_c), house_c = house_c + VALUES(house_c), hands = hands + 1]],
+            values = { s.boxStats.tableId, s.boxStats.rake, s.boxStats.house } }
     end
     local h = s.hand
     q[#q + 1] = { query = [[INSERT INTO grumpy_gambling_hands (id, table_id, game, tier, currency, started_at, settled_at,
