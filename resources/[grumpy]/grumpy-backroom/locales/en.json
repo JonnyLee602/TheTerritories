@@ -1,6 +1,12 @@
 {
   "title": "Back Room",
   "cmd_help": "Back-room card rooms: place doormen, pick doors, draw the room (admin)",
+  "cmd_test_help": "Set a back room's time left (free, for testing the warnings and kick-out)",
+  "cmd_test_minutes": "Minutes left (default %d; decimals OK, e.g. 0.5)",
+  "cmd_test_room": "Room id (optional: the room you're in, else the nearest doorman)",
+  "test_set": "%s (#%d) now has %s minutes left.",
+  "test_no_room": "No back room here: stand in one, near a doorman (%.0f m), or give the room id.",
+  "test_bad_minutes": "Minutes must be more than 0 and at most %d.",
 
   "target_bribe": "Slip the doorman a few coins",
   "menu_option": "%d minutes - $%s",

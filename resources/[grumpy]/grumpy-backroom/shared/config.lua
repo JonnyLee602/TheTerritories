@@ -8,6 +8,11 @@ Config.Debug = false
 Config.AdminCommand    = 'backroom' -- /backroom opens the room list + editor
 Config.AdminPermission = 'admin'    -- RSG permission (god, developer, headadmin, admin, mod)
 Config.TestSeconds     = 60         -- "Open for a test" in the editor opens the room free for this long
+Config.TestCommand = {               -- /backroomtest [minutes] [roomId]: set a room's time left exactly (free, admin)
+    Name           = 'backroomtest',
+    DefaultMinutes = 6,              -- 6 min: the 5-minute warning + re-up panel shows after ~1 minute
+    Range          = 50.0,           -- no room id: the room you're in, else the nearest doorman within this range
+}
 
 ---------------------------------------------
 -- The bribe

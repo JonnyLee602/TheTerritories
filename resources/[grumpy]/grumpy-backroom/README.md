@@ -3,7 +3,7 @@
 Back-room card rooms for The Territories. Players slip a doorman a bribe, the room's rsg-doorlock doors open for
 the time they paid for, and when time runs out everyone still inside is shown out and the doors lock again.
 
-Version 0.2.0. Dependencies: `rsg-core`, `rsg-doorlock` (with the hook below), `rsg-target`, `rsg-gizmo`,
+Version 0.2.1. Dependencies: `rsg-core`, `rsg-doorlock` (with the hook below), `rsg-target`, `rsg-gizmo`,
 `rsg-menubase`, `oxmysql`. Optional: `grumpy-reputation` (price by standing), `grumpy-gambling` (players are stood
 up from tables and cashed out before they're shown out), `grumpy-sit`. Developer details: [DOCS.md](DOCS.md).
 
@@ -44,6 +44,7 @@ up from tables and cashed out before they're shown out), `grumpy-sit`. Developer
 |---|---|---|
 | `AdminCommand` / `AdminPermission` | `backroom` / `admin` | Setup command and who can use it |
 | `TestSeconds` | 60 | "Open for a test" length |
+| `TestCommand` | `backroomtest`, 6 min, 50 m | Test command name, default minutes, doorman search range |
 | `Bribes` | 30 min $0.50, 60 min $1.00, 120 min $1.75 | Choices in the doorman's menu (doctrine: fence bribe band) |
 | `MaxOpenMinutes` | 180 | Time left can't go above this |
 | `PayWith` | `{ 'bloodmoney', 'cash' }` | Money types tried in order |
@@ -70,6 +71,7 @@ up from tables and cashed out before they're shown out), `grumpy-sit`. Developer
 | Command | Permission | What it does |
 |---|---|---|
 | `/backroom` | admin | Room list and editor |
+| `/backroomtest [minutes] [roomId]` | admin | Sets a room's time left to exactly that many minutes, free (default 6, so the 5-minute warning and re-up panel show after about a minute; decimals OK). No room id = the room you're in, else the nearest doorman within 50 m |
 
 ## Developer example
 ```lua

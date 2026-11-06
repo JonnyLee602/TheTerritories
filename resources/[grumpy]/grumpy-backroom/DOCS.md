@@ -80,6 +80,8 @@ grumpy_backroom_rooms (id PK, name VARCHAR(48), npc_model VARCHAR(64), npc JSON,
 
 ## 8. How-tos
 - **Change prices/durations:** edit `Config.Bribes` (keep it in the fence-bribe band, `doctrine/pricing.md`).
+- **Test the warnings / re-up panel / kick-out:** stand in the room and type `/backroomtest` (6 min left: the 5-minute
+  warning comes after ~1 min) or `/backroomtest 0.5` (30 s: straight to the 15-second warning and the kick-out).
 - **Let a job stay after closing:** `Config.Exempt.jobs = { 'jobname' }`.
 - **Rooms on two floors:** draw the zone per floor as separate rooms, or raise the height; the zone is one
   polygon from the floor up.

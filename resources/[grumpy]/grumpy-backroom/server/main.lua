@@ -169,6 +169,12 @@ local function openRoom(room, seconds)
     dbg('room #%d open for %ds', room.id, timeLeft(room))
 end
 
+-- set the time left exactly (admin test command), instead of adding to it
+local function setOpenFor(room, seconds)
+    room.openUntil = 0
+    openRoom(room, seconds)
+end
+
 local function closeRoom(room, why)
     room.openUntil = 0
     room.warned = {}
@@ -393,6 +399,41 @@ end)
 ---------------------------------------------
 RSGCore.Commands.Add(Config.AdminCommand, locale('cmd_help'), {}, false, function(source)
     TriggerClientEvent('grumpy-backroom:client:openAdmin', source)
+end, Config.AdminPermission)
+
+-- /backroomtest [minutes] [roomId]: set a room's time left to exactly N minutes (free), to test the warnings,
+-- the re-up panel and the kick-out. No room id = the room you're standing in, else the nearest doorman.
+local function roomNear(src)
+    local ped = GetPlayerPed(src)
+    if not ped or ped == 0 then return end
+    local c = GetEntityCoords(ped)
+    local best, bestDist
+    for _, room in pairs(Rooms) do
+        if usable(room) then
+            if BackroomZone.Contains(room.zone, c) then return room end
+            local d = #(c - vector3(room.npc.x, room.npc.y, room.npc.z))
+            if d <= Config.TestCommand.Range and (not bestDist or d < bestDist) then best, bestDist = room, d end
+        end
+    end
+    return best
+end
+
+RSGCore.Commands.Add(Config.TestCommand.Name, locale('cmd_test_help'), {
+    { name = 'minutes', help = locale('cmd_test_minutes', Config.TestCommand.DefaultMinutes) },
+    { name = 'room', help = locale('cmd_test_room') },
+}, false, function(source, args)
+    local src = source
+    if not ready then return end
+    local minutes = tonumber(args[1]) or Config.TestCommand.DefaultMinutes
+    if minutes ~= minutes or minutes <= 0 or minutes > Config.MaxOpenMinutes then
+        return notify(src, 'test_bad_minutes', 'error', Config.MaxOpenMinutes)
+    end
+    local room = args[2] and Rooms[tonumber(args[2]) or -1] or roomNear(src)
+    if not room then return notify(src, 'test_no_room', 'error', Config.TestCommand.Range) end
+    if not usable(room) then return notify(src, 'err_incomplete') end
+    setOpenFor(room, math.floor(minutes * 60))
+    notify(src, 'test_set', 'success', room.name, room.id, minutes)
+    print(('[grumpy-backroom] %s (%s) test-set room #%d "%s" to %s min'):format(GetPlayerName(src) or '?', src, room.id, room.name, minutes))
 end, Config.AdminPermission)
 
 local function adminList()
