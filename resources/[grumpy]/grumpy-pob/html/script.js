@@ -199,6 +199,7 @@ function mApps(d) {
 function launderRows(rows, showSeized) {
   if (!rows || !rows.length) { add(`<div class="empty">${esc(t('ui_br_no_records'))}</div>`); return; }
   rows.forEach(r => add(`<div class="row"><div class="row-text"><div class="row-title">${money(r.dirty)} → ${money(r.clean)}${r.name ? ' · ' + esc(r.name) : ''}</div>
+    ${r.cut ? `<div class="row-desc">${esc(t('ui_br_row_split', money(r.clean - r.cut), money(r.cut)))}</div>` : ''}
     <div class="muted">${esc(date(r.ts))}</div></div>${showSeized && r.seized ? `<span class="pill bad">${esc(t('ui_br_seized'))}</span>` : ''}</div>`));
 }
 
@@ -221,14 +222,14 @@ function mGambling(d) {
 function mBackroom(d) {
   const b = d.backroom;
   if (!b.owned) {
-    add(`<div class="muted" style="text-align:center">${esc(t('ui_br_pitch', b.cut))}</div>`);
+    add(`<div class="muted" style="text-align:center">${esc(t('ui_br_pitch', b.sinkCut + b.bizCut, b.sinkCut, b.bizCut))}</div>`);
     add(`<div class="big">${money(b.price)}</div>`);
     add(`<div class="muted" style="text-align:center">${esc(t('ui_br_paid_from'))}</div>`);
     const r = add(`<div class="btn-row"><button class="wood-btn">${esc(t('ui_br_buy'))}</button></div>`);
     r.querySelector('button').onclick = () => confirmBox(t('ui_br_buy_confirm', money(b.price)), () => mgr('buyBackroom'));
     return;
   }
-  add(`<div class="muted">${esc(t('ui_br_note', b.cut))}</div>`);
+  add(`<div class="muted">${esc(t('ui_br_note', b.sinkCut, b.bizCut))}</div>`);
   add(`<div class="stat"><span>${esc(t('ui_br_dirty'))}</span><span>${money(b.dirty)}</span></div>`);
   add(`<div class="stat"><span>${esc(t('ui_br_allowance', b.windowDays))}</span><span>${money(b.allowance)}</span></div>`);
   add(`<div class="stat"><span>${esc(t('ui_br_left'))}</span><span>${money(b.left)}</span></div>`);
@@ -237,9 +238,14 @@ function mBackroom(d) {
     <button class="wood-btn small muted" data-a="max">${esc(t('ui_br_max'))}</button><button class="wood-btn" data-a="go">${esc(t('ui_br_wash'))}</button></div>`);
   const input = r.querySelector('input');
   const out = add(`<div class="stat"><span>${esc(t('ui_br_receive'))}</span><span>${money(0)}</span></div>`);
+  const acct = add(`<div class="stat"><span>${esc(t('ui_br_to_account'))}</span><span>${money(0)}</span></div>`);
+  const r2 = (n) => Math.round(n * 100) / 100;
   const upd = () => {
     const v = Number(input.value || 0);
-    out.lastElementChild.textContent = money(Math.max(0, Math.round(v * (1 - b.cut / 100) * 100) / 100));
+    // same maths as the server: both cuts first, the owner's cash is what's left
+    const cut = r2(v * b.bizCut / 100);
+    acct.lastElementChild.textContent = money(Math.max(0, cut));
+    out.lastElementChild.textContent = money(Math.max(0, r2(v - r2(v * b.sinkCut / 100) - cut)));
     r.querySelector('[data-a=go]').disabled = !(v >= b.min && v <= max);
   };
   input.oninput = upd;

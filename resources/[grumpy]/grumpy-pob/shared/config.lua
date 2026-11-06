@@ -130,7 +130,9 @@ Config.Repossess = {
 Config.Laundering = {
     Enabled    = true,
     Price      = 750,     -- clean $, paid from the business account to the government ("Renovations" in the ledger)
-    ServerCut  = 15,      -- % of the dirty money that disappears (a money sink, not paid to anyone)
+    -- Fee = SinkCut + BusinessCut. The owner gets the rest in cash (to hand back to the player).
+    SinkCut     = 10,     -- % of the dirty money that disappears (a money sink, not paid to anyone)
+    BusinessCut = 10,     -- % paid into the business account as a "Private sale" (the only ledger line a wash makes)
     MinAmount  = 1,
     -- Weekly allowance: a front can only wash as much as its books can explain.
     -- allowance = max(Floor, SalesShare x legit income over WindowDays) - dirty washed over WindowDays

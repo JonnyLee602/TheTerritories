@@ -2,7 +2,7 @@
 
 Player owned businesses for RedM. Admins build saloons, restaurants, hotels and stables in game with `/pob`. Players buy them at the open sign, hire staff, stock the shop, craft, pay wages and tax, and keep the takings in a business account.
 
-Version 1.2.0 · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for developer and server owner details.
+Version 1.3.0 · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for developer and server owner details.
 
 This is a community script. It is **not** made or supported by the RSG authors.
 
@@ -34,9 +34,9 @@ This is a community script. It is **not** made or supported by the RSG authors.
   - A custom recipe becomes a real item with its own name and picture that works like its base item (eat/drink effects).
   - Pictures: pick an existing item picture, or **upload** one to Fivemanage from the menu (file picker or Ctrl+V).
   - **Approval**: in game (`/pob` → Approvals), on **Discord** (bot posts the recipe, approvers react ✅ / ❌), or automatically after 15 minutes when no admin is online. Auto-approved items use the base picture until a person approves the custom one.
-- **Back room (laundering), owner only.** The owner can buy a back room once ($750 from the business account, shown as "Renovations"). Then only the owner can wash **dirty money** (bloodmoney) at the manager desk: 15% disappears, the rest goes into the business account as **"Private sale"** lines, so staff never see what's going on. Standing doesn't affect it. A front can only wash as much per week as its books can explain: its honest income (sales, rent, training) over the last 7 days, at least $350. Lost on repossession or sale.
+- **Back room (laundering), owner only.** The owner can buy a back room once ($750 from the business account, shown as "Renovations"). Then only the owner can wash **dirty money** (bloodmoney) at the manager desk for a 20% fee: **10% is destroyed**, **10% goes into the business account as a "Private sale"** (the only ledger line, so staff never see what's going on), and the owner gets the other **80% as clean cash** to hand back to the player. Standing doesn't affect it. A front can only wash as much per week as its books can explain: its honest income (sales, rent, training) over the last 7 days, at least $350. Lost on repossession or sale.
 - **Gambling tables, owner only** (with grumpy-gambling 0.6.0+). The manager's **Gambling** tab sells the table items: a **Card Table** ($150) and a **Dealer's Table** ($250), paid from the business account ("Furnishings"). The owner uses the item inside the business to set it up; grumpy-gambling handles the rest (placing, cashbox, repossession). At most 2 of each per business, counting those already placed and carried.
-- **The law can audit fronts.** Each wash may tip off on-duty lawmen ("dirty money is changing hands at …"). A lawman of grade 2+ issues a **books warrant** at the manager desk; any on-duty lawman holding it can **Inspect the books** there, see the real laundering records from the last 14 days, and **seize** the laundered money from the account into the government account. The owner is told.
+- **The law can audit fronts.** Each wash may tip off on-duty lawmen ("dirty money is changing hands at …"). A lawman of grade 2+ issues a **books warrant** at the manager desk; any on-duty lawman holding it can **Inspect the books** there, see the real laundering records from the last 14 days, and **seize** the laundered money (the cash paid out plus the private sales, 90% of what was washed) from the account into the government account, up to its balance. The owner is told.
 - **Hotel businesses** use grumpy-hotel: the NPC rents rooms, owners set the rate, rent goes into the account.
 - **Stable businesses** use rsg-stables: only staff can keep horses there (40 per employee instead of the normal limit, not counted toward the owned-horse cap). Customers request **horse training** at the NPC; an on-duty trainer accepts, trains the horse, and the price is split **40% business / 60% trainer**. Staff horses train free.
 - Everything is checked on the server: permission, grade, duty, distance, ownership, amounts, item rules, cooldowns and locks.
@@ -106,7 +106,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `Images.Enabled` / `MaxKB` / `Types` / `AllowedPrefix` / `PresignCooldown` | `false` / `512` / png,jpg,webp / `https://r2.fivemanage.com/` / `30` | Fivemanage uploads |
 | `Training.*` | 40/60 split, $1–25 (default $3), 60 XP, 20 s | Horse training |
 | `Types` | saloon, restaurant, hotel, stable | Business types (see DOCS.md → Data formats). `launder = true` lets the type buy a back room |
-| `Laundering.Enabled` / `Price` / `ServerCut` / `MinAmount` | `true` / `750` / `15` / `1` | Back room price (clean, from the account) and the % of dirty money that disappears |
+| `Laundering.Enabled` / `Price` / `SinkCut` / `BusinessCut` / `MinAmount` | `true` / `750` / `10` / `10` / `1` | Back room price (clean, from the account); % of dirty money destroyed; % paid into the account as a private sale (the owner gets the rest in cash) |
 | `Laundering.WindowDays` / `Floor` / `SalesShare` | `7` / `350` / `1.0` | Weekly allowance = max(Floor, SalesShare × honest income over WindowDays) |
 | `Laundering.Tip.*` | on, 5% per $100, max 50%, 60–300 s | Chance a wash tips off on-duty law |
 | `Laundering.KeepDays` | `60` | Laundering records are deleted after this |

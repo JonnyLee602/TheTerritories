@@ -134,8 +134,13 @@ owner, so a new owner (sale, `/pob` set owner) doesn't inherit it; repossession 
 1. Checks the back room, the amount (`MinAmount`–`MaxTransfer`), the bloodmoney carried, and the weekly allowance:
    `max(Floor, SalesShare × SUM(ledger amount where kind in sale/rent/training over WindowDays))` minus the dirty
    amount already washed in that window. Washed money is logged as kind `private`, so it never raises the allowance.
-2. Removes the bloodmoney (`grumpy-pob:launder`), adds `dirty × (1 − ServerCut/100)` to the account as kind `private`
-   with no name or note, and writes the real record to `grumpy_pob_launder`. The cut isn't paid to anyone.
+2. Works out `sink = dirty × SinkCut/100` and `cut = dirty × BusinessCut/100` (rounded to cents), and `cash = dirty − sink − cut`,
+   so the three always add up. Removes the bloodmoney (`grumpy-pob:launder`) and gives the owner `cash` as clean cash to
+   hand back to the player (if that fails, the bloodmoney is returned and nothing happens). Adds `cut` to the account as
+   kind `private` with no name or note: the only ledger line a wash makes. `sink` isn't paid to anyone.
+   The real record goes to `grumpy_pob_launder` with `clean = cash + cut` and `business_cut = cut`.
+   A seizure takes the unseized `clean` total (cash paid out + private sales) from the account, capped at its balance,
+   so the account answers for the cash the owner already walked away with.
 3. Rolls a tip: `min(MaxChance, ChancePer100 × dirty / 100)` %. After `Delay` seconds every on-duty law player gets an
    rsg-lawman alert at the business (or a notify if rsg-lawman isn't running). No names are given.
 
@@ -184,7 +189,7 @@ grumpy_pob_ledger       (id PK, account, ts, kind, amount, balance, who_cid, who
 grumpy_pob_withdrawals  (business_id, citizenid, day PK, amount)
 grumpy_pob_stock        (business_id, item PK, qty, price NULL = hidden)
 grumpy_pob_applications (id PK, business_id, citizenid UNIQUE per business, name, message, created_at)
-grumpy_pob_launder      (id PK, business_id, ts, dirty, clean, citizenid, name, seized)  -- real laundering records, pruned after KeepDays
+grumpy_pob_launder      (id PK, business_id, ts, dirty, clean, business_cut, citizenid, name, seized)  -- real laundering records, pruned after KeepDays
 grumpy_pob_recipes      (id PK, business_id, item_name, label, description, base_item, ingredients JSON, amount, craft_time,
                          image_url, image_id, image_status, status, discord_msg, created_by, created_at, decided_by)
 multijob_jobs / player_jobs   (rsg-core) job pob_<id>
@@ -202,7 +207,7 @@ inventories (rsg-inventory) grumpy_pob_stash_* / grumpy_pob_stock_*
 - **Take a business from an inactive owner**: `/pob` → Reset owner. Staff are let go and the balance goes to the government.
 - **Give a business to a player**: `/pob` → Set owner → their server id.
 - **Laundering off for a type**: remove `launder = true` from it. Off everywhere: `Config.Laundering.Enabled = false`.
-- **Fronts too easy / too hard**: lower or raise `Floor` and `SalesShare`; raise `ServerCut`; raise `Tip.ChancePer100`.
+- **Fronts too easy / too hard**: lower or raise `Floor` and `SalesShare`; raise `SinkCut` (more destroyed) or lower `BusinessCut` (less profit for the owner); raise `Tip.ChancePer100`.
 - **Audits off**: `Config.Audit.Enabled = false` (no warrants, no inspections). Tips still go out unless `Tip.Enabled = false`.
 - **Hotel rooms**: set in `/pob`. Lowering the count below a rented room is refused by grumpy-hotel until that room is evicted (`/hotellist`).
 

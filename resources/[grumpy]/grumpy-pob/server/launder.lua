@@ -56,16 +56,20 @@ function Launder.Allowance(biz)
 end
 
 local function records(biz, days, limit)
-    local rows = MySQL.query.await('SELECT ts, dirty, clean, name, seized FROM grumpy_pob_launder WHERE business_id = ? AND ts >= ? ORDER BY id DESC LIMIT ?',
+    local rows = MySQL.query.await('SELECT ts, dirty, clean, business_cut, name, seized FROM grumpy_pob_launder WHERE business_id = ? AND ts >= ? ORDER BY id DESC LIMIT ?',
         { biz.id, os.time() - days * 86400, limit or 100 }) or {}
-    for _, r in ipairs(rows) do r.dirty, r.clean, r.seized = tonumber(r.dirty), tonumber(r.clean), r.seized == 1 or r.seized == true end
+    for _, r in ipairs(rows) do
+        r.dirty, r.clean, r.cut, r.seized = tonumber(r.dirty), tonumber(r.clean), tonumber(r.business_cut) or 0, r.seized == 1 or r.seized == true
+        r.business_cut = nil
+    end
     return rows
 end
 
 -- Manager screen data for the owner (nil for everyone else)
 function Launder.ManagerData(src, biz, Player)
     if not Launder.TypeAllows(biz) or not biz.owner or Player.PlayerData.citizenid ~= biz.owner.cid then return nil end
-    local d = { owned = Launder.HasBackroom(biz), price = L.Price, cut = L.ServerCut, min = L.MinAmount, windowDays = L.WindowDays }
+    local d = { owned = Launder.HasBackroom(biz), price = L.Price, sinkCut = L.SinkCut, bizCut = L.BusinessCut,
+        min = L.MinAmount, windowDays = L.WindowDays }
     if d.owned then
         d.allowance, d.left = Launder.Allowance(biz)
         d.dirty = Player.PlayerData.money.bloodmoney or 0
@@ -149,21 +153,26 @@ RegisterNetEvent('grumpy-pob:server:launder', function(id, amount)
         if amount > left then
             return POB.Notify(src, left > 0 and locale('launder_limit', left) or locale('launder_limit_none'), 'error')
         end
-        local clean = round2(amount * (1 - L.ServerCut / 100))
-        if clean < 0.01 then return POB.Notify(src, locale('invalid_amount'), 'error') end
+        -- Both cuts first, the owner gets what's left, so the three parts always add up to the dirty amount
+        local sink = round2(amount * L.SinkCut / 100)
+        local bizCut = round2(amount * L.BusinessCut / 100)
+        local payout = round2(amount - sink - bizCut)
+        if payout < 0.01 then return POB.Notify(src, locale('invalid_amount'), 'error') end
 
         if not Player.Functions.RemoveMoney('bloodmoney', amount, 'grumpy-pob:launder') then
             return POB.Notify(src, locale('launder_no_dirty'), 'error')
         end
-        -- staff see an anonymous "Private sale"; the real record is kept apart
-        if not Acc.Add(POB.AccountId(biz), clean, 'private', nil, nil) then
+        if not Player.Functions.AddMoney('cash', payout, 'grumpy-pob:launder') then
             Player.Functions.AddMoney('bloodmoney', amount, 'grumpy-pob:launder-refund')
-            return POB.Notify(src, locale('invalid_amount'), 'error')
+            return POB.Notify(src, locale('launder_failed'), 'error')
         end
-        MySQL.insert.await('INSERT INTO grumpy_pob_launder (business_id, ts, dirty, clean, citizenid, name) VALUES (?, ?, ?, ?, ?, ?)',
-            { biz.id, os.time(), amount, clean, Player.PlayerData.citizenid, POB.PlayerName(Player) })
-        POB.Notify(src, locale('laundered', amount, clean), 'success')
-        print(('[grumpy-pob] %s laundered $%.2f -> $%.2f at business %d'):format(POB.PlayerName(Player), amount, clean, biz.id))
+        -- the business cut is the only ledger line: staff see an anonymous "Private sale"
+        if bizCut > 0 then Acc.Add(POB.AccountId(biz), bizCut, 'private', nil, nil) end
+        -- clean = everything the owner's side kept (cash + business cut): that's what the law can seize
+        MySQL.insert.await('INSERT INTO grumpy_pob_launder (business_id, ts, dirty, clean, business_cut, citizenid, name) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            { biz.id, os.time(), amount, round2(payout + bizCut), bizCut, Player.PlayerData.citizenid, POB.PlayerName(Player) })
+        POB.Notify(src, locale('laundered', amount, payout, bizCut), 'success')
+        print(('[grumpy-pob] %s laundered $%.2f: $%.2f cash, $%.2f to business %d, $%.2f sunk'):format(POB.PlayerName(Player), amount, payout, bizCut, biz.id, sink))
         maybeTip(biz, amount)
     end)
     refresh(src)
@@ -301,5 +310,11 @@ end)
 -- Housekeeping
 ---------------------------------------------------------------------
 POB.AfterLoad(function()
+    -- 1.3.0 added business_cut (older rows: 0, their whole clean amount went into the account)
+    local has = MySQL.scalar.await([[SELECT COUNT(*) FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'grumpy_pob_launder' AND COLUMN_NAME = 'business_cut']])
+    if tonumber(has) == 0 then
+        MySQL.query.await('ALTER TABLE grumpy_pob_launder ADD COLUMN business_cut DECIMAL(14,2) NOT NULL DEFAULT 0 AFTER clean')
+    end
     MySQL.update.await('DELETE FROM grumpy_pob_launder WHERE ts < ?', { os.time() - L.KeepDays * 86400 })
 end)
