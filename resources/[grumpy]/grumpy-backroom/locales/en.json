@@ -29,7 +29,7 @@
   "closed_by_admin": "The room has been closed. The doorman shows you out.",
   "reup_closes": "Room closes in",
   "reup_option": "%d more minutes - $%s",
-  "reup_hint": "Tap [%s] for another length, hold [%s] to pay the doorman",
+  "reup_hint": "[↑] [↓] pick a length, hold [%s] to pay the doorman",
   "reup_full": "The house won't keep the room open any longer.",
   "reup_too_late": "Too late, the room is already closing.",
   "reup_not_inside": "You have to be in the room to pay from here.",

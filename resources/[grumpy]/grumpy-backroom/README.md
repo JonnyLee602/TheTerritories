@@ -3,7 +3,7 @@
 Back-room card rooms for The Territories. Players slip a doorman a bribe, the room's rsg-doorlock doors open for
 the time they paid for, and when time runs out everyone still inside is shown out and the doors lock again.
 
-Version 0.2.1. Dependencies: `rsg-core`, `rsg-doorlock` (with the hook below), `rsg-target`, `rsg-gizmo`,
+Version 0.2.2. Dependencies: `rsg-core`, `rsg-doorlock` (with the hook below), `rsg-target`, `rsg-gizmo`,
 `rsg-menubase`, `oxmysql`. Optional: `grumpy-reputation` (price by standing), `grumpy-gambling` (players are stood
 up from tables and cashed out before they're shown out), `grumpy-sit`. Developer details: [DOCS.md](DOCS.md).
 
@@ -16,7 +16,7 @@ up from tables and cashed out before they're shown out), `grumpy-sit`. Developer
 - Dirty money first (`bloodmoney`, then `cash`). The bribe is destroyed (a money sink). Known outlaws pay less
   (grumpy-reputation underground prices); on-duty lawmen are turned away.
 - Warnings at 5 min, 1 min and 15 s to everyone inside, shown as a small panel in the upper-right corner (clear
-  of the card-table UI) with the time left and the lengths on offer: **tap J** for another length, **hold J** to pay
+  of the card-table UI) with the time left and the lengths on offer: **arrow up/down** to pick a length, **hold J** to pay
   without leaving the table. Same prices and money rules as the doorman; anyone inside can pay. At closing time they're stood up from card tables,
   faded out and moved to the kick-out point, then the doors lock. Anyone still inside a few seconds later is moved
   out by the server.
@@ -53,6 +53,7 @@ up from tables and cashed out before they're shown out), `grumpy-sit`. Developer
 | `WarnAt` | `{ 300, 60, 15 }` | Seconds left when people inside are warned |
 | `Reup.Enabled` | true | Re-up panel at the warnings (false = plain notifications) |
 | `Reup.Key` / `KeyLabel` | `0xF3830D8E` / `J` | INPUT_OPEN_JOURNAL; the journal is blocked while the panel shows |
+| `Reup.UpKey` / `DownKey` | `0x911CB09E` / `0x4403F97F` | Arrow Up / Arrow Down (INPUT_GAME_MENU_UP/DOWN) to pick a length |
 | `Reup.HoldMs` | 1200 | Hold time to pay |
 | `Reup.ShowSeconds` | 25 | Panel hides after this (or when you leave the room) |
 | `Reup.Position` | `{ top = '6vh', right = '1.5vw' }` | CSS position of the panel |

@@ -1,5 +1,5 @@
 -- Closing-time re-up panel: shown at each warning to players inside, upper-right corner, no NUI focus.
--- Tap the key = next length, hold it = pay. The server checks the player is still inside and charges them.
+-- Arrow up/down (or a tap of the key) = pick a length, hold the key = pay. The server checks the player is still inside and charges them.
 local R = Config.Reup
 local active -- { id, options, idx, hideAt, zone }
 
@@ -8,11 +8,25 @@ local function fits(i)
     return o and o.fits
 end
 
-local function firstFitting(from)
+-- first option that still fits, starting at `from` and walking in `dir` (1 = down, -1 = up), wrapping round
+local function firstFitting(from, dir)
+    dir = dir or 1
     local n = #active.options
     for step = 0, n - 1 do
-        local i = (from - 1 + step) % n + 1
+        local i = (from - 1 + step * dir) % n + 1
         if fits(i) then return i end
+    end
+end
+
+-- move the highlight one fitting option up (-1) or down (1)
+local function move(dir)
+    if not active.idx then return end
+    local n = #active.options
+    local nxt = firstFitting((active.idx - 1 + dir) % n + 1, dir)
+    if nxt and nxt ~= active.idx then
+        active.idx = nxt
+        PlaySoundFrontend('NAV_LEFT', 'PAUSE_MENU_SOUNDSET', true, 0) -- as used by rsg-menubase
+        push()
     end
 end
 
@@ -64,7 +78,13 @@ RegisterNetEvent('grumpy-backroom:client:reup', function(q)
         while active do
             DisableControlAction(0, R.Key, true) -- keep the journal shut while the panel is up
             local now = GetGameTimer()
-            local down = IsDisabledControlPressed(0, R.Key)
+            -- another UI has the mouse (the card table on your turn): leave every key to it
+            local free = not IsNuiFocused()
+            if free and active.idx then
+                if IsControlJustPressed(0, R.UpKey) or IsDisabledControlJustPressed(0, R.UpKey) then move(-1)
+                elseif IsControlJustPressed(0, R.DownKey) or IsDisabledControlJustPressed(0, R.DownKey) then move(1) end
+            end
+            local down = free and IsDisabledControlPressed(0, R.Key)
             if down and active.idx and not paid then
                 pressedAt = pressedAt or now
                 local held = now - pressedAt
@@ -76,9 +96,7 @@ RegisterNetEvent('grumpy-backroom:client:reup', function(q)
                 end
             elseif not down and pressedAt then
                 if not paid and now - pressedAt < R.HoldMs and active.idx then
-                    active.idx = firstFitting(active.idx % #active.options + 1)
-                    PlaySoundFrontend('NAV_LEFT', 'PAUSE_MENU_SOUNDSET', true, 0)
-                    push()
+                    move(1) -- a tap on the pay key also steps down
                 elseif paid then
                     paid = false -- the server answers with reupDone (hide) or an error notify (try again)
                     if active then push() end

@@ -44,6 +44,8 @@ Config.Reup = {
     Enabled     = true,
     Key         = 0xF3830D8E, -- INPUT_OPEN_JOURNAL (J), data/rdr3_discoveries/Controls/README.md; blocked while the panel shows
     KeyLabel    = 'J',
+    UpKey       = 0x911CB09E, -- INPUT_GAME_MENU_UP (Arrow Up), same file
+    DownKey     = 0x4403F97F, -- INPUT_GAME_MENU_DOWN (Arrow Down), same file
     HoldMs      = 1200,       -- hold this long to pay (a tap picks the next length)
     ShowSeconds = 25,
     Position    = { top = '6vh', right = '1.5vw' }, -- CSS, upper right
