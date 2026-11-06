@@ -724,4 +724,8 @@ RSGShared.Items = {
     -- grumpy_notes additions
     blank_paper             = { name = 'blank_paper',               label = 'Blank Paper',              weight = 10,   type = 'item', image = 'blank_paper.png',                unique = false, useable = true,  shouldClose = true, description = 'A clean sheet of parchment, ready for writing.',           category = 'documents', },
     custom_note             = { name = 'custom_note',               label = 'Handwritten Note',         weight = 10,   type = 'item', image = 'custom_note.png',                unique = true,  useable = true,  shouldClose = true, description = 'A folded piece of paper with handwriting on it.',          category = 'documents', },
+
+    -- grumpy-gambling business tables (placed by POB owners)
+    gambling_table_pvp      = { name = 'gambling_table_pvp',        label = 'Card Table',               weight = 15000, type = 'item', image = 'gambling_table_pvp.png',        unique = true,  useable = true,  shouldClose = true, description = 'A saloon card table and chairs. Set it up in a business you own.', category = 'business', },
+    gambling_table_pvd      = { name = 'gambling_table_pvd',        label = "Dealer's Table",           weight = 15000, type = 'item', image = 'gambling_table_pvd.png',        unique = true,  useable = true,  shouldClose = true, description = "A dealer's table for games against the house. Set it up in a business you own.", category = 'business', },
 }
