@@ -67,7 +67,10 @@ Config.WagonBlip = {
 
 -- ===================== STORES =====================
 -- npc         : shop keeper position (s_m_m_cghworker_01 verified in rdr3_discoveries peds_list)
--- preview     : where the preview wagon is spawned AND where bought/taken-out wagons appear
+-- preview     : where the preview wagon is spawned (and where taken-out wagons appear unless spawn is set)
+-- spawn       : (optional) where taken-out wagons appear
+-- sharedNpc   : (optional) Config.Stables name whose keeper opens this yard; no NPC of its own
+-- market / accounts / payout : see Config.Money in shared/config.lua
 Config.Stores = {
     valentine = {
         label   = 'Valentine Wagon Yard',
@@ -103,6 +106,18 @@ Config.Stores = {
         npc     = vector4(-5515.295, -3039.497, -2.388, 182.161),
         preview = vector4(-5522.063, -3044.438, -3.388, 265.561),
         showBlip = true,
+    },
+    -- Thieves Landing: the livery keeper (Config.Stables 'thieves_landing') sells wagons too. Owner coords 2026-11-06.
+    thieves_landing = {
+        label     = 'Thieves Landing Livery',
+        npcModel  = 's_m_m_cghworker_01',
+        npc       = vector4(-1413.92, -2204.01, 43.47, 225.74),
+        preview   = vector4(-1409.39, -2207.03, 43.55, 258.77),
+        spawn     = vector4(-1390.19, -2203.43, 43.73, 194.20),
+        sharedNpc = 'thieves_landing',
+        showBlip  = false,
+        market    = 'underground',
+        accounts  = { 'cash', 'bloodmoney' },
     },
 }
 

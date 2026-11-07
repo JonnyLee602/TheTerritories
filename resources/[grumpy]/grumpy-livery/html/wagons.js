@@ -24,7 +24,7 @@ const t = (k, ...args) => {
   return s;
 };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const money = (n) => '$' + Number(n || 0).toLocaleString();
+const money = (n) => '$' + Number(n || 0).toFixed(2);
 
 function applyI18n() {
   WGROOT.querySelectorAll('[data-i18n]').forEach((el) => { const k = el.dataset.i18n; if (S.strings[k]) el.textContent = S.strings[k]; });
@@ -194,6 +194,23 @@ function select(key) {
   if (model) post('preview', { model, livery: S.livery, tint: S.tint });
   render();
 }
+
+/* cash / bloodmoney toggle (yards with more than one account) */
+function renderPayment() {
+  const box = $('payment');
+  const p = S.payment || { accounts: [] };
+  const show = Array.isArray(p.accounts) && p.accounts.length > 1;
+  box.classList.toggle('hidden', !show);
+  if (!show) return;
+  box.querySelectorAll('[data-pay]').forEach((b) => {
+    b.classList.toggle('hidden', !p.accounts.includes(b.dataset.pay));
+    b.classList.toggle('active', b.dataset.pay === p.account);
+  });
+}
+$('payment').querySelectorAll('[data-pay]').forEach((b) => b.addEventListener('click', () => {
+  if (!S.payment || b.dataset.pay === S.payment.account) return;
+  post('setPayment', { account: b.dataset.pay });
+}));
 
 function setOwned(owned, hasActive) {
   if (Array.isArray(owned)) S.owned = owned;
@@ -368,8 +385,12 @@ window.addEventListener('message', (e) => {
     S.tab = 'shop'; S.category = 'all'; S.search = ''; S.selected = null; S.busy = false;
     $('search').value = '';
     $('storeLabel').textContent = d.store ? d.store.label : '';
+    S.payment = d.payment || null; renderPayment();
     applyI18n(); closeInput(); closeConfirm(); render();
     $('app').classList.remove('hidden');
+  } else if (d.action === 'wagonPayment') {
+    S.wagons = d.wagons || S.wagons; S.payment = d.payment || S.payment;
+    renderPayment(); setOwned(d.owned);
   } else if (d.action === 'wagonCustom') {
     S.strings = d.strings || S.strings; applyI18n(); S.busy = false;
     C.props = d.propsets || []; C.lanterns = d.lanterns || [];

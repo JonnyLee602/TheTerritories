@@ -103,7 +103,7 @@
   const ICONS = {
     dollar: '$', mars: '♂', venus: '♀', heart: '♥', foal: 'F', horse: 'H', pen: '✎',
     shield: 'S', route: '⇄', medkit: '+', retrieve: '↑', shirt: '↻',
-    xmark: '✕', filter: '⧩', brush: '✐', flag: '⚑', trophy: '★',
+    xmark: '✕', filter: '⧩', brush: '✐', flag: '⚑', trophy: '★', papers: '§', pay: '¤',
   };
 
   function iconGlyph(key) {

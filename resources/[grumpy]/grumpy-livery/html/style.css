@@ -921,3 +921,33 @@ html, body {
   content: 'drag to move \00B7 double-click to reset'; display: block; margin-top: 4px;
   font-size: 9.5px; font-weight: 400; letter-spacing: 2px; color: var(--rdr-muted); text-transform: uppercase;
 }
+
+/* ============ grumpy-livery: papers card (Check Papers) ============ */
+#st-root .papers-card {
+  position: fixed;
+  top: 6vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 340px;
+  padding: 16px 20px 12px;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px),
+    linear-gradient(160deg, var(--rdr-panel-2), var(--rdr-panel) 60%, var(--rdr-black));
+  border: 1px solid var(--rdr-gold-dim);
+  outline: 1px solid rgba(0,0,0,0.6);
+  outline-offset: -5px;
+  box-shadow: 0 12px 40px var(--rdr-shadow);
+  color: var(--rdr-text);
+  pointer-events: none;
+  z-index: 50;
+}
+#st-root .papers-card.hidden { display: none; }
+#st-root .papers-card .pc-head { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--rdr-muted); text-align: center; }
+#st-root .papers-card .pc-name { font-size: 22px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; text-align: center; margin-top: 4px; }
+#st-root .papers-card .pc-divider { text-align: center; color: var(--rdr-gold-dim); margin: 8px 0 10px; font-size: 10px; }
+#st-root .papers-card .pc-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; }
+#st-root .papers-card .pc-label { color: var(--rdr-muted); }
+#st-root .papers-card .pc-value { text-align: right; }
+#st-root .papers-card .pc-none { margin-top: 8px; font-size: 13px; color: var(--rdr-amber); text-align: center; font-style: italic; }
+#st-root .papers-card .pc-foot { margin-top: 10px; font-size: 11px; color: var(--rdr-muted); text-align: center; font-style: italic; }
+#st-root .papers-card.pc-unpapered { border-color: var(--rdr-amber); }

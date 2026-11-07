@@ -131,6 +131,7 @@ local UI_KEYS = {
     'cat_carts', 'cat_buggies', 'cat_wagons', 'cat_coaches', 'cat_heavy',
     'tier_1', 'tier_2', 'tier_3', 'tier_4',
     'cond_damaged', 'cond_poor', 'cond_average', 'cond_quality', 'cond_exceptional',
+    'ui_paying_with', 'ui_pay_cash', 'ui_pay_bloodmoney',
 }
 
 local function uiStrings()
@@ -139,7 +140,9 @@ local function uiStrings()
     return t
 end
 
-local function catalogue(storeKey)
+-- mult = this player's price multiplier at the yard (server/money.lua: standing x bloodmoney markup)
+local function catalogue(storeKey, mult)
+    mult = mult or 1.0
     local list = {}
     for model, w in pairs(Config.Wagons) do
         local allowed = true
@@ -149,7 +152,7 @@ local function catalogue(storeKey)
         end
         if allowed then
             list[#list + 1] = {
-                model = model, label = w.label, category = w.category, price = w.price,
+                model = model, label = w.label, category = w.category, price = math.floor(w.price * mult * 100 + 0.5) / 100,
                 weight = w.weight, slots = w.slots, seats = w.seats or 2, tier = w.tier or 1,
                 description = w.description or '',
                 liveries = (Config.Liveries and Config.Liveries[model]) or {},
@@ -264,7 +267,8 @@ local function openShop(storeKey)
     if uiOpen or opening or not Config.Stores[storeKey] then return end
     opening = true
     currentStore = storeKey
-    local owned = RSGCore.Functions.AwaitCallback('grumpy-livery:wagons:server:getOwned', 5000) or {}
+    local owned = RSGCore.Functions.AwaitCallback('grumpy-livery:wagons:server:getOwned', 5000, storeKey) or {}
+    local pay = RSGCore.Functions.AwaitCallback('grumpy-livery:server:priceInfo', 5000, 'wagon', storeKey) or {}
     opening = false
     uiOpen = true
     SetNuiFocus(true, true)
@@ -272,7 +276,8 @@ local function openShop(storeKey)
         action = 'wagonOpen',
         store = { key = storeKey, label = Config.Stores[storeKey].label },
         categories = Config.Categories,
-        wagons = catalogue(storeKey),
+        wagons = catalogue(storeKey, pay.mult),
+        payment = { account = pay.account, accounts = pay.accounts or {} },
         owned = owned,
         maxWagons = Config.MaxWagons,
         nameMax = Config.NameMaxLength,
@@ -282,6 +287,22 @@ local function openShop(storeKey)
 end
 
 RegisterNUICallback('wagon_close', function(_, cb) closeUI() cb('ok') end)
+
+-- cash / bloodmoney at a yard that takes both: the server keeps the choice and checks it at every charge
+RegisterNUICallback('wagon_setPayment', function(data, cb)
+    cb('ok')
+    if not currentStore or type(data.account) ~= 'string' then return end
+    TriggerServerEvent('grumpy-livery:server:setPayment', 'wagon', currentStore, data.account)
+    Wait(250)
+    local pay = RSGCore.Functions.AwaitCallback('grumpy-livery:server:priceInfo', 5000, 'wagon', currentStore) or {}
+    local owned = RSGCore.Functions.AwaitCallback('grumpy-livery:wagons:server:getOwned', 5000, currentStore) or {}
+    SendNUIMessage({
+        action = 'wagonPayment',
+        wagons = catalogue(currentStore, pay.mult),
+        owned = owned,
+        payment = { account = pay.account, accounts = pay.accounts or {} },
+    })
+end)
 
 RegisterNUICallback('wagon_preview', function(data, cb)
     cb('ok')
@@ -769,7 +790,11 @@ RegisterNUICallback('wagon_takeOut', function(data, cb)
 end)
 
 -- ===================== NPCS / TARGETS / BLIPS =====================
+-- the Thieves Landing style shared keeper (Config.Stables wagonStore) calls this from client/client.lua
+function LiveryOpenWagonShop(storeKey) openShop(storeKey) end
+
 local function spawnNpc(key, store)
+    if store.sharedNpc then return end
     local hash = loadModel(store.npcModel)
     if not hash then return end
     local n = store.npc

@@ -1,7 +1,7 @@
 # grumpy-livery · Documentation
 
-Developer and server-owner reference for **1.0.0** (phase 1: rsg-stables 3.4.0 + rsg-wagons 3.0.0 merged, same
-behaviour). The plan for later versions is [DESIGN.md](DESIGN.md).
+Developer and server-owner reference for **1.1.0** (phase 1: rsg-stables 3.4.0 + rsg-wagons 3.0.0 merged; phase 2:
+pricing, papers, Thieves Landing). The plan for later versions is [DESIGN.md](DESIGN.md).
 
 ## Contents
 1. [Files](#1-files)
@@ -22,6 +22,7 @@ behaviour). The plan for later versions is [DESIGN.md](DESIGN.md).
 | `shared/config.lua` | Horse config (creates the global `Config`; loaded first) |
 | `shared/wagons.lua` | Wagon config (`Config = Config or {}`, so it adds to the horse config) |
 | `shared/liveries.lua`, `shared/propsets.lua`, `shared/huntingcart.lua` | Wagon liveries/tints, cargo and lantern sets, hunting cart |
+| `server/money.lua` | `LiveryMoney`: market, standing multiplier, account choice, ×1.30 blood money, sale cap, charge/refund/payout (loaded first) |
 | `server/server.lua` | Horses: stables, buying, storing, tack, coat, needs, breeding, selling, fence, races, wild horse claim, registered stables (grumpy-pob), auto DB |
 | `server/training.lua` | Horse training (ride XP + paid sessions) and the training exports grumpy-pob uses |
 | `server/wagons.lua` | Wagons: yards, buying, storing, call/flee, storage, repairs, customise, hunting cart, auto DB |
@@ -33,6 +34,7 @@ behaviour). The plan for later versions is [DESIGN.md](DESIGN.md).
 | `html/style.css` | Horse UI styles, scoped under `#st-root` (theme variables and page globals live here) |
 | `html/wagons.css` | Wagon UI styles, scoped under `#wg-root`, ids prefixed `wg-` |
 | `html/{app,horsecard,training,actions}.js` | Horse UI |
+| `html/papers.js` | Papers card (no focus, hides itself) |
 | `html/wagons.js`, `html/wagons-drag.js` | Wagon UI, draggable wagon panels |
 | `install.sql` / `migrate.sql` | Manual table setup / manual migration |
 | `locales/*.json` | Horse and wagon strings in one file per language |
@@ -55,6 +57,47 @@ Phase 1 keeps both code bases intact and only removes the clashes:
   `ui_confirm`) the horse text wins.
 - Stash names (`horse_<id>`, `wagon_<id>`) and state bags (`rsgStablesOwned`, `rsgWagonId`, `rsgWagonLook`) are
   **unchanged**, so saddlebag/wagon contents and grumpy-wagonloot keep working.
+
+## 2b. Money and papers (1.1.0)
+**Every livery charge** goes through `LiveryMoney.Charge(src, livery, base, reason)` (`livery` = a `Config.Stables`
+entry or `Config.Stores` yard):
+`price = base × GetPriceMultiplier(src, market, 'buy') × (1.30 if the account is bloodmoney)`, rounded to cents.
+The account is the player's choice (`grumpy-livery:server:setPayment`, validated against the livery's `accounts`)
+or the livery's first account. Refunds go back to the same account (`LiveryMoney.Refund`).
+
+**Every livery sale** (horse sale, wagon trade-in): `LiveryMoney.SellPrice(src, livery, base, listPrice)` =
+`base × GetPriceMultiplier(src, market, 'sell')`, capped at `listPrice × buy multiplier × Config.Money.sellCap`
+(training value on horses is added after the cap). Paid with `LiveryMoney.Pay` into the livery's `payout` account
+(cash when legal, blood money when underground). Without grumpy-reputation every multiplier is 1.0.
+
+Not repriced: player-to-player sales and gift fees (`chargeFlat`, cash), race entry fees and prizes, field repairs,
+hunting-cart sales (rsg-hunting prices), paid training sessions (removed in phase 4). The horse fence keeps its own
+payout and grumpy-reputation's sale hook (`grumpy-livery-horse-fence`) until phase 3.
+
+The client asks `grumpy-livery:server:priceInfo(kind, key)` (`kind` `'horse'` / `'wagon'`) when a menu opens and
+scales displayed prices with `mult`; the server always recalculates.
+
+**Papers** (`grumpy_livery_horses.papers`): `'genuine'` | `'forged'` | `'none'`, plus `papers_stable` (place of
+registration; forged papers name a random legal stable) and `papers_owner` (character name, updated on gifts).
+| Event | Papers |
+|---|---|
+| Bought at a legal stable | genuine |
+| Bought underground, `withPapers = true` | forged (+`Config.Papers.forgedPercent` of the price) |
+| Bought underground, no papers | none |
+| Wild horse claimed at a legal stable | genuine ($0.50 registration) |
+| Wild horse claimed underground | none (no fee) |
+| Foal, both parents papered, legal stable | genuine |
+| Foal otherwise | none |
+
+Legal stables refuse to buy (`sellQuote`) a horse with `papers = 'none'`.
+`grumpy-livery:server:showPapers(horseId, netId?)` checks the owner is next to the horse (active) or at its stable
+(stabled), then sends `grumpy-livery:client:papersCard` to them and every player within `Config.Papers.showRadius`.
+
+**Thieves Landing:** `Config.Stables` entry `thieves_landing` (`market = 'underground'`, `accounts = cash + bloodmoney`,
+`blip = false`, `spawnCoords`, `wagonStore = 'thieves_landing'`) and `Config.Stores.thieves_landing` (`sharedNpc`,
+`spawn`, same market/accounts). The keeper is the stable's NPC; its **Browse Wagons** option calls the global
+`LiveryOpenWagonShop(key)` from `client/wagons.lua`. Blood money paid out there (sales) counts for grumpy-reputation's
+`blood_money` action like any other blood money.
 
 ## 3. Renamed names (old → new)
 | Old | New |
@@ -103,6 +146,10 @@ All callbacks are rsg-core server callbacks (`RSGCore.Functions.CreateCallback`)
 `useBrush`, `useFeed`, `useLantern`, `useMedicine`, `useReviver`, `useStimulant` (prefix `grumpy-livery:client:`).
 Local client events: `horseSpawned`, `openTraining`, `tackChanged`.
 
+**Money / papers (1.1.0):** server event `grumpy-livery:server:setPayment(kind, key, account)`; callbacks
+`grumpy-livery:server:priceInfo(kind, key)`, `grumpy-livery:server:showPapers(horseId, netId?)`; client event
+`grumpy-livery:client:papersCard(card)`. `buyHorse` takes a 7th argument, `withPapers`.
+
 **Horse callbacks** (prefix `grumpy-livery:server:`): `abortRace`, `applyHorseCoat`, `applyHorseTack`, `brushHorse`,
 `buyHorse`, `claimWildHorse`, `collectFoal`, `feedHorse`, `fenceHorse`, `finishTraining`, `fleeStoreHorse`,
 `getBreedingJobs`, `getHorseshoeCondition`, `getNearbyPlayers`, `getRaces`, `getSellPrice`, `getStableHorses`,
@@ -124,16 +171,19 @@ Callbacks: `actionsClose`, `actionsSelect`, `alertClose`, `close`, `coatAction`,
 `horseCardClose`, `inputCancel`, `inputSubmit`, `rotateCam`, `select`, `statsClose`, `tackCategoryNav`,
 `tackCycle`, `trainingClose`, `trainingFinish`, `trainingStart`, `zoomCam`.
 
-**Wagon UI:** messages `wagonOpen`, `wagonClose`, `wagonCustom`, `wagonCloseCustom`. Callbacks (all prefixed
-`wagon_`): `close`, `preview`, `previewLivery`, `clearPreview`, `rotateCam`, `zoomCam`, `buy`, `yardRepair`,
-`rename`, `sell`, `store`, `takeOut`, `customPreview`, `customSave`, `customClose`.
+**Wagon UI:** messages `wagonOpen` (now with `payment = { account, accounts }`), `wagonPayment` (repriced list after a
+switch), `wagonClose`, `wagonCustom`, `wagonCloseCustom`. Callbacks (all prefixed `wagon_`): `close`, `preview`,
+`previewLivery`, `clearPreview`, `rotateCam`, `zoomCam`, `buy`, `yardRepair`, `rename`, `sell`, `store`, `takeOut`,
+`customPreview`, `customSave`, `customClose`, `setPayment`.
+
+**Papers card:** message `papersCard` (`card`, `seconds`, `strings`), handled by `html/papers.js`.
 
 ## 7. Database
 Created on start (horses always; wagons when `Config.AutoDatabase = true`). Schema: `install.sql`.
 
 | Table | Key | Notes |
 |---|---|---|
-| `grumpy_livery_horses` | `id` | One row per horse: stable, model, gender, tack/coat JSON, needs, bonding, training JSON, aging flags, saved position |
+| `grumpy_livery_horses` | `id` | One row per horse: stable, model, gender, tack/coat JSON, needs, bonding, training JSON, aging flags, saved position, papers (`papers`, `papers_stable`, `papers_owner`; added on start for older tables, existing horses = genuine) |
 | `grumpy_livery_breeding` | `id` | Pending/collected foals (`parent_a`, `parent_b`, `ready_at`) |
 | `grumpy_livery_races` | `citizenid, race` | Best race time per character |
 | `grumpy_livery_wagons` | `id` | One row per wagon: model, name, condition, yard, livery/tint, propset/lantern, cargo |

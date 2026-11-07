@@ -1,7 +1,8 @@
 # grumpy-livery — design
 
 Status: **phase 1 built and tested in game** 2026-11-06 as v1.0.0 (merge only, behaves like rsg-stables + rsg-wagons;
-owner tested horses, wagons, POB stable, radial lantern). Design revised the same day with owner notes (no papers item; no self-serve training). This file is the contract for the build: update it whenever a
+owner tested horses, wagons, POB stable, radial lantern). **Phase 2 built** 2026-11-07 as v1.1.0 (pricing, papers,
+Thieves Landing; not yet tested in game). Design revised the same day with owner notes (no papers item; no self-serve training). This file is the contract for the build: update it whenever a
 decision changes. Decisions marked **(owner)** were made by the server owner; **(proposed)** values need sign-off.
 
 grumpy-livery replaces **rsg-stables** and **rsg-wagons** with one resource: an 1890s *livery*, a place that boards,
@@ -206,8 +207,22 @@ than any laundering cut. Without papers it can't be sold legally at all.
 
 **Selling here:** Thieves Landing buys any horse (papered or not) at fence prices for bloodmoney, under the fence
 cap in §7.3. Papered horses get the normal appraisal × `underground` sell multiplier, paid in bloodmoney.
+*(v1.1.0: until the phase 3 fence rework, every owned horse sold there gets the appraisal × `underground` sell
+multiplier in bloodmoney, papered or not.)*
 
-Wagons are not sold at Thieves Landing by default (config allows it per location).
+**Wagons at Thieves Landing (owner, 2026-11-06):** the same keeper sells wagons (owner gave a wagon preview and
+spawn point), same market, accounts and ×1.30. Wagons have no papers, so a wagon bought there with bloodmoney can be
+traded in at a legal yard for cash: neutral standing pays 1.30 W and gets 0.50 W back (−62%), worse than laundering.
+
+**Built in v1.1.0 (phase 2), choices made while building (Claude, not yet owner-approved):**
+- **Sale cap:** every livery sale (horse, wagon trade-in) pays at most `Config.Money.sellCap` (0.70) × what the same
+  player would pay to buy it there (rsg-stores uses the same 0.70). Without it an honorable player buys at ×0.75 and
+  sells at ×1.5, a profit loop.
+- **Thieves Landing registers nothing:** claiming a wild horse there gives no papers and charges no fee; a foal born
+  there has no papers even if both parents do.
+- **Not repriced by standing:** player-to-player sales and gift fees (a deal between players), race entry fees and
+  prizes, field repairs, hunting-cart sales, paid training sessions (removed in phase 4).
+- Selling at Thieves Landing for bloodmoney counts as earning blood money for grumpy-reputation (`blood_money`).
 
 ## 9. Training
 
@@ -415,8 +430,9 @@ Config.Stud = { maxFee = 10 }
    (two scoped UIs), one-time table copy on start + `migrate.sql`, grumpy-pob 1.3.1 / grumpy-reputation 1.1.1 /
    rsg-core / rsg-radialmenu hooks. Separate keepers and duplicated call/store code stay for now (behaviour
    unchanged).
-2. **Pricing and papers.** `server/money.lua` (markets, reputation multipliers, account choice, ×1.30), papers
-   records, Check papers card, Thieves Landing location, forged papers at checkout.
+2. **Pricing and papers** ✅ v1.1.0 (2026-11-07). `server/money.lua` (markets, reputation multipliers, account choice,
+   ×1.30, sale cap), papers records, Check papers card, Thieves Landing livery (horses + wagons, one keeper), forged
+   papers at checkout, $0.50 registration.
 3. **Selling.** Wild horse sale, fence rework with caps, horse-theft incidents (after the native lookup).
 4. **Training.** Passive XP (random stat + bonding per active-riding interval, cap), agility stat, removal of the
    minigame and paid sessions. Drill tracking and NUI land here too, used by phase 7.

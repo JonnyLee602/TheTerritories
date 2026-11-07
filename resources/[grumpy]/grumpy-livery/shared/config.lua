@@ -259,7 +259,7 @@ Config.HorseActions = {
 -- "Claim Wild Horse" at the stable hand. Only breeds listed in Config.Breeds can be claimed.
 Config.WildHorse = {
     enabled       = true,
-    claimFee      = 0,        -- $ paperwork fee to register the horse (0 = free), taken from Config.PaymentAccount
+    claimFee      = 0.50,     -- $ registration = genuine papers (doctrine: stable services, paperwork, approved 2026-11-06). Free (and no papers) at an underground livery
     claimWindow   = 30 * 60,  -- seconds after breaking it the horse can still be claimed
     horseDistance = 15.0,     -- the broken horse must be this close to the player (and the stable) to claim it
 }
@@ -298,7 +298,32 @@ Config.HorseGive = {
     maxPrice = 100000, -- highest asking price a player can set (0 / blank = free)
 }
 
+-- ===================== MONEY (markets, standing, bloodmoney) =====================
+-- Every livery price goes through server/money.lua. A stable (Config.Stables) or wagon yard (Config.Stores) can set:
+--   market   = 'legal' (default) | 'underground'   grumpy-reputation price multipliers for that market
+--   accounts = { 'cash' } (default) | { 'cash', 'bloodmoney' }   what the player may pay with (they pick at the counter)
+--   payout   = account sales pay into (default: 'cash' when legal, 'bloodmoney' when underground)
+Config.Money = {
+    defaultAccount   = 'cash',
+    bloodmoneyMarkup = 1.30,  -- doctrine (owner 2026-11-06): paying with bloodmoney costs 30% more, so a livery is never a free wash
+    reputation       = true,  -- use grumpy-reputation honor/infamy multipliers when it's running
+    sellCap          = 0.70,  -- a sale never pays more than this x what the same player would pay to buy it there (no buy-low/sell-high loop; same factor as rsg-stores)
+}
+
+-- ===================== PAPERS =====================
+-- 'genuine': bought at a legal stable, foaled from papered parents at a legal stable, or a wild horse registered there.
+-- 'forged' : bought at an underground livery with the forged-papers option. Reads exactly like genuine papers.
+-- 'none'   : anything else. Legal stables won't buy a horse without papers.
+Config.Papers = {
+    forgedPercent = 0.25,  -- forged papers cost this x the horse's price (approved 2026-11-06), repriced like the horse (standing, x1.30 in bloodmoney)
+    showRadius    = 5.0,   -- Check Papers: players this close to the owner see the card too
+    showSeconds   = 15,    -- how long the papers card stays up
+}
+
 -- ===================== STABLES =====================
+-- spawnCoords (optional): where a horse taken out appears (default previewCoords)
+-- wagonStore  (optional): Config.Stores key whose wagon catalogue this stable's keeper also opens (one NPC for both)
+-- blip = false hides the map blip
 Config.Stables = {
     {
         name       = 'valentine',
@@ -344,6 +369,21 @@ Config.Stables = {
         storeCoords = vector4(-1819.83, -561.63, 155.06, 257.78),
         previewCoords = vector4(-1819.83, -561.63, 155.06, 257.78),
         blip = { sprite = 'blip_shop_horse', color = 'BLIP_MODIFIER_MP_COLOR_6', scale = 0.2 },
+    },
+    -- Thieves Landing livery (owner coords 2026-11-06): underground market, cash or bloodmoney, forged papers, no blip.
+    -- One keeper for horses and wagons (wagonStore). Doctrine: Outlaw/Hybrid, Survival -> Stability (DESIGN.md §8)
+    {
+        name          = 'thieves_landing',
+        label         = 'Thieves Landing Livery',
+        pedModel      = `u_m_m_bwmstablehand_01`,
+        pedCoords     = vector4(-1413.92, -2204.01, 43.47, 225.74),
+        storeCoords   = vector4(-1402.27, -2199.70, 43.76, 226.77),
+        previewCoords = vector4(-1407.12, -2203.77, 43.58, 236.10),
+        spawnCoords   = vector4(-1402.27, -2199.70, 43.76, 226.77),
+        blip          = false,
+        market        = 'underground',
+        accounts      = { 'cash', 'bloodmoney' },
+        wagonStore    = 'thieves_landing',
     },
 }
 

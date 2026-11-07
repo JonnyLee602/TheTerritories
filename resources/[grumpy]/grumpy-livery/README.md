@@ -1,9 +1,10 @@
 # grumpy-livery
 
 The Territories' livery: buy, stable, care for, train and breed **horses**, and buy, store and use **wagons**, in one
-resource with one NUI. Version **1.0.0** is phase 1 of [DESIGN.md](DESIGN.md): a straight merge of the Territories
-copies of **rsg-stables 3.4.0** and **rsg-wagons 3.0.0** that behaves exactly as they did. Papers, the Thieves Landing
-stable, riding drills, aging, rentals and trainer services follow in later phases.
+resource with one NUI. Built in phases from [DESIGN.md](DESIGN.md): **1.0.0** merged the Territories copies of
+**rsg-stables 3.4.0** and **rsg-wagons 3.0.0**; **1.1.0** adds doctrine pricing (honor/infamy, cash or bloodmoney),
+horse **papers** and the **Thieves Landing livery**. Wild horse sales, the fence rework, riding drills, aging, rentals
+and trainer services follow in later phases.
 
 Replaces `rsg-stables` and `rsg-wagons`: **don't run them alongside it.**
 
@@ -44,6 +45,23 @@ GNU GPLv3 (see `LICENSE`), as the originals are.
 ---
 
 ## Features
+
+### Prices, papers and Thieves Landing (1.1.0)
+- **Prices by standing:** every livery price (horses, tack, coat, rename, insurance, revive, breeding, registration,
+  wagons, yard repairs) is multiplied on the server by grumpy-reputation's honor/infamy multiplier for that livery's
+  market. Legal stables and yards: honor pays less, infamy more. **Thieves Landing** (underground): the reverse.
+  Menus show the player's own prices.
+- **Cash or blood money** where a livery takes both (Thieves Landing): pick at the top of the stable menu or in the
+  wagon catalogue. Blood money costs **×1.30**, so a livery is never a free wash.
+- **Sales** (horses, wagon trade-ins) pay by standing too, capped at **70%** of what the same player would pay there,
+  so no standing can buy low and sell back high. Legal stables pay cash; Thieves Landing pays blood money.
+- **Papers** on every horse: **genuine** (bought at a legal stable, wild horse registered for $0.50, foal of papered
+  parents born at a legal stable), **forged** (Thieves Landing, optional at checkout for 25% of the price) or **none**.
+  Forged papers read exactly like genuine ones. **Legal stables won't buy a horse without papers.** Giving a horse
+  moves its papers to the new owner; the receiver is warned when it has none.
+- **Check Papers** (target your horse, or in the stable menu): the papers card shows to you and everyone within 5 m.
+- **Thieves Landing livery:** one keeper for horses and wagons, no blip, horses and wagons appear at their own spawn
+  points. Wild horses claimed there get no papers (and pay no fee).
 
 ### Horses
 
@@ -112,6 +130,23 @@ Horses: `shared/config.lua`. Wagons: `shared/wagons.lua`, plus `shared/liveries.
 `shared/huntingcart.lua`. Both share the global `Config` table; the one name both had, `StoreDistance`, is
 `Config.StoreDistance` for horses and `Config.WagonStoreDistance` for wagons.
 Prices follow the doctrine bands in `doctrine/pricing.md` (commented in config).
+
+### Money and papers (1.1.0)
+| Option | Default | Description |
+|---|---|---|
+| `Config.Money.defaultAccount` | `'cash'` | Account used where a livery doesn't list its own |
+| `Config.Money.bloodmoneyMarkup` | `1.30` | Price multiplier when paying in blood money |
+| `Config.Money.reputation` | `true` | Use grumpy-reputation's multipliers when it's running |
+| `Config.Money.sellCap` | `0.70` | A sale never pays more than this × what the same player would pay to buy it there |
+| `Config.Papers.forgedPercent` | `0.25` | Forged papers cost this × the horse's price (repriced like the horse) |
+| `Config.Papers.showRadius` | `5.0` | Players this close see a shown papers card |
+| `Config.Papers.showSeconds` | `15` | How long the card stays up |
+| `Config.WildHorse.claimFee` | `0.50` | Registration fee for a wild horse (= genuine papers) |
+
+Per livery (a `Config.Stables` entry or a `Config.Stores` yard): `market = 'legal' | 'underground'`,
+`accounts = { 'cash' } | { 'cash', 'bloodmoney' }`, `payout` (sales account; default cash when legal, blood money when
+underground). Stables also take `spawnCoords` (where taken-out horses appear), `wagonStore` (a yard key the same keeper
+opens) and `blip = false`; yards take `spawn` and `sharedNpc` (no NPC of their own).
 
 ### General
 
@@ -182,7 +217,11 @@ Prices follow the doctrine bands in `doctrine/pricing.md` (commented in config).
     pedCoords     = vector4(x, y, z, heading), -- stablehand NPC
     storeCoords   = vector4(x, y, z, heading), -- where horses are stored
     previewCoords = vector4(x, y, z, heading), -- horse preview spot
-    blip = { sprite = 'blip_shop_horse', color = 'BLIP_MODIFIER_MP_COLOR_6', scale = 0.2 },
+    spawnCoords   = vector4(x, y, z, heading), -- optional: where taken-out horses appear (default previewCoords)
+    blip = { sprite = 'blip_shop_horse', color = 'BLIP_MODIFIER_MP_COLOR_6', scale = 0.2 }, -- or false
+    market = 'legal',                          -- optional: 'underground' = Thieves Landing pricing
+    accounts = { 'cash' },                     -- optional: { 'cash', 'bloodmoney' } lets players choose
+    wagonStore = nil,                          -- optional: Config.Stores key this keeper also opens
 },
 ```
 
@@ -223,12 +262,16 @@ Walk up to the stablehand and use **rsg-target → Manage Stable** to open the m
 - **Breed** a stallion and a mare and collect the foal when ready.
 - **Give to Player** – give or sell a horse to someone standing next to you (empty its saddlebags first).
 - **Horse Races** – shown when the stable has races configured: see the leaderboard and your best time, and start a race (you must be riding your own horse).
-- **Claim Wild Horse** – shown when you've just broken a wild horse and it's with you; name it and it's added to that stable.
+- **Claim Wild Horse** – shown when you've just broken a wild horse and it's with you; name it and it's added to that stable ($0.50 registration = genuine papers; free and unpapered at Thieves Landing).
+- **Check Papers** – show a stabled horse's papers to everyone nearby.
+- **Paying with** (Thieves Landing) – switch between cash and blood money.
+- At Thieves Landing, buying a horse asks **With papers** (forged, +25%) or **Without papers**.
 
 Each horse in the list shows its gender, stage (Young / Adult / Old, with days left near the end of its life) and health/stamina.
 
 ### With your active horse
 Target your horse (rsg-target) for:
+- **Check Papers** – show its papers card to everyone within 5 m.
 - **Feed Horse** – uses a feed item.
 - **Water Horse** – uses a water item.
 - **Brush Horse** – requires the brush item.
@@ -329,6 +372,16 @@ Liveries (`Config.Liveries`) and colour counts (`Config.Tints`) per model live i
 ---
 
 ## Changelog
+
+### 1.1.0 (2026-11-07)
+- Phase 2: `server/money.lua` prices every livery charge and sale by market (legal / underground), grumpy-reputation
+  standing and account (×1.30 for blood money), with a 70% sale cap. Menus show the player's own prices.
+- Horse papers (`papers`, `papers_stable`, `papers_owner` columns, added automatically): genuine / forged / none, set
+  on purchase, claim and foaling, moved on gifts. Legal stables refuse unpapered horses. **Check Papers** card.
+- Thieves Landing livery (horses + wagons, one keeper, own spawn points, no blip), cash or blood money, forged papers.
+- Wild horse registration $0.50. Wagon money strings show cents.
+- Player-to-player sales, race entry/prizes, field repairs and paid training sessions are not repriced (training
+  sessions go in phase 4).
 
 ### 1.0.0 (2026-11-06)
 - rsg-stables 3.4.0 (Territories copy: doctrine prices, grumpy-pob registered stables and training exports) and

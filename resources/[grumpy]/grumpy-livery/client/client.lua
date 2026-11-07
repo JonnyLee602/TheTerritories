@@ -20,7 +20,7 @@ local pendingHorse = nil -- horse that is 'out' in the DB but has no entity (fle
 local recallPendingHorse
 local NuiStatsDialog
 local CARE_COOLDOWN = 60000 -- ms; mirrors server.lua's CARE_COOLDOWN (client-side cooldown is UX only, server enforces the real limit)
-local HORSE_TARGETS = { 'livery_feed', 'livery_water', 'livery_brush', 'livery_stats', 'livery_store', 'livery_flee', 'livery_inventory', 'livery_actions', 'livery_calm' }
+local HORSE_TARGETS = { 'livery_papers', 'livery_feed', 'livery_water', 'livery_brush', 'livery_stats', 'livery_store', 'livery_flee', 'livery_inventory', 'livery_actions', 'livery_calm' }
 
 local function healthPctOf(entity)
     return math.floor((GetEntityHealth(entity) / math.max(1, GetEntityMaxHealth(entity))) * 100)
@@ -1455,6 +1455,18 @@ local function spawnHorse(horse, coords)
                 onSelect = function() OpenHorseActionsMenu() end,
             },
             {
+                name = 'livery_papers',
+                icon = 'fas fa-file-signature',
+                label = locale('check_papers'),
+                canInteract = function() return GetMount(PlayerPedId()) == 0 end,
+                onSelect = function()
+                    if not activeHorse then return end
+                    local netId = NetworkGetEntityIsNetworked(activeHorse.entity) and NetworkGetNetworkIdFromEntity(activeHorse.entity) or nil
+                    local ok, err = RSGCore.Functions.AwaitCallback('grumpy-livery:server:showPapers', nil, activeHorse.dbId, netId)
+                    if not ok and err then RSGCore.Functions.Notify({ description = err, type = 'error' }) end
+                end,
+            },
+            {
                 name = 'livery_inventory',
                 icon = 'fas fa-box-open',
                 label = locale('target_inventory'),
@@ -1610,6 +1622,15 @@ local function setupStables()
                     end,
                 },
                 {
+                    name = 'livery_wagons_' .. stable.name,
+                    icon = 'fas fa-horse-head',
+                    label = locale('cl_browse'),
+                    canInteract = function() return stable.wagonStore ~= nil end,
+                    onSelect = function()
+                        if LiveryOpenWagonShop then LiveryOpenWagonShop(stable.wagonStore) end
+                    end,
+                },
+                {
                     name = 'grumpy_livery_races_' .. stable.name,
                     icon = 'fas fa-flag-checkered',
                     label = locale('race_target'),
@@ -1622,10 +1643,12 @@ local function setupStables()
                 },
             })
 
-            stableBlips[#stableBlips + 1] = AddLocationBlip(
-                stable.pedCoords.x, stable.pedCoords.y, stable.pedCoords.z,
-                stable.blip.sprite, stable.blip.color, stable.blip.scale, stable.label
-            )
+            if stable.blip then -- blip = false: secret livery (Thieves Landing)
+                stableBlips[#stableBlips + 1] = AddLocationBlip(
+                    stable.pedCoords.x, stable.pedCoords.y, stable.pedCoords.z,
+                    stable.blip.sprite, stable.blip.color, stable.blip.scale, stable.label
+                )
+            end
         end)
     end
 end
@@ -1890,6 +1913,20 @@ end)
 
 -- ===================== MENUS =====================
 
+-- ===================== LIVERY PRICES (server/money.lua) =====================
+-- What this player pays at the stable whose menu is open: standing (grumpy-reputation) x bloodmoney markup.
+-- The server decides the real charge; this only keeps the menus showing the same numbers.
+local StableCtx = { mult = 1.0, account = Config.PaymentAccount, accounts = { Config.PaymentAccount }, market = 'legal' }
+
+function LiveryPrice(base)
+    return math.floor((tonumber(base) or 0) * (StableCtx.mult or 1.0) * 100 + 0.5) / 100
+end
+
+local function refreshStableCtx(stable)
+    local info = RSGCore.Functions.AwaitCallback('grumpy-livery:server:priceInfo', nil, 'horse', stable.name)
+    if type(info) == 'table' and info.mult then StableCtx = info end
+end
+
 function OpenStableMenu(stable)
     despawnPreviewHorse()
 
@@ -1903,10 +1940,27 @@ function OpenStableMenu(stable)
         return
     end
 
+    refreshStableCtx(stable)
     local horses = RSGCore.Functions.AwaitCallback('grumpy-livery:server:getStableHorses', nil, stable.name)
     local breedingJobs = RSGCore.Functions.AwaitCallback('grumpy-livery:server:getBreedingJobs', nil, stable.name)
 
-    local options = {
+    local options = {}
+    if #(StableCtx.accounts or {}) > 1 then
+        -- cash / bloodmoney: click to switch; the server keeps the choice and checks it at every charge
+        options[#options + 1] = {
+            title = locale('paying_with', locale('pay_' .. StableCtx.account)),
+            description = locale('paying_with_desc'),
+            icon = 'pay',
+            onSelect = function()
+                local list, nextAcc = StableCtx.accounts, nil
+                for i, a in ipairs(list) do if a == StableCtx.account then nextAcc = list[(i % #list) + 1] end end
+                TriggerServerEvent('grumpy-livery:server:setPayment', 'horse', stable.name, nextAcc or list[1])
+                Wait(250)
+                OpenStableMenu(stable)
+            end,
+        }
+    end
+    for _, o in ipairs({
         {
             title = locale('buy_horse'),
             description = locale('buy_horse_desc'),
@@ -1915,7 +1969,7 @@ function OpenStableMenu(stable)
                 OpenBuyMenu(stable)
             end,
         },
-    }
+    }) do options[#options + 1] = o end
 
     local aliveCount = 0
     for _, horse in ipairs(horses) do
@@ -1968,6 +2022,7 @@ function OpenStableMenu(stable)
                 end
                 desc = stageText .. ' • ' .. desc
             end
+            if horse.papers == 'none' then desc = desc .. ' • ' .. locale('papers_none_short') end
             badge = nil
         else
             desc = horse.died_of_age and locale('died_of_old_age') or locale('deceased')
@@ -1994,7 +2049,7 @@ end
 local function getBuyFunds()
     local ok, playerData = pcall(function() return RSGCore.Functions.GetPlayerData() end)
     if ok and playerData and playerData.money then
-        return playerData.money[Config.PaymentAccount] or 0
+        return playerData.money[StableCtx.account or Config.PaymentAccount] or 0
     end
     return 0
 end
@@ -2180,13 +2235,14 @@ function OpenBuyMenu(stable)
 
     local funds = getBuyFunds()
     for _, breed in ipairs(matches) do
-        local affordable = funds >= breed.price
+        local price = LiveryPrice(breed.price)
+        local affordable = funds >= price
         table.insert(options, {
             title = breed.label,
             description = affordable
                 and locale('breed_class_handling', breed.class or breed.breed, breed.handling)
-                or locale('breed_cant_afford_short', breed.class or breed.breed, breed.handling, breed.price - funds),
-            badge = ('$%.2f'):format(breed.price),
+                or locale('breed_cant_afford_short', breed.class or breed.breed, breed.handling, price - funds),
+            badge = ('$%.2f'):format(price),
             icon = 'horse',
             variant = not affordable and 'unaffordable' or nil,
             stats = BreedStatBars(breed),
@@ -2216,11 +2272,12 @@ local function showBreedPreviewContext(stable, breed)
     end
 
     local funds = getBuyFunds()
-    if funds < breed.price then
+    local price = LiveryPrice(breed.price)
+    if funds < price then
         table.insert(options, {
             title = locale('cant_afford_horse'),
-            description = locale('funds_short', funds, breed.price - funds),
-            badge = ('$%.2f'):format(breed.price),
+            description = locale('funds_short', funds, price - funds),
+            badge = ('$%.2f'):format(price),
             icon = 'xmark',
             variant = 'unaffordable',
             disabled = true,
@@ -2230,7 +2287,7 @@ local function showBreedPreviewContext(stable, breed)
         table.insert(options, {
             title = locale('purchase_horse'),
             description = locale('breed_class_handling', breed.class or breed.breed, breed.handling),
-            badge = ('$%.2f'):format(breed.price),
+            badge = ('$%.2f'):format(price),
             icon = 'dollar',
             stats = BreedStatBars(breed),
             onSelect = function()
@@ -2243,14 +2300,34 @@ local function showBreedPreviewContext(stable, breed)
                         return
                     end
     
-                    local function buy(gender)
-                        local ok, result = RSGCore.Functions.AwaitCallback('grumpy-livery:server:buyHorse', nil, stable.name, breed.model, value, 0, gender)
+                    local function buy(gender, withPapers)
+                        local ok, result = RSGCore.Functions.AwaitCallback('grumpy-livery:server:buyHorse', nil, stable.name, breed.model, value, 0, gender, withPapers == true)
                         if ok then
                             NuiNotify(locale('purchase_success', value), 'success')
                         else
                             NuiNotify(result or locale('purchase_fail'), 'error')
                         end
                         OpenStableMenu(stable)
+                    end
+
+                    -- underground livery: forged papers or none (DESIGN.md §8)
+                    local function choosePapers(gender)
+                        if stable.market ~= 'underground' then return buy(gender) end
+                        local fee = LiveryPrice(breed.price * ((Config.Papers and Config.Papers.forgedPercent) or 0))
+                        NuiRender({
+                            title = locale('papers_choose'),
+                            subtitle = value,
+                            back = function()
+                                spawnPreviewHorse(breed.model, stable.previewCoords)
+                                showBreedPreviewContext(stable, breed)
+                            end,
+                            options = {
+                                { title = locale('papers_buy_forged'), description = locale('papers_buy_forged_desc'), icon = 'papers',
+                                  badge = ('$%.2f'):format(price + fee), onSelect = function() buy(gender, true) end },
+                                { title = locale('papers_buy_none'), description = locale('papers_buy_none_desc'), icon = 'xmark',
+                                  badge = ('$%.2f'):format(price), onSelect = function() buy(gender, false) end },
+                            },
+                        })
                     end
 
                     NuiRender({
@@ -2261,8 +2338,8 @@ local function showBreedPreviewContext(stable, breed)
                             showBreedPreviewContext(stable, breed)
                         end,
                         options = {
-                            { title = locale('gender_stallion'), description = locale('gender_stallion_desc'), icon = 'mars',  onSelect = function() buy('male') end },
-                            { title = locale('gender_mare'),     description = locale('gender_mare_desc'),     icon = 'venus', onSelect = function() buy('female') end },
+                            { title = locale('gender_stallion'), description = locale('gender_stallion_desc'), icon = 'mars',  onSelect = function() choosePapers('male') end },
+                            { title = locale('gender_mare'),     description = locale('gender_mare_desc'),     icon = 'venus', onSelect = function() choosePapers('female') end },
                         },
                     })
                 end, function()
@@ -2436,7 +2513,7 @@ local function calcTackTotal(baseTack, selections)
             if item then total = total + (item.price or 0) end
         end
     end
-    return total
+    return LiveryPrice(total)
 end
 
 local function showTackReview(stable, horse, baseTack, selections)
@@ -2454,7 +2531,7 @@ local function showTackReview(stable, horse, baseTack, selections)
             desc = locale('tack_removing')
         else
             local item = getTackItem(category.key, pick)
-            local price = item and item.price or 0
+            local price = LiveryPrice(item and item.price or 0)
             desc = locale('tack_item_price', label, price)
         end
         table.insert(options, {
@@ -2541,7 +2618,7 @@ function showTackWizardStep(stable, horse, baseTack, selections, index)
         else
             local item = items[styleIndex - offset]
             label = item.label
-            meta = ('$%.2f'):format(item.price)
+            meta = ('$%.2f'):format(LiveryPrice(item.price))
         end
         local total = calcTackTotal(baseTack, selections)
         local funds = getBuyFunds()
@@ -2663,7 +2740,7 @@ function OpenCoatMenu(stable, horse)
         cancel = back,
     }
 
-    local price = tonumber(Config.Coat.price) or 0
+    local price = LiveryPrice(tonumber(Config.Coat.price) or 0)
     NuiCoatPicker({
         title = locale('customize_coat'),
         subtitle = horse.name,
@@ -2691,7 +2768,7 @@ function OpenHorseMenu(stable, horse)
                 end
                 CloseNUI()
                 despawnPreviewHorse()
-                spawnHorse(result, stable.previewCoords)
+                spawnHorse(result, stable.spawnCoords or stable.previewCoords)
                 if activeHorse then
                     saveActiveHorsePosition(true)
                     NuiNotify(locale('horse_retrieved', horse.name), 'success')
@@ -2715,7 +2792,7 @@ function OpenHorseMenu(stable, horse)
         if Config.Coat and Config.Coat.enabled then
             table.insert(options, {
                 title = locale('customize_coat'),
-                description = locale('customize_coat_desc', tonumber(Config.Coat.price) or 0),
+                description = locale('customize_coat_desc', LiveryPrice(tonumber(Config.Coat.price) or 0)),
                 icon = 'brush',
                 onSelect = function()
                     OpenCoatMenu(stable, horse)
@@ -2730,8 +2807,18 @@ function OpenHorseMenu(stable, horse)
                 icon = 'dollar',
                 onSelect = function()
                     local price, info = RSGCore.Functions.AwaitCallback('grumpy-livery:server:getSellPrice', nil, horse.id)
-                    if not price then OpenStableMenu(stable) return end
-                    local content = locale('sell_horse_confirm', horse.name, price)
+                    if not price then
+                        if type(info) == 'string' then RSGCore.Functions.Notify({ description = info, type = 'error' }) end
+                        OpenStableMenu(stable)
+                        return
+                    end
+                    local content = locale('sell_horse_confirm', horse.name, ('%.2f'):format(price))
+                    if type(info) == 'table' and info.standingMult and math.abs(info.standingMult - 1.0) > 0.001 then
+                        content = content .. '\n' .. locale('sell_standing', math.floor(info.standingMult * 100 + 0.5))
+                    end
+                    if type(info) == 'table' and info.account == 'bloodmoney' then
+                        content = content .. '\n' .. locale('sell_paid_bloodmoney')
+                    end
                     local A = Config.HorseSell.appraisal
                     if A and A.enabled and type(info) == 'table' then
                         -- stablehand's appraisal: base value, condition, bonding, age and extras
@@ -2752,9 +2839,21 @@ function OpenHorseMenu(stable, horse)
             })
         end
 
+        if horse.alive then
+            table.insert(options, {
+                title = locale('check_papers'),
+                description = horse.papers == 'none' and locale('papers_none_short') or locale('check_papers_desc'),
+                icon = 'papers',
+                onSelect = function()
+                    local ok, err = RSGCore.Functions.AwaitCallback('grumpy-livery:server:showPapers', nil, horse.id)
+                    if not ok and err then NuiNotify(err, 'error') end
+                end,
+            })
+        end
+
         table.insert(options, {
             title = locale('rename'),
-            description = locale('rename_desc', Config.RenameCost),
+            description = locale('rename_desc', LiveryPrice(Config.RenameCost)),
             icon = 'pen',
             onSelect = function()
                 NuiInput(locale('rename_horse'), locale('new_name'), function(value)
@@ -2776,7 +2875,7 @@ function OpenHorseMenu(stable, horse)
         if not horse.insured then
             table.insert(options, {
                 title = locale('insure'),
-                description = locale('insure_desc', Config.InsuranceCost),
+                description = locale('insure_desc', LiveryPrice(Config.InsuranceCost)),
                 icon = 'shield',
                 onSelect = function()
                     local ok, err = RSGCore.Functions.AwaitCallback('grumpy-livery:server:insureHorse', nil, horse.id)
@@ -2882,7 +2981,7 @@ function OpenHorseMenu(stable, horse)
         if not horse.died_of_age then
             table.insert(options, {
                 title = locale('revive'),
-                description = locale('revive_desc', Config.ReviveCost),
+                description = locale('revive_desc', LiveryPrice(Config.ReviveCost)),
                 icon = 'medkit',
                 onSelect = function()
                     local ok, err = RSGCore.Functions.AwaitCallback('grumpy-livery:server:reviveHorse', nil, horse.id)
@@ -3413,4 +3512,20 @@ exports('OpenStable', function(name)
     for _, s in ipairs(Config.Stables) do
         if s.name == name then return OpenStableMenu(s) end
     end
+end)
+
+-- ===================== PAPERS CARD =====================
+-- Sent by the server to the owner and players nearby (Check Papers). Shown without NUI focus; fades on its own.
+RegisterNetEvent('grumpy-livery:client:papersCard', function(card)
+    if type(card) ~= 'table' then return end
+    SendNUIMessage({
+        action = 'papersCard',
+        card = card,
+        seconds = (Config.Papers and Config.Papers.showSeconds) or 15,
+        strings = {
+            title = locale('papers_title'), none = locale('papers_none_title'), noneText = locale('papers_none_text'),
+            breed = locale('papers_breed'), sex = locale('papers_sex'), age = locale('papers_age'),
+            owner = locale('papers_owner'), registered = locale('papers_registered'), shownBy = locale('papers_shown_by'),
+        },
+    })
 end)

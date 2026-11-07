@@ -204,3 +204,8 @@
 /* ---------- customise panel ---------- */
 #wg-root .custom { right: 40px; top: 40px; width: 380px; }
 #wg-root .repair-btn { width: 100%; margin-bottom: 8px; }
+
+/* grumpy-livery: cash / bloodmoney toggle at yards that take both */
+#wg-root .pay-toggle { align-items: center; }
+#wg-root .pay-label { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--rdr-muted); margin-right: 4px; }
+#wg-root .pay-toggle .chip i { margin-right: 5px; }

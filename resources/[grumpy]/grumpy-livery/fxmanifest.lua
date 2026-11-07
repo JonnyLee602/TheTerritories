@@ -5,7 +5,7 @@ lua54 'yes'
 
 name 'grumpy-livery'
 description 'The Territories livery: horses and wagons in one resource (fork of rsg-stables 3.4.0 + rsg-wagons 3.0.0, GPLv3)'
-version '1.0.0'
+version '1.1.0'
 
 shared_scripts {
     '@rsg-core/shared/locale.lua',
@@ -18,6 +18,7 @@ shared_scripts {
 
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
+    'server/money.lua',       -- LiveryMoney: markets, standing, cash/bloodmoney (used by server.lua + wagons.lua)
     'server/server.lua',
     'server/training.lua',
     'server/wagons.lua',
@@ -57,6 +58,7 @@ files {
     'html/horsecard.js',
     'html/training.js',
     'html/actions.js',
+    'html/papers.js',
     'html/wagons.js',
     'html/wagons-drag.js',
 }

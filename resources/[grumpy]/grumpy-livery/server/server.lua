@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS `grumpy_livery_horses` (
   `pos_y` FLOAT DEFAULT NULL,
   `pos_z` FLOAT DEFAULT NULL,
   `pos_h` FLOAT DEFAULT NULL,
+  `papers` VARCHAR(8) NOT NULL DEFAULT 'genuine',
+  `papers_stable` VARCHAR(100) DEFAULT NULL,
+  `papers_owner` VARCHAR(100) DEFAULT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `citizenid` (`citizenid`),
@@ -125,6 +128,16 @@ local function ensureDatabase()
     end
     if not existing.shoe_wear then
         pcall(MySQL.query.await, 'ALTER TABLE `grumpy_livery_horses` ADD COLUMN `shoe_wear` FLOAT NOT NULL DEFAULT 0 AFTER `tack`')
+    end
+    -- papers (grumpy-livery 1.1.0): 'genuine' | 'forged' | 'none'; horses from before papers existed count as genuine
+    if not existing.papers then
+        pcall(MySQL.query.await, "ALTER TABLE `grumpy_livery_horses` ADD COLUMN `papers` VARCHAR(8) NOT NULL DEFAULT 'genuine' AFTER `pos_h`")
+    end
+    if not existing.papers_stable then
+        pcall(MySQL.query.await, 'ALTER TABLE `grumpy_livery_horses` ADD COLUMN `papers_stable` VARCHAR(100) DEFAULT NULL AFTER `papers`')
+    end
+    if not existing.papers_owner then
+        pcall(MySQL.query.await, 'ALTER TABLE `grumpy_livery_horses` ADD COLUMN `papers_owner` VARCHAR(100) DEFAULT NULL AFTER `papers_stable`')
     end
     -- horses bought before genders existed get a random one
     pcall(MySQL.query.await, "UPDATE `grumpy_livery_horses` SET `gender` = IF(RAND() < 0.5, 'male', 'female') WHERE `gender` IS NULL")
@@ -319,13 +332,41 @@ local function getBreedConfig(model)
     return nil
 end
 
-local function chargePlayer(Player, amount)
+-- Livery purchases: price by market, standing and account (server/money.lua). stable = config entry or name.
+-- Returns ok, paid, account (paid/account are what to refund if a later step fails).
+local function chargePlayer(Player, amount, stable, reason)
+    if type(stable) ~= 'table' then stable = getStableConfig(stable) end
+    return LiveryMoney.Charge(Player.PlayerData.source, stable, amount, reason)
+end
+
+-- Flat charge in Config.PaymentAccount: player-to-player deals (gift fee, asking price), never repriced
+local function chargeFlat(Player, amount)
     local account = Config.PaymentAccount
     local funds = Player.PlayerData.money[account] or 0
     if funds < amount then return false end
     local removed = Player.Functions.RemoveMoney(account, amount, 'grumpy-livery')
     if removed == false then return false end
     return true
+end
+
+-- ===================== PAPERS =====================
+-- Every horse row carries papers: 'genuine' (legal stables, foals of papered parents, registered wild horses),
+-- 'forged' (bought with forged papers at an underground livery) or 'none'. Forged papers read exactly like
+-- genuine ones: they name a random legal stable as the place of registration.
+local function isUnderground(stable) return LiveryMoney.Market(stable) == 'underground' end
+
+local function legalStableLabel()
+    local list = {}
+    for _, s in ipairs(Config.Stables) do
+        if not isUnderground(s) and not s.external then list[#list + 1] = s.label end
+    end
+    return list[math.random(1, math.max(1, #list))] or 'Valentine Stables'
+end
+
+local function ownerName(Player)
+    local c = Player and Player.PlayerData and Player.PlayerData.charinfo
+    if c and c.firstname then return ('%s %s'):format(c.firstname, c.lastname or '') end
+    return Player and GetPlayerName(Player.PlayerData.source) or '?'
 end
 
 local locks = {}
@@ -807,7 +848,7 @@ registerCallback('grumpy-livery:server:brushHorse', function(source, horseNetId)
     return true, { bonding = session.bonding }
 end)
 
-registerCallback('grumpy-livery:server:buyHorse', function(source, stableName, model, horseName, outfit, gender)
+registerCallback('grumpy-livery:server:buyHorse', function(source, stableName, model, horseName, outfit, gender, withPapers)
     if gender ~= 'male' and gender ~= 'female' then gender = randomGender() end
     local Player = RSGCore.Functions.GetPlayer(source)
     if not Player then return false, locale('player_not_found') end
@@ -832,7 +873,19 @@ registerCallback('grumpy-livery:server:buyHorse', function(source, stableName, m
                 return false, locale('stable_full')
             end
 
-            if not chargePlayer(Player, breed.price) then
+            -- papers: genuine at legal stables; at an underground livery forged (optional, for a fee) or none
+            local papers, papersStable, price = 'genuine', stable.label, tonumber(breed.price) or 0
+            if isUnderground(stable) then
+                if withPapers == true and Config.Papers.forgedPercent then
+                    papers, papersStable = 'forged', legalStableLabel()
+                    price = price + price * Config.Papers.forgedPercent
+                else
+                    papers, papersStable = 'none', nil
+                end
+            end
+
+            local paidOk, paid, account = chargePlayer(Player, price, stable, 'grumpy-livery-buy-horse')
+            if not paidOk then
                 return false, locale('insufficient_funds')
             end
 
@@ -846,11 +899,12 @@ registerCallback('grumpy-livery:server:buyHorse', function(source, stableName, m
             local ok, insertId = pcall(function()
                 return MySQL.insert.await([[
                     INSERT INTO grumpy_livery_horses
-                        (citizenid, stable, model, breed_label, gender, name, outfit, tack, health, stamina, speed, accel, handling, maxhealth, alive, insured, active)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 100, 100, ?, ?, ?, ?, 1, 0, 0)
+                        (citizenid, stable, model, breed_label, gender, name, outfit, tack, health, stamina, speed, accel, handling, maxhealth, alive, insured, active, papers, papers_stable, papers_owner)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 100, 100, ?, ?, ?, ?, 1, 0, 0, ?, ?, ?)
                 ]], {
                     Player.PlayerData.citizenid, stableName, breed.model, breed.label, gender, safeName, safeOutfit, newHorseTack(),
-                    breed.speed, breed.acceleration, breedHandlingValue(breed), breed.health
+                    breed.speed, breed.acceleration, breedHandlingValue(breed), breed.health,
+                    papers, papersStable, papers ~= 'none' and ownerName(Player) or nil
                 })
             end)
 
@@ -858,7 +912,7 @@ registerCallback('grumpy-livery:server:buyHorse', function(source, stableName, m
                 print(('[grumpy-livery] ERROR: buyHorse insert failed for citizenid %s: %s'):format(
                     Player.PlayerData.citizenid, tostring(insertId)
                 ))
-                Player.Functions.AddMoney(Config.PaymentAccount, breed.price, 'grumpy-livery-refund')
+                LiveryMoney.Refund(source, account, paid)
                 return false, locale('buy_save_failed')
             end
 
@@ -945,9 +999,14 @@ registerCallback('grumpy-livery:server:claimWildHorse', function(source, stableN
                 return false, locale('stable_full')
             end
 
-            local fee = tonumber(cfg.claimFee) or 0
-            if fee > 0 and not chargePlayer(Player, fee) then
-                return false, locale('insufficient_funds')
+            -- registration fee = genuine papers; an underground livery registers nothing (no papers, no fee)
+            local underground = isUnderground(stable)
+            local fee = underground and 0 or (tonumber(cfg.claimFee) or 0)
+            local paid, account = 0, nil
+            if fee > 0 then
+                local paidOk
+                paidOk, paid, account = chargePlayer(Player, fee, stable, 'grumpy-livery-register')
+                if not paidOk then return false, locale('insufficient_funds') end
             end
 
             local safeName = (sanitizeName(horseName) or locale('unnamed_horse')):sub(1, 40)
@@ -955,17 +1014,18 @@ registerCallback('grumpy-livery:server:claimWildHorse', function(source, stableN
             local ok, insertId = pcall(function()
                 return MySQL.insert.await([[
                     INSERT INTO grumpy_livery_horses
-                        (citizenid, stable, model, breed_label, gender, name, outfit, tack, health, stamina, speed, accel, handling, maxhealth, alive, insured, active)
-                    VALUES (?, ?, ?, ?, ?, ?, 0, '{}', 100, 100, ?, ?, ?, ?, 1, 0, 0)
+                        (citizenid, stable, model, breed_label, gender, name, outfit, tack, health, stamina, speed, accel, handling, maxhealth, alive, insured, active, papers, papers_stable, papers_owner)
+                    VALUES (?, ?, ?, ?, ?, ?, 0, '{}', 100, 100, ?, ?, ?, ?, 1, 0, 0, ?, ?, ?)
                 ]], {
                     citizenid, stableName, breed.model, breed.label, randomGender(), safeName,
-                    breed.speed, breed.acceleration, breedHandlingValue(breed), breed.health
+                    breed.speed, breed.acceleration, breedHandlingValue(breed), breed.health,
+                    underground and 'none' or 'genuine', not underground and stable.label or nil, not underground and ownerName(Player) or nil
                 })
             end)
 
             if not ok or not insertId or insertId == 0 then
                 print(('[grumpy-livery] ERROR: claimWildHorse insert failed for citizenid %s: %s'):format(citizenid, tostring(insertId)))
-                if fee > 0 then Player.Functions.AddMoney(Config.PaymentAccount, fee, 'grumpy-livery-refund') end
+                if account then LiveryMoney.Refund(source, account, paid) end
                 return false, locale('buy_save_failed')
             end
 
@@ -1277,7 +1337,7 @@ registerCallback('grumpy-livery:server:renameHorse', function(source, horseId, n
         if not horse then return false, locale('horse_not_found') end
         if not nearStableByName(source, horse.stable) then return false, locale('not_close_to_stable') end
 
-        if not chargePlayer(Player, Config.RenameCost) then return false, locale('insufficient_funds') end
+        if not chargePlayer(Player, Config.RenameCost, horse.stable) then return false, locale('insufficient_funds') end
 
         MySQL.update.await('UPDATE grumpy_livery_horses SET name = ? WHERE id = ?', { newName, horseId })
         return true, newName
@@ -1299,7 +1359,7 @@ registerCallback('grumpy-livery:server:insureHorse', function(source, horseId)
         if not isTrue(horse.alive) then return false, locale('horse_is_dead') end
         if not nearStableByName(source, horse.stable) then return false, locale('not_close_to_stable') end
 
-        if not chargePlayer(Player, Config.InsuranceCost) then return false, locale('insufficient_funds') end
+        if not chargePlayer(Player, Config.InsuranceCost, horse.stable) then return false, locale('insufficient_funds') end
 
         MySQL.update.await('UPDATE grumpy_livery_horses SET insured = 1 WHERE id = ?', { horseId })
         return true
@@ -1321,7 +1381,7 @@ registerCallback('grumpy-livery:server:reviveHorse', function(source, horseId)
         if isTrue(horse.died_of_age) then return false, locale('horse_died_of_age_final') end
         if not nearStableByName(source, horse.stable) then return false, locale('not_close_to_stable') end
 
-        if not chargePlayer(Player, Config.ReviveCost) then return false, locale('insufficient_funds') end
+        if not chargePlayer(Player, Config.ReviveCost, horse.stable) then return false, locale('insufficient_funds') end
 
         MySQL.update.await('UPDATE grumpy_livery_horses SET alive = 1, health = 100, stamina = 100, hunger = 100, thirst = 100, insured = 0 WHERE id = ?', { horseId })
         return true
@@ -1453,6 +1513,10 @@ registerCallback('grumpy-livery:server:giveHorse', function(source, horseId, tar
     if saddlebagsHaveItems(horseId) then return false, locale('give_saddlebags_not_empty') end
     if not targetNearby() then return false, locale('give_target_too_far') end
 
+    if horse.papers == 'none' then
+        RSGCore.Functions.Notify(targetId, { description = locale('give_no_papers_warning', horse.name), type = 'inform', duration = 10000 })
+    end
+
     -- ask the receiver (one offer at a time per receiver, so popups can't stack or be spammed)
     if pendingOffers[targetId] then return false, locale('give_target_busy') end
     pendingOffers[targetId] = true
@@ -1486,13 +1550,13 @@ registerCallback('grumpy-livery:server:giveHorse', function(source, horseId, tar
             RSGCore.Functions.Notify(targetId, { description = locale('give_you_cant_afford', price), type = 'error' })
             return false, locale('give_target_cant_afford', price)
         end
-        if (cfg.fee or 0) > 0 and not chargePlayer(Player, cfg.fee) then return false, locale('insufficient_funds') end
-        if price > 0 and not chargePlayer(Target, price) then
+        if (cfg.fee or 0) > 0 and not chargeFlat(Player, cfg.fee) then return false, locale('insufficient_funds') end
+        if price > 0 and not chargeFlat(Target, price) then
             if (cfg.fee or 0) > 0 then Player.Functions.AddMoney(Config.PaymentAccount, cfg.fee, 'grumpy-livery-refund') end
             return false, locale('give_target_cant_afford', price)
         end
 
-        local changed = MySQL.update.await('UPDATE grumpy_livery_horses SET citizenid = ?, bonding = 0 WHERE id = ? AND citizenid = ? AND active = 0', { targetCid, horseId, giverCid })
+        local changed = MySQL.update.await("UPDATE grumpy_livery_horses SET citizenid = ?, bonding = 0, papers_owner = IF(papers = 'none', NULL, ?) WHERE id = ? AND citizenid = ? AND active = 0", { targetCid, ownerName(Target), horseId, giverCid })
         if not changed or changed == 0 then
             if (cfg.fee or 0) > 0 then Player.Functions.AddMoney(Config.PaymentAccount, cfg.fee, 'grumpy-livery-refund') end
             if price > 0 then Target.Functions.AddMoney(Config.PaymentAccount, price, 'grumpy-livery-refund') end
@@ -1621,8 +1685,11 @@ registerCallback('grumpy-livery:server:applyHorseTack', function(source, horseId
             return false, locale('no_tack_changes')
         end
 
-        if total > 0 and not chargePlayer(Player, total) then
-            return false, locale('insufficient_funds')
+        local charged = 0
+        if total > 0 then
+            local paidOk, paid = chargePlayer(Player, total, horse.stable, 'grumpy-livery-tack')
+            if not paidOk then return false, locale('insufficient_funds') end
+            charged = paid
         end
 
         for key, value in pairs(changes) do
@@ -1635,7 +1702,7 @@ registerCallback('grumpy-livery:server:applyHorseTack', function(source, horseId
         else
             MySQL.update.await('UPDATE grumpy_livery_horses SET tack = ? WHERE id = ?', { json.encode(tack), horseId })
         end
-        return true, { tack = tack, charged = total }
+        return true, { tack = tack, charged = charged }
     end)
 end)
 
@@ -1701,8 +1768,10 @@ registerCallback('grumpy-livery:server:applyHorseCoat', function(source, horseId
         end
 
         local price = tonumber(Config.Coat.price) or 0
-        if price > 0 and not chargePlayer(Player, price) then
-            return false, locale('insufficient_funds')
+        if price > 0 then
+            local paidOk, paid = chargePlayer(Player, price, horse.stable, 'grumpy-livery-coat')
+            if not paidOk then return false, locale('insufficient_funds') end
+            price = paid
         end
 
         MySQL.update.await('UPDATE grumpy_livery_horses SET coat = ? WHERE id = ?', { json.encode(coat), horseId })
@@ -1751,7 +1820,8 @@ registerCallback('grumpy-livery:server:startBreeding', function(source, stableNa
             return false, locale('breed_parent_cooldown')
         end
 
-        if not chargePlayer(Player, Config.Breeding.cost) then return false, locale('insufficient_funds') end
+        local paidOk, paid, account = chargePlayer(Player, Config.Breeding.cost, stable, 'grumpy-livery-breeding')
+        if not paidOk then return false, locale('insufficient_funds') end
 
         local readyAt = now + Config.Breeding.time
         local okIns, insertId = pcall(MySQL.insert.await, [[
@@ -1760,7 +1830,7 @@ registerCallback('grumpy-livery:server:startBreeding', function(source, stableNa
         ]], { Player.PlayerData.citizenid, stableName, idA, idB, readyAt })
         if not okIns or not insertId or insertId == 0 then
             -- refund instead of keeping the fee for a breeding that was never saved
-            Player.Functions.AddMoney(Config.PaymentAccount, Config.Breeding.cost, 'grumpy-livery-refund')
+            LiveryMoney.Refund(source, account, paid)
             return false, locale('generic_error')
         end
         if (Config.Breeding.parentCooldown or 0) > 0 then
@@ -1828,6 +1898,9 @@ registerCallback('grumpy-livery:server:collectFoal', function(source, breedingId
         local statMax = Config.BreedStatMax or 10
         local v = cfgB.statVariance or 1
 
+        -- papers: genuine when both parents have papers and the foal is born at a legal stable
+        local foalStable = getStableConfig(job.stable) or { label = job.stable }
+        local foalPapers = (parentA.papers ~= 'none' and parentB.papers ~= 'none' and not isUnderground(foalStable)) and 'genuine' or 'none'
         -- foal takes the model/breed of a random parent
         local foalParent = math.random(1, 2) == 1 and parentA or parentB
 
@@ -1838,14 +1911,15 @@ registerCallback('grumpy-livery:server:collectFoal', function(source, breedingId
         local ok, insertId = pcall(function()
             return MySQL.insert.await([[
                 INSERT INTO grumpy_livery_horses
-                    (citizenid, stable, model, breed_label, gender, name, outfit, tack, health, stamina, speed, accel, handling, maxhealth, alive, insured, active)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 100, 100, ?, ?, ?, ?, 1, 0, 0)
+                    (citizenid, stable, model, breed_label, gender, name, outfit, tack, health, stamina, speed, accel, handling, maxhealth, alive, insured, active, papers, papers_stable, papers_owner)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 100, 100, ?, ?, ?, ?, 1, 0, 0, ?, ?, ?)
             ]], {
                 Player.PlayerData.citizenid, job.stable, foalParent.model, foalParent.breed_label, randomGender(), locale('unnamed_foal'), foalParent.outfit or 0, newHorseTack(),
                 inherit(parentA.speed, parentB.speed, 1, statMax, v),
                 inherit(parentA.accel, parentB.accel, 1, statMax, v),
                 inherit(parentA.handling, parentB.handling, 0, 100, v * 5),
-                inherit(parentA.maxhealth, parentB.maxhealth, 1, statMax, v)
+                inherit(parentA.maxhealth, parentB.maxhealth, 1, statMax, v),
+                foalPapers, foalPapers ~= 'none' and foalStable.label or nil, foalPapers ~= 'none' and ownerName(Player) or nil
             })
         end)
 
@@ -2012,6 +2086,22 @@ local function sellPrice(horse)
     return price, info
 end
 
+-- What this player gets for the horse at the stable it's kept in: the appraisal x standing (market of that livery),
+-- capped at Config.Money.sellCap x what they'd pay for the breed there (plus training, which they paid for).
+-- Legal stables only buy horses with papers. Returns price, info  |  nil, reason
+local function sellQuote(src, horse)
+    local stable = getStableConfig(horse.stable)
+    if not isUnderground(stable) and horse.papers == 'none' then return nil, locale('sell_no_papers') end
+    local base, info = sellPrice(horse)
+    local breed = getBreedConfig(horse.model)
+    local listPrice = breed and tonumber(breed.price) or nil
+    local price, mult, cap = LiveryMoney.SellPrice(src, stable, base - (info.training or 0), listPrice)
+    price = LiveryMoney.Round(math.max(Config.HorseSell.minPrice or 0, price + (info.training or 0)))
+    info.standingMult, info.cap, info.price = mult, cap, price
+    info.account = LiveryMoney.PayoutAccount(stable)
+    return price, info
+end
+
 registerCallback('grumpy-livery:server:getSellPrice', function(source, horseId)
     if not (Config.HorseSell and Config.HorseSell.enabled) then return nil end
     local Player = RSGCore.Functions.GetPlayer(source)
@@ -2019,7 +2109,9 @@ registerCallback('grumpy-livery:server:getSellPrice', function(source, horseId)
     if not Player or not horseId then return nil end
     local horse = MySQL.single.await('SELECT *, ' .. AGE_SQL .. ' FROM grumpy_livery_horses WHERE id = ? AND citizenid = ?', { horseId, Player.PlayerData.citizenid })
     if not horse then return nil end
-    return sellPrice(horse)
+    local price, info = sellQuote(source, horse)
+    if not price then return nil, info end
+    return price, info
 end)
 
 registerCallback('grumpy-livery:server:sellHorse', function(source, horseId)
@@ -2041,12 +2133,13 @@ registerCallback('grumpy-livery:server:sellHorse', function(source, horseId)
         end
         if saddlebagsHaveItems(horseId) then return false, locale('release_saddlebags_not_empty') end
 
-        local price = sellPrice(horse)
+        local price, why = sellQuote(source, horse)
+        if not price then return false, why end
         local deleted = MySQL.update.await('DELETE FROM grumpy_livery_horses WHERE id = ? AND citizenid = ? AND active = 0', { horseId, citizenid })
         if not deleted or deleted == 0 then return false, locale('generic_error') end
         deleteSaddlebags(horseId)
 
-        Player.Functions.AddMoney(Config.PaymentAccount, price, 'grumpy-livery-sell-horse')
+        LiveryMoney.Pay(source, getStableConfig(horse.stable), price, 'grumpy-livery-sell-horse')
         return true, price
     end)
 end)
@@ -2152,7 +2245,7 @@ registerCallback('grumpy-livery:server:startRace', function(source, raceId, hors
         return false, locale('race_cooldown', math.ceil((raceNextAt[key] - now) / 60))
     end
     local fee = math.max(0, math.floor(tonumber(race.entryFee) or 0))
-    if fee > 0 and not chargePlayer(Player, fee) then return false, locale('insufficient_funds') end
+    if fee > 0 and not chargeFlat(Player, fee) then return false, locale('insufficient_funds') end
     raceNextAt[key] = now + (race.cooldown or 600)
     raceRuns[source] = {
         race = race, idx = 0, startedAt = GetGameTimer(), legAt = GetGameTimer(),
@@ -2234,3 +2327,47 @@ if RACES and RACES.enabled and RACES.routeCommand then
     end, 'admin')
 end
 
+
+-- ===================== CHECK PAPERS =====================
+-- The owner shows a horse's papers: the card goes to them and to every player within Config.Papers.showRadius.
+-- Active horse: the owner must be next to it. Stabled horse: the owner must be at its stable.
+-- Forged papers read exactly like genuine ones.
+local papersCooldown = {}
+
+registerCallback('grumpy-livery:server:showPapers', function(source, horseId, horseNetId)
+    local Player = RSGCore.Functions.GetPlayer(source)
+    horseId = toId(horseId)
+    if not Player or not horseId then return false, locale('horse_not_found') end
+    local now = GetGameTimer()
+    if now < (papersCooldown[source] or 0) then return false end
+    papersCooldown[source] = now + 3000
+
+    local cid = Player.PlayerData.citizenid
+    local horse = MySQL.single.await('SELECT *, ' .. AGE_SQL .. ' FROM grumpy_livery_horses WHERE id = ? AND citizenid = ?', { horseId, cid })
+    if not horse then return false, locale('horse_not_found') end
+    if isTrue(horse.active) then
+        local session = activeSessions[cid]
+        if not session or session.horseId ~= horseId or not activeHorseNear(source, session, horseNetId, 6.0) then
+            return false, locale('papers_too_far')
+        end
+    elseif not nearStableByName(source, horse.stable) then
+        return false, locale('not_close_to_stable')
+    end
+
+    local card = {
+        name = horse.name,
+        breed = horse.breed_label,
+        sex = horse.gender and locale(horse.gender == 'male' and 'gender_stallion' or 'gender_mare') or nil,
+        stage = horseStage(horse.age_days) and locale('stage_' .. horseStage(horse.age_days)) or nil,
+        hasPapers = horse.papers ~= 'none',
+        owner = horse.papers_owner or charName(Player),
+        registered = horse.papers_stable,
+        shownBy = charName(Player),
+    }
+    local radius = (Config.Papers and Config.Papers.showRadius) or 5.0
+    TriggerClientEvent('grumpy-livery:client:papersCard', source, card)
+    for _, p in ipairs(nearbyPlayers(source, radius)) do
+        TriggerClientEvent('grumpy-livery:client:papersCard', p.id, card)
+    end
+    return true
+end)

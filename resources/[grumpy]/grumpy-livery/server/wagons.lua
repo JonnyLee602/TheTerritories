@@ -159,7 +159,24 @@ local function lookOf(row)
     return look
 end
 
-local function getOwned(citizenid)
+-- yard each player last opened: owned-wagon lists quote trade-in and repair prices for that yard's market
+local shopOf = {}
+AddEventHandler('playerDropped', function() shopOf[source] = nil end)
+
+-- trade-in at a yard: base value x standing, capped (server/money.lua) and paid in the yard's payout account
+local function tradeIn(src, store, row)
+    local base = sellValue(row)
+    if not src or not store then return base end
+    local data = Config.Wagons[row.model]
+    return (LiveryMoney.SellPrice(src, store, base, data and data.price))
+end
+
+local function repairBase(cond)
+    return math.ceil((100 - cond) * Config.YardRepair.pricePerPercent)
+end
+
+local function getOwned(citizenid, src)
+    local store = src and Config.Stores[shopOf[src]]
     local rows = MySQL.query.await('SELECT id, model, name, wagon_condition, store, active, livery, tint FROM grumpy_livery_wagons WHERE citizenid = ? ORDER BY id', { citizenid }) or {}
     local list = {}
     for _, r in ipairs(rows) do
@@ -177,9 +194,9 @@ local function getOwned(citizenid)
             active = r.active == 1,
             livery = r.livery or -1,
             tint = r.tint or -1,
-            sellValue = sellValue(r),
+            sellValue = tradeIn(src, store, r),
             repairCost = (Config.YardRepair and Config.YardRepair.enabled and r.wagon_condition < 100)
-                and math.ceil((100 - r.wagon_condition) * Config.YardRepair.pricePerPercent) or 0,
+                and (store and LiveryMoney.BuyPrice(src, store, repairBase(r.wagon_condition)) or repairBase(r.wagon_condition)) or 0,
             weight = data and data.weight or 0,
             slots = data and data.slots or 0,
         }
@@ -225,10 +242,11 @@ local function sanitizeName(name, fallback)
 end
 
 -- ===================== CALLBACKS =====================
-RSGCore.Functions.CreateCallback('grumpy-livery:wagons:server:getOwned', function(source, cb)
+RSGCore.Functions.CreateCallback('grumpy-livery:wagons:server:getOwned', function(source, cb, storeKey)
     local Player = RSGCore.Functions.GetPlayer(source)
     if not Player or not dbReady then return cb({}) end
-    cb(getOwned(Player.PlayerData.citizenid))
+    if type(storeKey) == 'string' and Config.Stores[storeKey] then shopOf[source] = storeKey end
+    cb(getOwned(Player.PlayerData.citizenid, source))
 end)
 
 -- buy a wagon: everything worked out from server config
@@ -258,7 +276,8 @@ RSGCore.Functions.CreateCallback('grumpy-livery:wagons:server:buy', function(sou
         return cb(false)
     end
 
-    if not Player.Functions.RemoveMoney(Config.MoneyType, data.price, 'grumpy-livery wagons purchase ' .. model) then
+    local paidOk, paid, account = LiveryMoney.Charge(src, store, data.price, 'grumpy-livery wagons purchase ' .. model)
+    if not paidOk then
         notify(src, locale('sv_no_money'), 'error')
         return cb(false)
     end
@@ -266,14 +285,14 @@ RSGCore.Functions.CreateCallback('grumpy-livery:wagons:server:buy', function(sou
     local id = MySQL.insert.await('INSERT INTO grumpy_livery_wagons (citizenid, model, name, wagon_condition, store, active, livery, tint) VALUES (?, ?, ?, 100, ?, 0, ?, ?)',
         { cid, model, sanitizeName(name, data.label), storeKey, validLivery(model, livery), validTint(model, tint) })
     if not id then
-        Player.Functions.AddMoney(Config.MoneyType, data.price, 'grumpy-livery wagons refund')
+        LiveryMoney.Refund(src, account, paid, 'grumpy-livery wagons refund')
         return cb(false)
     end
 
-    notify(src, locale('sv_bought', data.label, data.price), 'success')
+    notify(src, locale('sv_bought', data.label, paid), 'success')
     TriggerEvent('rsg-log:server:CreateLog', 'shops', 'Wagon Purchased', 'green',
-        ('%s (%s) bought %s for $%s'):format(GetPlayerName(src), cid, model, data.price))
-    cb(true, getOwned(cid))
+        ('%s (%s) bought %s for $%s %s'):format(GetPlayerName(src), cid, model, paid, account))
+    cb(true, getOwned(cid, src))
 end)
 
 -- take a wagon out: returns model + spawn point, client creates the networked vehicle
@@ -296,7 +315,7 @@ RSGCore.Functions.CreateCallback('grumpy-livery:wagons:server:takeOut', function
 
     activeWagons[src] = { id = id, netId = nil, model = row.model, pending = true, look = lookOf(row), condition = row.wagon_condition }
     MySQL.update.await('UPDATE grumpy_livery_wagons SET active = 1, store = ? WHERE id = ?', { storeKey, id })
-    cb(true, { id = id, model = row.model, name = row.name, condition = row.wagon_condition, livery = row.livery or -1, tint = row.tint or -1, coords = store.preview })
+    cb(true, { id = id, model = row.model, name = row.name, condition = row.wagon_condition, livery = row.livery or -1, tint = row.tint or -1, coords = store.spawn or store.preview })
 end)
 
 RegisterNetEvent('grumpy-livery:wagons:server:registerSpawned', function(id, netId)
@@ -365,7 +384,7 @@ local function storeWagon(src, Player, storeKey, condition)
     MySQL.update.await('UPDATE grumpy_livery_wagons SET wagon_condition = ?, store = ? WHERE id = ?', { condition, storeKey, activeWagons[src].id })
     despawnActive(src, true)
     notify(src, locale('sv_stored'), 'success')
-    return getOwned(Player.PlayerData.citizenid)
+    return getOwned(Player.PlayerData.citizenid, src)
 end
 
 -- store from the yard keeper menu
@@ -415,15 +434,15 @@ RSGCore.Functions.CreateCallback('grumpy-livery:wagons:server:sell', function(so
         return fail('sv_store_first')
     end
 
-    local value = sellValue(row)
+    local value = tradeIn(src, Config.Stores[storeKey], row)
     local ok, affected = pcall(MySQL.update.await, 'DELETE FROM grumpy_livery_wagons WHERE id = ? AND citizenid = ?', { id, Player.PlayerData.citizenid })
     if not ok then return fail('sv_try_again', 'delete failed: ' .. tostring(affected)) end
     if not affected or affected < 1 then return fail('sv_try_again', 'delete affected 0 rows') end
-    if value > 0 then Player.Functions.AddMoney(Config.MoneyType, value, 'grumpy-livery wagons trade-in') end
+    if value > 0 then LiveryMoney.Pay(src, Config.Stores[storeKey], value, 'grumpy-livery wagons trade-in') end
     pcall(function() exports['rsg-inventory']:ClearStash('wagon_' .. id) end)
 
     notify(src, locale('sv_sold', row.name, value), 'success')
-    cb(true, getOwned(Player.PlayerData.citizenid))
+    cb(true, getOwned(Player.PlayerData.citizenid, src))
 end)
 
 -- rename an owned wagon
@@ -436,7 +455,7 @@ RSGCore.Functions.CreateCallback('grumpy-livery:wagons:server:rename', function(
     if not id or not clean then return cb(false) end
     local affected = MySQL.update.await('UPDATE grumpy_livery_wagons SET name = ? WHERE id = ? AND citizenid = ?', { clean, id, Player.PlayerData.citizenid })
     if not affected or affected < 1 then return cb(false) end
-    cb(true, getOwned(Player.PlayerData.citizenid))
+    cb(true, getOwned(Player.PlayerData.citizenid, source))
 end)
 
 -- ===================== SEND AWAY / CALL =====================
@@ -569,14 +588,14 @@ RSGCore.Functions.CreateCallback('grumpy-livery:wagons:server:yardRepair', funct
         return cb(false)
     end
     if row.wagon_condition >= 100 then return cb(false) end
-    local price = math.ceil((100 - row.wagon_condition) * Config.YardRepair.pricePerPercent)
-    if price > 0 and not Player.Functions.RemoveMoney(Config.MoneyType, price, 'grumpy-livery wagons yard repair') then
+    local paidOk, price = LiveryMoney.Charge(src, Config.Stores[storeKey], repairBase(row.wagon_condition), 'grumpy-livery wagons yard repair')
+    if not paidOk then
         notify(src, locale('sv_repair_no_money'), 'error')
         return cb(false)
     end
     MySQL.update.await('UPDATE grumpy_livery_wagons SET wagon_condition = 100 WHERE id = ?', { id })
     notify(src, locale('sv_repaired', price), 'success')
-    cb(true, getOwned(Player.PlayerData.citizenid))
+    cb(true, getOwned(Player.PlayerData.citizenid, src))
 end)
 
 -- ===================== HUNTING CART (stow carcasses, sell the load) =====================

@@ -166,6 +166,8 @@
       <div id="hcActions" class="hc-actions"></div>
     </div>
   </div>
+  <!-- grumpy-livery: horse papers card (Check Papers) -->
+  <div id="papersCard" class="papers-card hidden"></div>
 </div>
 
 <!-- ===================== WAGONS (from rsg-wagons) ===================== -->
@@ -183,6 +185,12 @@
       <button id="wg-closeBtn" class="seal-btn" data-i18n-title="ui_close" title="Close">&#10005;</button>
     </header>
     <div class="panel-divider"><span>&#10022;</span></div>
+
+    <div id="wg-payment" class="chips pay-toggle hidden">
+      <span class="pay-label" data-i18n="ui_paying_with">Paying with</span>
+      <button class="chip" data-pay="cash"><i class="fa-solid fa-sack-dollar"></i><span data-i18n="ui_pay_cash">Cash</span></button>
+      <button class="chip" data-pay="bloodmoney"><i class="fa-solid fa-droplet"></i><span data-i18n="ui_pay_bloodmoney">Blood money</span></button>
+    </div>
 
     <nav class="tabs">
       <button class="tab active" data-tab="shop"><i class="fa-solid fa-store"></i> <span data-i18n="ui_for_sale">For Sale</span></button>
@@ -322,6 +330,7 @@
 <script src="horsecard.js"></script>
 <script src="training.js"></script>
 <script src="actions.js"></script>
+<script src="papers.js"></script>
 <script src="wagons.js"></script>
 <script src="wagons-drag.js"></script>
 </body>
