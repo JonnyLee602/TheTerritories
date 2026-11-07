@@ -4,6 +4,7 @@
 # (brackets escaped: unescaped [..] is a glob character class in .gitignore)
 \[mapmods\]/
 \[maps\]/
+\[mlos\]/
 \[paid\]/
 # Tebex/CFX escrow marker: any resource holding one is a paid, encrypted resource
 *.fxap
