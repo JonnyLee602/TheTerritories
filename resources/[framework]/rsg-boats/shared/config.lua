@@ -97,5 +97,6 @@ Config.AutoInstallDB = true -- create/update tables automatically on resource st
 
 -- boats added on first install only (rowboat: femga/rdr3_discoveries vehicles_list 0x9FD6BA58)
 Config.DefaultBoats = {
-    { model = 'rowboat', label = 'Rowboat', description = 'A sturdy wooden rowboat for rivers and bayous.', price = 75, slots = 10, weight = 50000 },
+    { model = 'rowboat', label = 'Rowboat', description = 'A sturdy wooden rowboat for rivers and bayous.', price = 15, -- [Territories] doctrine: $10-20, about a working horse
+      slots = 10, weight = 50000 },
 }

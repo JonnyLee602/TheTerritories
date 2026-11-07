@@ -23,7 +23,7 @@ Config.FieldRepair = {
 -- yard repair: back to 100% at any wagon yard (My Wagons -> Repair), priced by damage
 Config.YardRepair = {
     enabled         = true,
-    pricePerPercent = 0.5,        -- $ per missing condition % (a wreck at 0% costs $50)
+    pricePerPercent = 0.05,       -- $ per missing condition % (a wreck at 0% costs $5) [Territories] doctrine scale
 }
 
 -- call / send away (like horses)
@@ -121,48 +121,50 @@ Config.Categories = {
 -- tier mirrors the fence's wagon class: 1 light, 2 medium, 3 large, 4 tanker.
 -- weight is storage in kg, slots is storage slots, seats is shown in the UI only.
 -- stores (optional) = { 'valentine', ... } limits a wagon to those yards.
+-- [Territories] doctrine pricing (doctrine/pricing.md, scaled from the $15-35 working horse):
+-- carts $10-20, wagons / heavy $15-35, buggies $25-45, coaches $65-130. No armed (gatling / cannon) wagons are sold.
 Config.Wagons = {
     -- Carts
-    cart01 = { label = 'Light Peasant Cart',    category = 'carts', price = 25,  weight = 400, slots = 35, seats = 2, tier = 1, description = 'A simple two-wheeled cart for short hauls around town.' },
-    cart02 = { label = 'Peasant Cart with Sides', category = 'carts', price = 30, weight = 450, slots = 40, seats = 2, tier = 1, description = 'Raised sides keep your load from spilling on rough roads.' },
-    cart03 = { label = 'Small Market Cart',     category = 'carts', price = 22,  weight = 360, slots = 30, seats = 2, tier = 1, description = 'Light and nimble, ideal for market traders.' },
-    cart04 = { label = 'Compact Farm Cart',     category = 'carts', price = 28,  weight = 430, slots = 38, seats = 2, tier = 1, description = 'A sturdy little cart built for farm work.' },
-    cart06 = { label = 'General Cargo Cart',    category = 'carts', price = 60,  weight = 790, slots = 70, seats = 2, tier = 1, description = 'The biggest of the carts, built to carry crates and sacks.' },
-    cart07 = { label = "Farmer's Cart",         category = 'carts', price = 32,  weight = 475, slots = 42, seats = 2, tier = 1, description = 'A dependable cart favoured by homesteaders.' },
-    cart08 = { label = 'Rural Utility Cart',    category = 'carts', price = 38,  weight = 520, slots = 46, seats = 2, tier = 1, description = 'A versatile cart for the countryside.' },
-    huntercart01 = { label = 'Hunting Cart', category = 'carts', price = 150, weight = 300, slots = 25, seats = 2, tier = 1, description = 'A hunter\'s cart with a pelt tarp. Stow up to 20 carcasses and sell the whole load at a butcher.' },
+    cart01 = { label = 'Light Peasant Cart',    category = 'carts', price = 11,  weight = 400, slots = 35, seats = 2, tier = 1, description = 'A simple two-wheeled cart for short hauls around town.' },
+    cart02 = { label = 'Peasant Cart with Sides', category = 'carts', price = 13, weight = 450, slots = 40, seats = 2, tier = 1, description = 'Raised sides keep your load from spilling on rough roads.' },
+    cart03 = { label = 'Small Market Cart',     category = 'carts', price = 10,  weight = 360, slots = 30, seats = 2, tier = 1, description = 'Light and nimble, ideal for market traders.' },
+    cart04 = { label = 'Compact Farm Cart',     category = 'carts', price = 12,  weight = 430, slots = 38, seats = 2, tier = 1, description = 'A sturdy little cart built for farm work.' },
+    cart06 = { label = 'General Cargo Cart',    category = 'carts', price = 18,  weight = 790, slots = 70, seats = 2, tier = 1, description = 'The biggest of the carts, built to carry crates and sacks.' },
+    cart07 = { label = "Farmer's Cart",         category = 'carts', price = 14,  weight = 475, slots = 42, seats = 2, tier = 1, description = 'A dependable cart favoured by homesteaders.' },
+    cart08 = { label = 'Rural Utility Cart',    category = 'carts', price = 15,  weight = 520, slots = 46, seats = 2, tier = 1, description = 'A versatile cart for the countryside.' },
+    huntercart01 = { label = 'Hunting Cart', category = 'carts', price = 20, weight = 300, slots = 25, seats = 2, tier = 1, description = 'A hunter\'s cart with a pelt tarp. Stow up to 20 carcasses and sell the whole load at a butcher.' },
 
     -- Buggies
-    buggy01 = { label = 'Two-Seat Buggy',       category = 'buggies', price = 90,  weight = 120, slots = 10, seats = 2, tier = 1, description = 'A fast, light buggy for getting about in style.' },
-    buggy02 = { label = 'Hooded Buggy',         category = 'buggies', price = 110, weight = 120, slots = 10, seats = 2, tier = 1, description = 'A buggy with a folding hood to keep off the rain.' },
-    buggy03 = { label = 'Sport Buggy',          category = 'buggies', price = 130, weight = 100, slots = 8,  seats = 2, tier = 1, description = 'Built for speed, not for cargo.' },
+    buggy01 = { label = 'Two-Seat Buggy',       category = 'buggies', price = 25,  weight = 120, slots = 10, seats = 2, tier = 1, description = 'A fast, light buggy for getting about in style.' },
+    buggy02 = { label = 'Hooded Buggy',         category = 'buggies', price = 35, weight = 120, slots = 10, seats = 2, tier = 1, description = 'A buggy with a folding hood to keep off the rain.' },
+    buggy03 = { label = 'Sport Buggy',          category = 'buggies', price = 45, weight = 100, slots = 8,  seats = 2, tier = 1, description = 'Built for speed, not for cargo.' },
 
     -- Wagons
-    wagon02x = { label = 'Standard Camping Wagon',  category = 'wagons', price = 40, weight = 560, slots = 50, seats = 2, tier = 3, description = 'A covered wagon for life on the trail.' },
-    wagon03x = { label = 'Reinforced Camping Wagon', category = 'wagons', price = 50, weight = 600, slots = 60, seats = 2, tier = 3, description = 'A camp wagon with a reinforced frame.' },
-    wagon04x = { label = 'Light Farm Wagon',        category = 'wagons', price = 35, weight = 500, slots = 45, seats = 2, tier = 3, description = 'An open wagon for hauling feed and tools.' },
-    wagon05x = { label = 'Open Utility Wagon',      category = 'wagons', price = 45, weight = 635, slots = 55, seats = 2, tier = 3, description = 'A no-frills open wagon that carries a good load.' },
-    wagon06x = { label = 'Covered Supply Wagon',    category = 'wagons', price = 55, weight = 725, slots = 65, seats = 2, tier = 3, description = 'Canvas covered and roomy, ready for long journeys.' },
-    utilliwag = { label = 'Buckboard',              category = 'wagons', price = 30, weight = 450, slots = 40, seats = 2, tier = 3, description = 'A low, light buckboard wagon.' },
-    chuckwagon000x = { label = 'Chuckwagon',        category = 'wagons', price = 80, weight = 860, slots = 75, seats = 2, tier = 2, description = 'A kitchen on wheels for camps and cattle drives.' },
-    chuckwagon002x = { label = 'Tool Cargo Wagon',  category = 'wagons', price = 65, weight = 815, slots = 70, seats = 2, tier = 2, description = 'Packed with racks for tools and supplies.' },
-    wagondairy01x = { label = 'Dairy Wagon',        category = 'wagons', price = 70, weight = 700, slots = 40, seats = 2, tier = 2, description = 'A delivery wagon built for milk churns.' },
+    wagon02x = { label = 'Standard Camping Wagon',  category = 'wagons', price = 19, weight = 560, slots = 50, seats = 2, tier = 3, description = 'A covered wagon for life on the trail.' },
+    wagon03x = { label = 'Reinforced Camping Wagon', category = 'wagons', price = 23, weight = 600, slots = 60, seats = 2, tier = 3, description = 'A camp wagon with a reinforced frame.' },
+    wagon04x = { label = 'Light Farm Wagon',        category = 'wagons', price = 17, weight = 500, slots = 45, seats = 2, tier = 3, description = 'An open wagon for hauling feed and tools.' },
+    wagon05x = { label = 'Open Utility Wagon',      category = 'wagons', price = 21, weight = 635, slots = 55, seats = 2, tier = 3, description = 'A no-frills open wagon that carries a good load.' },
+    wagon06x = { label = 'Covered Supply Wagon',    category = 'wagons', price = 25, weight = 725, slots = 65, seats = 2, tier = 3, description = 'Canvas covered and roomy, ready for long journeys.' },
+    utilliwag = { label = 'Buckboard',              category = 'wagons', price = 15, weight = 450, slots = 40, seats = 2, tier = 3, description = 'A low, light buckboard wagon.' },
+    chuckwagon000x = { label = 'Chuckwagon',        category = 'wagons', price = 35, weight = 860, slots = 75, seats = 2, tier = 2, description = 'A kitchen on wheels for camps and cattle drives.' },
+    chuckwagon002x = { label = 'Tool Cargo Wagon',  category = 'wagons', price = 29, weight = 815, slots = 70, seats = 2, tier = 2, description = 'Packed with racks for tools and supplies.' },
+    wagondairy01x = { label = 'Dairy Wagon',        category = 'wagons', price = 31, weight = 700, slots = 40, seats = 2, tier = 2, description = 'A delivery wagon built for milk churns.' },
 
     -- Coaches
-    coach2 = { label = 'Town Coach',               category = 'coaches', price = 200, weight = 300, slots = 25, seats = 6, tier = 2, description = 'An elegant coach for city folk.' },
-    coach3 = { label = 'Covered Coach',            category = 'coaches', price = 220, weight = 300, slots = 25, seats = 6, tier = 2, description = 'A fully enclosed coach for comfortable travel.' },
-    coach4 = { label = 'Open Coach',               category = 'coaches', price = 180, weight = 300, slots = 25, seats = 6, tier = 2, description = 'Open air travel for the whole family.' },
-    coach5 = { label = 'Gentleman\'s Coach',       category = 'coaches', price = 260, weight = 300, slots = 25, seats = 6, tier = 2, description = 'A finely trimmed coach for those with means.' },
-    coach6 = { label = 'Luxury Coach',             category = 'coaches', price = 300, weight = 300, slots = 25, seats = 6, tier = 2, description = 'The finest coach money can buy.' },
-    stagecoach001x = { label = 'Stagecoach',       category = 'coaches', price = 240, weight = 450, slots = 40, seats = 8, tier = 3, description = 'A classic overland stagecoach with roof rack.' },
-    stagecoach002x = { label = 'Painted Stagecoach', category = 'coaches', price = 250, weight = 450, slots = 40, seats = 8, tier = 3, description = 'A brightly painted stagecoach.' },
-    stagecoach003x = { label = 'Mail Stagecoach',  category = 'coaches', price = 260, weight = 500, slots = 45, seats = 8, tier = 3, description = 'Built to carry passengers and the mail.' },
-    stagecoach005x = { label = 'Armoured Stagecoach', category = 'coaches', price = 320, weight = 500, slots = 45, seats = 8, tier = 3, description = 'Strongbox and plating for valuable cargo.' },
-    stagecoach006x = { label = 'Frontier Stagecoach', category = 'coaches', price = 280, weight = 500, slots = 45, seats = 8, tier = 3, description = 'Tough enough for the roughest trails.' },
+    coach2 = { label = 'Town Coach',               category = 'coaches', price = 75, weight = 300, slots = 25, seats = 6, tier = 2, description = 'An elegant coach for city folk.' },
+    coach3 = { label = 'Covered Coach',            category = 'coaches', price = 80, weight = 300, slots = 25, seats = 6, tier = 2, description = 'A fully enclosed coach for comfortable travel.' },
+    coach4 = { label = 'Open Coach',               category = 'coaches', price = 65, weight = 300, slots = 25, seats = 6, tier = 2, description = 'Open air travel for the whole family.' },
+    coach5 = { label = 'Gentleman\'s Coach',       category = 'coaches', price = 100, weight = 300, slots = 25, seats = 6, tier = 2, description = 'A finely trimmed coach for those with means.' },
+    coach6 = { label = 'Luxury Coach',             category = 'coaches', price = 120, weight = 300, slots = 25, seats = 6, tier = 2, description = 'The finest coach money can buy.' },
+    stagecoach001x = { label = 'Stagecoach',       category = 'coaches', price = 90, weight = 450, slots = 40, seats = 8, tier = 3, description = 'A classic overland stagecoach with roof rack.' },
+    stagecoach002x = { label = 'Painted Stagecoach', category = 'coaches', price = 95, weight = 450, slots = 40, seats = 8, tier = 3, description = 'A brightly painted stagecoach.' },
+    stagecoach003x = { label = 'Mail Stagecoach',  category = 'coaches', price = 100, weight = 500, slots = 45, seats = 8, tier = 3, description = 'Built to carry passengers and the mail.' },
+    stagecoach005x = { label = 'Armoured Stagecoach', category = 'coaches', price = 130, weight = 500, slots = 45, seats = 8, tier = 3, description = 'Strongbox and plating for valuable cargo.' },
+    stagecoach006x = { label = 'Frontier Stagecoach', category = 'coaches', price = 110, weight = 500, slots = 45, seats = 8, tier = 3, description = 'Tough enough for the roughest trails.' },
 
     -- Heavy
-    supplywagon = { label = 'Large Supply Wagon',  category = 'heavy', price = 130, weight = 1700, slots = 100, seats = 2, tier = 3, description = 'A true freight wagon for serious hauling.' },
-    logwagon    = { label = 'Log Hauling Wagon',   category = 'heavy', price = 65,  weight = 1700, slots = 5,   seats = 2, tier = 2, description = 'Long bed for timber; few slots but heavy capacity.' },
-    oilwagon01x = { label = 'Oil Tanker Wagon',    category = 'heavy', price = 85,  weight = 860,  slots = 8,   seats = 2, tier = 4, description = 'A tanker for oil and other liquids.' },
-    cart05      = { label = 'Water Tank Wagon',    category = 'heavy', price = 70,  weight = 900,  slots = 10,  seats = 2, tier = 1, description = 'Carries water out to farms and camps.' },
+    supplywagon = { label = 'Large Supply Wagon',  category = 'heavy', price = 35, weight = 1700, slots = 100, seats = 2, tier = 3, description = 'A true freight wagon for serious hauling.' },
+    logwagon    = { label = 'Log Hauling Wagon',   category = 'heavy', price = 25,  weight = 1700, slots = 5,   seats = 2, tier = 2, description = 'Long bed for timber; few slots but heavy capacity.' },
+    oilwagon01x = { label = 'Oil Tanker Wagon',    category = 'heavy', price = 30,  weight = 860,  slots = 8,   seats = 2, tier = 4, description = 'A tanker for oil and other liquids.' },
+    cart05      = { label = 'Water Tank Wagon',    category = 'heavy', price = 27,  weight = 900,  slots = 10,  seats = 2, tier = 1, description = 'Carries water out to farms and camps.' },
 }

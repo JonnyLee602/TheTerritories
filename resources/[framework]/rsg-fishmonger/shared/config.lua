@@ -89,18 +89,19 @@ Config.DailyStock = {
 Config.Shop = {
     enabled         = true,
     persistentStock = false,
+    -- [Territories] bait prices match the Fish Supply NPC shops (rsg-stores); lures $0.40-0.50 (doctrine scale)
     items = {
-        { name = 'p_baitbread01x',     price = 0.10, amount = 100 },
-        { name = 'p_baitcorn01x',      price = 0.10, amount = 100 },
-        { name = 'p_baitcheese01x',    price = 0.15, amount = 100 },
-        { name = 'p_baitworm01x',      price = 0.20, amount = 100 },
-        { name = 'p_baitcricket01x',   price = 0.25, amount = 100 },
-        { name = 'p_crawdad01x',       price = 0.35, amount = 50 },
-        { name = 'p_finishedragonfly01x', price = 1.50, amount = 20 },
-        { name = 'p_finisdfishlure01x',   price = 1.50, amount = 20 },
-        { name = 'p_finishdcrawd01x',     price = 1.50, amount = 20 },
-        { name = 'p_lgoc_spinner_v4',     price = 2.50, amount = 10 },
-        { name = 'p_lgoc_spinner_v6',     price = 2.50, amount = 10 },
+        { name = 'p_baitbread01x',     price = 0.05, amount = 100 },
+        { name = 'p_baitcorn01x',      price = 0.07, amount = 100 },
+        { name = 'p_baitcheese01x',    price = 0.10, amount = 100 },
+        { name = 'p_baitworm01x',      price = 0.05, amount = 100 },
+        { name = 'p_baitcricket01x',   price = 0.20, amount = 100 },
+        { name = 'p_crawdad01x',       price = 0.50, amount = 50 },
+        { name = 'p_finishedragonfly01x', price = 0.40, amount = 20 },
+        { name = 'p_finisdfishlure01x',   price = 0.40, amount = 20 },
+        { name = 'p_finishdcrawd01x',     price = 0.40, amount = 20 },
+        { name = 'p_lgoc_spinner_v4',     price = 0.50, amount = 10 },
+        { name = 'p_lgoc_spinner_v6',     price = 0.50, amount = 10 },
     },
 }
 

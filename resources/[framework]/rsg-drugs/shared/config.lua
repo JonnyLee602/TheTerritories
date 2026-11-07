@@ -52,12 +52,14 @@ Config.AutoFeedBelow = 50    -- staff eat/drink from the pantry under this value
 Config.UnpaidStrikeTicks = 3 -- missed paydays before going on strike
 
 -- skill 1-5: production per tick and wage per tick
+-- [Territories] wages, hire fee and sale prices are 1/10 of RSG's (doctrine/pricing.md), so a lab earns the same
+-- share as before at an 1890s scale.
 Config.Skill = {
-    [1] = { rate = 0.5, wage = 0.10, label = locale('cfg_skill_1') },
-    [2] = { rate = 1.0, wage = 0.20, label = locale('cfg_skill_2') },
-    [3] = { rate = 1.5, wage = 0.30, label = locale('cfg_skill_3') },
-    [4] = { rate = 2.0, wage = 0.45, label = locale('cfg_skill_4') },
-    [5] = { rate = 3.0, wage = 0.65, label = locale('cfg_skill_5') },
+    [1] = { rate = 0.5, wage = 0.01, label = locale('cfg_skill_1') },
+    [2] = { rate = 1.0, wage = 0.02, label = locale('cfg_skill_2') },
+    [3] = { rate = 1.5, wage = 0.03, label = locale('cfg_skill_3') },
+    [4] = { rate = 2.0, wage = 0.05, label = locale('cfg_skill_4') },
+    [5] = { rate = 3.0, wage = 0.07, label = locale('cfg_skill_5') },
 }
 
 Config.Roles = {
@@ -66,7 +68,7 @@ Config.Roles = {
     packer    = { label = locale('cfg_role_packer') }, -- uses processed weed; output set per packer (Config.Packing)
 }
 
-Config.HireFee        = 5.0   -- one-off signing fee
+Config.HireFee        = 0.50  -- one-off signing fee [Territories]
 Config.CandidateCount = 6
 Config.CandidateRefreshMinutes = 30
 

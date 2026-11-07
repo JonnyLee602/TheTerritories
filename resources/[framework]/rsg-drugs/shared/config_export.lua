@@ -7,7 +7,7 @@ Config.Export = {
     Enabled  = true,
     MinLevel = 5,          -- drug XP level needed (5 = Distributor, 6 = Kingpin)
     Item     = 'weed_brick',
-    MoneyType = 'cash',    -- 'cash' or 'bloodmoney'
+    MoneyType = 'bloodmoney', -- 'cash' or 'bloodmoney' [Territories] doctrine: criminal income is dirty money
 
     NPC = {
         -- default: Van Horn (from rsg-shops 'gen-vanhorn'). That is the store keeper's spot, MOVE THIS to a quiet dock/back alley.
@@ -19,8 +19,9 @@ Config.Export = {
     },
 
     -- price per brick = MaxPrice at an empty market, sliding down to MinPrice at Saturation bricks held
-    MaxPrice   = 3000,
-    MinPrice   = 800,
+    -- [Territories] doctrine: a brick (1,000 bags) tops out at the $250 tier-8 illegal payout
+    MaxPrice   = 250,
+    MinPrice   = 80,
     Saturation = 40,       -- bricks in the buyer's stock that count as "flooded"
     Curve      = 1.4,      -- >1 = price holds up early then drops faster as it floods
 

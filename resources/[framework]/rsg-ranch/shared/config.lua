@@ -38,19 +38,19 @@ Config.RanchStorageMaxSlots = 100
 Config.RanchStorageSizes = {
     small = {
         label = locale('cfg_storage_small'),
-        price = 3000,
+        price = 100, -- [Territories] doctrine: top of the $50-150 ranch storage band
         slots = 25,
         maxweight = 2500000,
     },
     medium = {
         label = locale('cfg_storage_medium'),
-        price = 6000,
+        price = 125, -- [Territories] doctrine: ranch storage band $50-150
         slots = 50,
         maxweight = 5000000,
     },
     large = {
         label = locale('cfg_storage_large'),
-        price = 10000,
+        price = 150, -- [Territories] doctrine: ranch storage band $50-150
         slots = 100,
         maxweight = 10000000,
     },
@@ -572,7 +572,7 @@ Config.RanchLocations = {
         blipscale = 0.2,
         showblip = true,
         spawnpoint = vector4(-2425.51, -2367.51, 61.18, 82.40),
-        price = 5000
+        price = 3000 -- [Territories] doctrine: top of the $1,500-3,000 Enterprise business band
     },
     {
         name = 'Emerald Ranch',
@@ -586,7 +586,7 @@ Config.RanchLocations = {
         blipscale = 0.2,
         showblip = true,
         spawnpoint = vector4(1400.58, 290.48, 88.57, 19.79),
-        price = 5000
+        price = 3000 -- [Territories] doctrine: top of the $1,500-3,000 Enterprise business band
     },
     {
         name = 'Pronghorn Ranch',
@@ -600,7 +600,7 @@ Config.RanchLocations = {
         blipscale = 0.2,
         showblip = true,
         spawnpoint = vector4(-2545.45, 421.62, 148.24, 190.00),
-        price = 5000
+        price = 3000 -- [Territories] doctrine: top of the $1,500-3,000 Enterprise business band
     },
     {
         name = 'Downes Ranch',
@@ -614,7 +614,7 @@ Config.RanchLocations = {
         blipscale = 0.2,
         showblip = true,
         spawnpoint = vector4(-854.62, 319.46, 95.67, 351.60),
-        price = 5000
+        price = 3000 -- [Territories] doctrine: top of the $1,500-3,000 Enterprise business band
     },
     {
         name = 'Hill Haven Ranch',
@@ -628,7 +628,7 @@ Config.RanchLocations = {
         blipscale = 0.2,
         showblip = true,
         spawnpoint = vector4(1373.20, -845.12, 70.56, 301.98),
-        price = 5000
+        price = 3000 -- [Territories] doctrine: top of the $1,500-3,000 Enterprise business band
     },
     {
         name = 'Hanging Dog Ranch',
@@ -642,7 +642,7 @@ Config.RanchLocations = {
         blipscale = 0.2,
         showblip = true,
         spawnpoint = vector4(-2243.28, 717.42, 122.48, 296.03),
-        price = 5000
+        price = 3000 -- [Territories] doctrine: top of the $1,500-3,000 Enterprise business band
     }
 }
 
@@ -654,12 +654,12 @@ Config.OrderSupplies = {
     MaxAmountPerOrder = 10, -- max quantity of a single item a staff member can order at once
     MaxPendingOrdersPerRanch = 30, -- max total order rows (across all items/staff) a ranch can have queued/awaiting collection
     Items = {
-        { item = 'ranch_wellpump', label = locale('cfg_supply_wellpump'),    price = 50,  deliveryTime = 1800 },  -- 30 minutes
-        { item = 'watertrough',    label = locale('cfg_supply_watertrough'), price = 50,  deliveryTime = 1800 },  -- 30 minutes
-        { item = 'feedtrough',     label = locale('cfg_supply_feedtrough'),  price = 50,  deliveryTime = 1800 },  -- 30 minutes
-        { item = 'chickencoop',    label = locale('cfg_supply_chickencoop'), price = 100, deliveryTime = 1800 },  -- 30 minutes
-        { item = 'feedbag',        label = locale('cfg_supply_feedbag'),     price = 5,   deliveryTime = 600 },   -- 10 minutes
-        { item = 'bucket',         label = locale('cfg_supply_bucket'),       price = 10,  deliveryTime = 600 },   -- 10 minutes
+        { item = 'ranch_wellpump', label = locale('cfg_supply_wellpump'),    price = 2.00, deliveryTime = 1800 },  -- 30 minutes ([Territories] doctrine: farm fixtures $1.50-2)
+        { item = 'watertrough',    label = locale('cfg_supply_watertrough'), price = 1.50, deliveryTime = 1800 },  -- 30 minutes
+        { item = 'feedtrough',     label = locale('cfg_supply_feedtrough'),  price = 1.50, deliveryTime = 1800 },  -- 30 minutes
+        { item = 'chickencoop',    label = locale('cfg_supply_chickencoop'), price = 2.00, deliveryTime = 1800 },  -- 30 minutes
+        { item = 'feedbag',        label = locale('cfg_supply_feedbag'),     price = 0.25, deliveryTime = 600 },   -- 10 minutes
+        { item = 'bucket',         label = locale('cfg_supply_bucket'),       price = 0.20, deliveryTime = 600 },   -- 10 minutes (matches the general store bucket)
     },
     ORDER_ID_MIN = 100000,
     ORDER_ID_MAX = 999999,

@@ -45,135 +45,137 @@ Config.DogPetAttributes = {
 ---------------------------------
 -- Dog Breeds (for shop)
 ---------------------------------
+-- [Territories] doctrine pricing: pets are luxury goods, $30 minimum, up to $75 for dogs
+-- (doctrine/pricing.md; the $125-250 elite-horse band stays above them).
 Config.Dogs = {
     {
-        Text = "$200 - Husky",
+        Text = "$75 - Husky",
         SubText = "",
         Desc = locale('dogdesc_husky'),
         Name = locale('dogname_husky'),
         img = 'animal_dog_husky.png',
         Param = {
-            Price = 200,
+            Price = 75,
             Model = "A_C_DogHusky_01",
             Level = 1
         }
     },
     {
-        Text = "$50 - Mutt",
+        Text = "$38 - Mutt",
         SubText = "",
         Desc = locale('dogdesc_mutt'),
         Name = locale('dogname_mutt'),
         img = 'animal_dog_catahoularcur.png',
         Param = {
-            Price = 50,
+            Price = 38,
             Model = "A_C_DogCatahoulaCur_01",
             Level = 1
         }
     },
     {
-        Text = "$100 - Labrador Retriever",
+        Text = "$50 - Labrador Retriever",
         SubText = "",
         Desc = locale('dogdesc_labrador'),
         Name = locale('dogname_labrador'),
         img = 'animal_dog_lab.png',
         Param = {
-            Price = 100,
+            Price = 50,
             Model = "A_C_DogLab_01",
             Level = 1
         }
     },
     {
-        Text = "$100 - Chesapeake Bay Retriever",
+        Text = "$50 - Chesapeake Bay Retriever",
         SubText = "",
         Desc = locale('dogdesc_rufus'),
         Name = locale('dogname_rufus'),
         img = 'animal_dog_chesbayretriever.png',
         Param = {
-            Price = 100,
+            Price = 50,
             Model = "A_C_DogRufus_01",
             Level = 1
         }
     },
     {
-        Text = "$150 - Blue Tick Coon Hound",
+        Text = "$63 - Blue Tick Coon Hound",
         SubText = "",
         Desc = locale('dogdesc_coonhound'),
         Name = locale('dogname_coonhound'),
         img = 'animal_dog_bluetickcoonhound.png',
         Param = {
-            Price = 150,
+            Price = 63,
             Model = "A_C_DogBluetickCoonhound_01",
             Level = 1
         }
     },
     {
-        Text = "$150 - Hound Dog",
+        Text = "$63 - Hound Dog",
         SubText = "",
         Desc = locale('dogdesc_hound'),
         Name = locale('dogname_hound'),
         img = 'animal_dog_hound.png',
         Param = {
-            Price = 150,
+            Price = 63,
             Model = "A_C_DogHound_01",
             Level = 1
         }
     },
     {
-        Text = "$200 - Border Collie",
+        Text = "$75 - Border Collie",
         SubText = "",
         Desc = locale('dogdesc_collie'),
         Name = locale('dogname_collie'),
         img = 'animal_dog_collie.png',
         Param = {
-            Price = 200,
+            Price = 75,
             Model = "A_C_DogCollie_01",
             Level = 1
         }
     },
     {
-        Text = "$200 - Poodle",
+        Text = "$75 - Poodle",
         SubText = "",
         Desc = locale('dogdesc_poodle'),
         Name = locale('dogname_poodle'),
         img = 'animal_dog_poodle.png',
         Param = {
-            Price = 200,
+            Price = 75,
             Model = "A_C_DogPoodle_01",
             Level = 1
         }
     },
     {
-        Text = "$100 - American Fox Hound",
+        Text = "$50 - American Fox Hound",
         SubText = "",
         Desc = locale('dogdesc_foxhound'),
         Name = locale('dogname_foxhound'),
         img = 'animal_dog_americanfoxhound.png',
         Param = {
-            Price = 100,
+            Price = 50,
             Model = "A_C_DogAmericanFoxhound_01",
             Level = 1
         }
     },
     {
-        Text = "$100 - Australian Shepherd",
+        Text = "$50 - Australian Shepherd",
         SubText = "",
         Desc = locale('dogdesc_aussie'),
         Name = locale('dogname_aussie'),
         img = 'animal_dog_australianshepherd.png',
         Param = {
-            Price = 100,
+            Price = 50,
             Model = "A_C_DogAustralianSheperd_01",
             Level = 1
         }
     },
     {
-        Text = "$75 - Street Dog",
+        Text = "$44 - Street Dog",
         SubText = "",
         Desc = locale('dogdesc_streetdog'),
         Name = locale('dogname_streetdog'),
         img = 'animal_dog_street.png',
         Param = {
-            Price = 75,
+            Price = 44,
             Model = "A_C_DogHobo_01",
             Level = 1
         }

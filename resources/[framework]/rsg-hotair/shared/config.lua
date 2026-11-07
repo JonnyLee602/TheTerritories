@@ -4,7 +4,7 @@ Config = {}
 Config.Model = 'hotAirBalloon01'
 
 -- Flat hire fee (cash). No timers, no cooldowns, no fuel.
-Config.HirePrice = 50
+Config.HirePrice = 5 -- [Territories] doctrine: $5 a ride
 
 -- Balloon basket seats (offsets relative to the balloon entity)
 -- pilot uses the driver seat (-1), passengers attach at these offsets

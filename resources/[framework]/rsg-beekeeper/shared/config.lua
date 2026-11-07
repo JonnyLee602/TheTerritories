@@ -69,13 +69,14 @@ Config.ProximityBuffer = 3.0
 -- NOTE: prop must be a plain string (the model name), not a backtick hash
 -- literal -- it gets hashed client-side with joaat() and also round-trips
 -- through the database as text, so it needs to stay a string the whole way.
+-- [Territories] doctrine: a bee house is a small farm business, $50 each
 Config.BeeHiveProps = {
-    { prop = 'bee_house_gk_1', item = 'beehive_gk_1', label = 'Bee House (Style 1)', price = 250 },
-    { prop = 'bee_house_gk_2', item = 'beehive_gk_2', label = 'Bee House (Style 2)', price = 250 },
-    { prop = 'bee_house_gk_3', item = 'beehive_gk_3', label = 'Bee House (Style 3)', price = 250 },
-    { prop = 'bee_house_gk_4', item = 'beehive_gk_4', label = 'Bee House (Style 4)', price = 250 },
-    { prop = 'bee_house_gk_5', item = 'beehive_gk_5', label = 'Bee House (Style 5)', price = 250 },
-    { prop = 'bee_house_gk_6', item = 'beehive_gk_6', label = 'Bee House (Style 6)', price = 250 },
+    { prop = 'bee_house_gk_1', item = 'beehive_gk_1', label = 'Bee House (Style 1)', price = 50 },
+    { prop = 'bee_house_gk_2', item = 'beehive_gk_2', label = 'Bee House (Style 2)', price = 50 },
+    { prop = 'bee_house_gk_3', item = 'beehive_gk_3', label = 'Bee House (Style 3)', price = 50 },
+    { prop = 'bee_house_gk_4', item = 'beehive_gk_4', label = 'Bee House (Style 4)', price = 50 },
+    { prop = 'bee_house_gk_5', item = 'beehive_gk_5', label = 'Bee House (Style 5)', price = 50 },
+    { prop = 'bee_house_gk_6', item = 'beehive_gk_6', label = 'Bee House (Style 6)', price = 50 },
 }
 
 -- Placement uses rsg-gizmo (the framework's standard placement tool).

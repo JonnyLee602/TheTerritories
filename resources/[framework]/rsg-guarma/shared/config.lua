@@ -4,7 +4,7 @@ Config = {}
 -- settings
 -----------------------------------------------------------
 Config.TicketItem     = 'boat_ticket'
-Config.TicketCost     = 10      -- cash per ticket
+Config.TicketCost     = 3       -- cash per ticket ([Territories] doctrine: steamer passage $2-5)
 Config.MaxTickets     = 10      -- max tickets per purchase
 Config.BuyCooldown    = 5       -- seconds
 Config.TravelCooldown = 30      -- seconds

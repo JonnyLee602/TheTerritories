@@ -9,7 +9,7 @@ Config.HistoryLimit     = 15           -- transactions shown in the ledger
 Config.HistoryDays      = 30           -- delete ledger entries older than this on start (0 = keep forever)
 
 -- Accounts must be opened at each branch before it can be used
-Config.AccountOpenFee   = 5            -- cash fee to open an account (0 = free)
+Config.AccountOpenFee   = 0.25         -- cash fee to open an account (0 = free) [Territories] doctrine: about a bath
 
 -- Opening hours (in-game clock). Set Config.UseHours = false for 24/7 banks
 Config.UseHours  = true
@@ -34,7 +34,7 @@ Config.MigrateCoreMoney = true         -- one-off: move old bank/valbank/rhobank
 
 -- Wiring money between branches
 Config.TransferFeePercent = 5          -- % fee charged on branch-to-branch wires
-Config.TransferMinFee     = 1          -- minimum fee in $
+Config.TransferMinFee     = 0.10       -- minimum fee in $ [Territories] doctrine scale
 
 -- Loans: borrow money from a branch. The loan is paid into that branch account
 -- and must be repaid (from the branch vault or cash) at the same branch.
@@ -56,15 +56,15 @@ Config.Loans = {
 Config.Lockbox = {
     enabled = true,
     sizes = {
-        small  = { label = 'Small Lockbox',  capacity = 25,  price = 50  },
-        medium = { label = 'Medium Lockbox', capacity = 50,  price = 150 },
-        large  = { label = 'Large Lockbox',  capacity = 100, price = 300 },
+        small  = { label = 'Small Lockbox',  capacity = 25,  price = 1   }, -- [Territories] doctrine: lockboxes $1-5
+        medium = { label = 'Medium Lockbox', capacity = 50,  price = 3   },
+        large  = { label = 'Large Lockbox',  capacity = 100, price = 5   },
     },
     -- Only the SMALL lockbox can be enlarged, one step at a time, for an extra fee
     upgrade = {
         size     = 'small',
         step     = 10,           -- capacity added per upgrade
-        price    = 40,           -- fee per upgrade
+        price    = 1,            -- fee per upgrade [Territories] doctrine
         maxSteps = 3,            -- small 25 -> 55 max
     },
     payWith = 'bank',            -- 'bank' = paid from this branch vault, 'cash' = paid in cash

@@ -10,7 +10,7 @@ Config.RequireDuty = true        -- medics must be on duty to use field actions 
 -- death
 ---------------------------------
 Config.DeathTimer      = 300     -- seconds before a downed player may respawn at the doctor
-Config.RespawnFee      = 25      -- charged on hospital respawn (cash, then bank); 0 = free
+Config.RespawnFee      = 10      -- [Territories] doctrine; charged on hospital respawn (cash, then bank); 0 = free
 Config.AlertCooldown   = 60      -- seconds between "call for a medic" alerts
 Config.AlertBlipTime   = 120     -- seconds an alert blip stays on medics' maps
 
@@ -60,8 +60,8 @@ Config.Bandage = {               -- self-use bandage item for anyone
 -- supplies sold at the doctor (medics only)
 ---------------------------------
 Config.Supplies = {
-    { item = 'bandage',    price = 1 },
-    { item = 'tool_medicalbag', price = 15 },
+    { item = 'bandage',    price = 0.08 }, -- [Territories] same as the general store, so doctors earn when they charge for treatment
+    { item = 'tool_medicalbag', price = 8 },
 }
 Config.MaxBuyAmount = 50
 
@@ -95,7 +95,7 @@ Config.AutoMedic = {
     Enabled          = true,
     Debug            = false,
     Command          = 'automedic',
-    Cost             = 50,        -- fee taken after a successful revive (0 = free)
+    Cost             = 20,        -- [Territories] doctrine; fee taken after a successful revive (0 = free)
     MoneyType        = 'cash',    -- 'cash' | 'bank'
     Cooldown         = 300,       -- seconds between uses per player
     MaxMedicsOnDuty  = 0,         -- only works if on-duty medics (Config.MedicJobs) <= this (-1 = always)

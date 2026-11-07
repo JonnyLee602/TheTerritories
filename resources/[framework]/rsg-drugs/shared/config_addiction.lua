@@ -138,9 +138,9 @@ Config.Addiction.NPC = {
 ---------------------------------------------------------------------
 Config.Addiction.Selling = {
     Item        = 'weed_bag',
-    PriceMin    = 4,        -- $ paid per bag (random between min/max)
-    PriceMax    = 8,
-    MoneyType   = 'cash',
+    PriceMin    = 0.40,     -- $ paid per bag (random between min/max, to the cent) [Territories] doctrine scale
+    PriceMax    = 0.80,
+    MoneyType   = 'bloodmoney', -- [Territories] doctrine: criminal income is dirty money
     BuyChance   = 40,       -- % a non-addicted NPC agrees (and then becomes addicted)
     Cooldown    = 5,        -- seconds between sell attempts per player
     AddictRebuyMinutes = 5, -- addicted NPCs buy again after this long; other NPCs only ever buy once

@@ -123,7 +123,10 @@ w("""  # base world setup from the dev server (tools/export-base-data.sh): NPC s
   # bartenders, hotels, back rooms, robbery, trader NPCs. Last, because it drops and refills those tables.
   # grumpy-gambling seeds its own default tables on first start (Config.DefaultTables).
   - action: query_database
-    file: ./tmp/territories/territories_base.sql""")
+    file: ./tmp/territories/territories_base.sql
+  # doctrine prices for RSG values kept in the database (house rent, rowboat, lottery jackpot)
+  - action: query_database
+    file: ./tmp/territories/territories_prices.sql""")
 w("""
   # ================================================================ Standalone
   - action: download_github

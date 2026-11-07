@@ -1,18 +1,20 @@
 Config = {}
 
-Config.TicketPrice = 10
+Config.TicketPrice = 1 -- [Territories] doctrine: $1 ticket
+Config.JackpotShare = 0.75 -- [Territories] share of each ticket added to the jackpot (the rest is a money sink)
 Config.NumbersPerTicket = 5
 Config.NumberMin = 1
 Config.NumberMax = 20
 Config.MaxTicketsPerDraw = 5
-Config.BaseJackpot = 100
+Config.BaseJackpot = 25 -- [Territories] about a tier-2 legal job
 Config.PayoutMethod = 'cash' -- cash or bank (how prizes are paid out)
 
 -- matched numbers = prize in $ ('jackpot' = share of the jackpot)
+-- [Territories] scaled to the $1 ticket so the lottery pays back less than it takes (no money faucet).
+-- Odds per ticket (5 of 20): 3 matches 1 in 15, 4 matches 1 in 207, 5 matches 1 in 15,504. Prizes are whole dollars (INT column).
 Config.Prizes = {
-    [2] = 20,
-    [3] = 100,
-    [4] = 200,
+    [3] = 2,
+    [4] = 10,
     [5] = 'jackpot',
 }
 

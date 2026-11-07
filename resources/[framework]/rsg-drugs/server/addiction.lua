@@ -325,7 +325,8 @@ Callback('rsg-drugs:server:sellWeedBag', function(src, netId)
     if isAddict or math.random(100) <= S.BuyChance then
         if not exports['rsg-inventory']:RemoveItem(src, S.Item, 1, item.slot, 'rsg-drugs-npc-sale') then return false end
         if netId then NpcSold[netId] = os.time() end
-        local price = math.random(S.PriceMin, S.PriceMax)
+        -- [Territories] prices can have cents (math.random needs whole numbers)
+        local price = math.random(math.floor(S.PriceMin * 100 + 0.5), math.floor(S.PriceMax * 100 + 0.5)) / 100
         Player.Functions.AddMoney(S.MoneyType or 'cash', price, 'rsg-drugs-npc-sale')
         notify(src, locale('sell_success', price), 'success')
         DrugsLog('sales', 'Weed bag sold', src, { { 'Price', ('$%s (%s)'):format(price, S.MoneyType or 'cash') }, { 'Buyer', isAddict and 'Addict' or 'Ambient NPC' } })

@@ -57,8 +57,8 @@ Config.Blips = {
 ---------------------------------
 Config.StorageTiers = {
     { key = 'small',  slots = 20, weight = 500000,  price = 0   },
-    { key = 'medium', slots = 40, weight = 1500000, price = 150 },
-    { key = 'large',  slots = 64, weight = 4000000, price = 400 },
+    { key = 'medium', slots = 40, weight = 1500000, price = 2   }, -- [Territories] doctrine: storage upgrades $2-5
+    { key = 'large',  slots = 64, weight = 4000000, price = 5   },
 }
 
 ---------------------------------

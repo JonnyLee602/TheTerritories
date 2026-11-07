@@ -252,7 +252,7 @@ local function purchaseTicket(src, Player, numbers)
     MySQL.insert.await('INSERT INTO rsg_lottery_tickets (citizenid, ticket_number, numbers, draw_date) VALUES (?, ?, ?, ?)',
         { citizenid, ticketId, json.encode(numbers), drawDate })
 
-    currentJackpot = currentJackpot + Config.TicketPrice
+    currentJackpot = currentJackpot + Config.TicketPrice * (Config.JackpotShare or 1) -- [Territories] JackpotShare
     saveJackpot()
 
     notify(src, locale('notify_ticket_bought'), locale('notify_ticket_bought_desc', ticketId, Config.TicketPrice), 'success')
