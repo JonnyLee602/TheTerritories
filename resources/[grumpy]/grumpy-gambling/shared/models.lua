@@ -89,6 +89,17 @@ Models = {
         chair = 'p_chairpokerfancy01x', sitZ = 0.5, chairYaw = 0.0,
         seats = Geo.Ring(6, 1.35, 0.0, 60.0, 0.0),
         autoChairs = { radius = 1.9 },
+        -- SAINT DENIS SALOON PVP TABLE (map table). Measured in game by the owner 2026-11-06 with "Calibrate this
+        -- table". Reference only: it lives in that table's own calibration in the database. If the table is ever
+        -- re-bound, Calibrate this table (not the model default) to these values:
+        --   seats = {
+        --       { x = 0.0000, y = -1.2600, z = 0.0300, h = 0.0000 },
+        --       { x = 1.0789, y = -0.6003, z = 0.0400, h = 60.9084 },
+        --       { x = 1.0623, y = 0.5745, z = 0.0400, h = 118.4049 },
+        --       { x = -0.0317, y = 1.2295, z = 0.0400, h = -178.5231 },
+        --       { x = -1.0415, y = 0.5627, z = 0.0400, h = -118.3814 },
+        --       { x = -1.0442, y = -0.5798, z = 0.0300, h = -60.9584 },
+        --   },
     },
     p_tablepoker04ax = {
         kind = 'pvp', label = 'Fancy poker table (alt)',
