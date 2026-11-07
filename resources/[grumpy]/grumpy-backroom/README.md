@@ -3,7 +3,7 @@
 Back-room card rooms for The Territories. Players slip a doorman a bribe, the room's rsg-doorlock doors open for
 the time they paid for, and when time runs out everyone still inside is shown out and the doors lock again.
 
-Version 0.3.0. Dependencies: `rsg-core`, `rsg-doorlock` (with the hook below), `rsg-target`, `rsg-gizmo`,
+Version 0.4.0. Dependencies: `rsg-core`, `rsg-doorlock` (with the hook below), `rsg-target`, `rsg-gizmo`,
 `rsg-menubase`, `oxmysql`. Optional: `grumpy-reputation` (price by standing), `grumpy-gambling` (players are stood
 up from tables and cashed out before they're shown out), `grumpy-sit`. Developer details: [DOCS.md](DOCS.md).
 
@@ -22,6 +22,9 @@ up from tables and cashed out before they're shown out), `grumpy-sit`. Developer
   out by the server.
 - Paid time survives a server restart; an rsg-doorlock restart re-opens open rooms.
 - Players walking in are told how long the room has left.
+- Takes rsg-housing houses off the market where a back room is (`Config.ReleaseHousing`): any house whose door,
+  blip or menu point is near the given spot is deleted from `rsg_housing` on start (matched by position, so the door
+  and other houses using the same door model stay). Rented houses are left alone with a console warning.
 
 ## Installation
 1. Add the `[grumpy-backroom hook]` to rsg-doorlock (`integrations/rsg-doorlock.md`, already applied on The
@@ -63,6 +66,7 @@ up from tables and cashed out before they're shown out), `grumpy-sit`. Developer
 | `Npc.spawnDistance` | 40.0 | Doorman spawns within this range |
 | `InteractDistance` | 2.5 | rsg-target range |
 | `Zone.*` | floor offset 1.2, height 4 (2–15), 24 corners | Zone limits |
+| `ReleaseHousing` | Annesburg gambling hall, 3 m | `{ coords, radius }` spots; rsg-housing houses there are removed from `rsg_housing` on start |
 | `MaxDoors` / `DoorPickRange` | 8 / 30.0 | Doors per room, door picker range |
 
 ## Commands

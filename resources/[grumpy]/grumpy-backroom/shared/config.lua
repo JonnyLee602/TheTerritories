@@ -75,6 +75,17 @@ Config.Zone = {
     MaxHeight     = 15,
     MaxCorners    = 24,
 }
-Config.MaxDoors      = 8     -- rsg-doorlock locks per room
+---------------------------------------------
+-- rsg-housing houses to take off the market (they sit where a back room is)
+-- On start, any rsg-housing house whose door, blip or menu point is within `radius` m of `coords` (read from the
+-- running rsg-housing's shared/config.lua) is deleted from rsg_housing, with its keys. Matched by position only:
+-- the door itself and other houses that use the same door model elsewhere are left alone.
+-- A house someone is renting is skipped (console warning) so nobody loses their home.
+---------------------------------------------
+Config.ReleaseHousing = {
+    { coords = vector3(2711.64, -1293.61, 60.51), radius = 3.0 }, -- Annesburg gambling hall (rsg-housing house45 today)
+}
+
+Config.MaxDoors      = 8    -- rsg-doorlock locks per room
 Config.DoorPickRange = 30.0  -- the door picker lists rsg-doorlock locks within this many metres
 Config.PlaceDistance = 20.0  -- rsg-gizmo range when placing the doorman

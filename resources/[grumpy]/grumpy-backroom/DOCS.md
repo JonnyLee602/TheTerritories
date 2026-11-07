@@ -19,6 +19,7 @@
 | `client/main.lua` | Doorman peds (spawn within range, rsg-target option), bribe menu (rsg-menubase), rsg-core poly zones for the "time left" notice, the show-out (fade, stand up from grumpy-sit, teleport) |
 | `client/reup.lua` + `html/` | Closing-time re-up panel, upper right. Takes NUI focus (cursor): click a length, Pay → NUI `reupPay` → `server:reup`; Not now / Esc → `reupClose`. Closes and releases focus on timeout, leaving the zone, death, payment (`client:reupDone`) or show-out |
 | `client/admin.lua` | `/backroom` list + editor, rsg-gizmo doorman placement (local ghost ped + `Edit()`), door picker, corner capture, preview lines |
+| `server/main.lua` (ReleaseHousing) | On start: reads the running rsg-housing's `shared/config.lua` in a sandbox (`LoadResourceFile`), finds houseids whose `menucoords`/`blipcoords`/`doorcoords` are within `radius` of a `Config.ReleaseHousing` spot, deletes them from `rsg_housing` + `rsg_housekeys` unless rented (then a console warning) |
 | `integrations/rsg-doorlock.md` | The `SetDoorState` hook for rsg-doorlock |
 
 Flow: bribe → `openRoom` (adds time, unlocks the doors if it was closed, saves `open_until`) → ticker warns players
@@ -57,6 +58,11 @@ Uses: `rsg-doorlock:server:getDoors` (door picker), `exports['rsg-doorlock']:Set
 `exports['grumpy-reputation']:GetPriceMultiplier(src, 'underground', 'buy')`, `exports['grumpy-sit']:IsSeated/Stand`.
 
 ## 5. Persistence
+ReleaseHousing deletes rows only; rsg-housing recreates its rows only when the `rsg_housing` table is missing, so a
+removed house stays removed. A fresh install (RSG's rsgcore.sql inserts every house) is cleaned on first start.
+Note: rsg-housing's config still lists the house, so its door prompt and house menu stay at that spot until the
+house is also removed from `rsg-housing/shared/config.lua`.
+
 Rooms live in `grumpy_backroom_rooms`. `open_until` (unix time) is saved on every open/close, so paid time survives
 a restart; rooms whose time ran out while the server was down are closed and locked on start. Door states set by
 the hook are not saved by rsg-doorlock (its DB keeps the door locked), and grumpy-backroom re-applies open rooms
@@ -96,4 +102,5 @@ grumpy_backroom_rooms (id PK, name VARCHAR(48), npc_model VARCHAR(64), npc JSON,
 | People on the stairs/balcony aren't shown out | Zone too low or a corner missing: raise the height or add corners |
 | Cursor stuck after the panel | Shouldn't happen (every close path calls `SetNuiFocus(false, false)`); `restart grumpy-backroom` releases it |
 | Can't click the card table while the panel shows | The panel has the cursor: pay or press Not now / Esc |
+| Console: "houseX is rented by ..., left alone" | Evict the tenant in `/houseadmin`, then `restart grumpy-backroom` |
 | Doorman never appears | Room not enabled or incomplete (list says "Not set up") |

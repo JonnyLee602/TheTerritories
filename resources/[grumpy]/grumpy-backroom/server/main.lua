@@ -232,6 +232,74 @@ CreateThread(function()
 end)
 
 ---------------------------------------------
+-- rsg-housing: release houses that sit where a back room is (Config.ReleaseHousing)
+---------------------------------------------
+-- reads rsg-housing's own shared/config.lua (plain data) in a sandbox, so house positions come from the live server
+local function housingConfig()
+    local src = LoadResourceFile('rsg-housing', 'shared/config.lua')
+    if not src then return nil end
+    local env = { vector3 = vector3, vec3 = vec3, vector4 = vector4, vec4 = vec4, vector2 = vector2, vec2 = vec2,
+                  math = math, string = string, table = table, tonumber = tonumber, tostring = tostring,
+                  ipairs = ipairs, pairs = pairs, type = type }
+    local chunk = load(src, '@rsg-housing/shared/config.lua', 't', env)
+    if not chunk or not pcall(chunk) or type(env.Config) ~= 'table' then return nil end
+    return env.Config
+end
+
+local function near(v, target, radius)
+    return type(v) == 'vector3' and #(v - target) <= radius
+end
+
+-- houseids with a door, blip or menu point within radius of any Config.ReleaseHousing spot
+local function housesToRelease(cfg)
+    local ids, seen = {}, {}
+    local function add(id)
+        if type(id) == 'string' and not seen[id] then seen[id] = true ids[#ids + 1] = id end
+    end
+    for _, spot in ipairs(Config.ReleaseHousing) do
+        local r = spot.radius or 3.0
+        for _, h in ipairs(cfg.Houses or {}) do
+            if near(h.menucoords, spot.coords, r) or near(h.blipcoords, spot.coords, r) then add(h.houseid) end
+        end
+        for _, d in ipairs(cfg.HouseDoors or {}) do
+            if near(d.doorcoords, spot.coords, r) then add(d.houseid) end
+        end
+    end
+    return ids
+end
+
+local function releaseHousing()
+    if #(Config.ReleaseHousing or {}) == 0 then return end
+    local hasTable = MySQL.scalar.await("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'rsg_housing'")
+    if not hasTable or hasTable == 0 then return end
+    local cfg = housingConfig()
+    if not cfg then
+        return print('^3[grumpy-backroom] ReleaseHousing: could not read rsg-housing/shared/config.lua, skipped^7')
+    end
+    for _, houseid in ipairs(housesToRelease(cfg)) do
+        local row = MySQL.single.await('SELECT rented, fullname FROM rsg_housing WHERE houseid = ?', { houseid })
+        if row then
+            if row.rented == true or row.rented == 1 then
+                print(('^3[grumpy-backroom] ReleaseHousing: %s is rented by %s, left alone. Evict them in /houseadmin, then restart grumpy-backroom.^7')
+                    :format(houseid, tostring(row.fullname)))
+            else
+                MySQL.update.await('DELETE FROM rsg_housekeys WHERE houseid = ?', { houseid })
+                MySQL.update.await('DELETE FROM rsg_housing WHERE houseid = ?', { houseid })
+                print(('[grumpy-backroom] ReleaseHousing: removed %s from rsg_housing (it sits where a back room is)'):format(houseid))
+            end
+        end
+    end
+end
+
+CreateThread(function()
+    -- wait for rsg-housing to create its tables on a fresh install, then release
+    local deadline = GetGameTimer() + 30000
+    while GetResourceState('rsg-housing') == 'starting' and GetGameTimer() < deadline do Wait(500) end
+    local ok, err = pcall(releaseHousing)
+    if not ok then print(('^1[grumpy-backroom] ReleaseHousing failed: %s^7'):format(tostring(err))) end
+end)
+
+---------------------------------------------
 -- database bootstrap
 ---------------------------------------------
 CreateThread(function()
