@@ -13,10 +13,12 @@ run() { "$MYSQL" -u "$DBUSER" "$@"; }
 
 run -e "DROP DATABASE IF EXISTS $DB; CREATE DATABASE $DB CHARACTER SET utf8mb4;" || exit 1
 ok=1
-for f in recipe/rsg/rsgcore.sql recipe/territories_stores.sql recipe/territories_stores.sql resources/\[grumpy\]/*/install.sql; do
+for f in recipe/rsg/rsgcore.sql resources/\[grumpy\]/*/install.sql recipe/territories_base.sql recipe/territories_base.sql; do
   if run "$DB" < "$f"; then echo "OK    $f"; else echo "FAIL  $f"; ok=0; fi
 done
 run "$DB" -e "SELECT (SELECT COUNT(*) FROM rsg_shops_npcs) shops, (SELECT COUNT(*) FROM rsg_shops_items) items,
-  (SELECT COUNT(*) FROM rsg_shops_blips) blips, (SELECT COUNT(*) FROM rsg_shops_presets) presets;"
+  (SELECT COUNT(*) FROM rsg_shops_templates) templates, (SELECT COUNT(*) FROM rsg_shops_template_items) template_items,
+  (SELECT COUNT(*) FROM rsg_doorlocks) doors, (SELECT COUNT(*) FROM grumpy_bartenders) bartenders,
+  (SELECT COUNT(*) FROM grumpy_hotels) hotels, (SELECT COUNT(*) FROM grumpy_backroom_rooms) backrooms;"
 run -e "DROP DATABASE $DB;"
-[ $ok = 1 ] && echo "All database steps passed (stores ran twice to prove re-running is safe)." || exit 1
+[ $ok = 1 ] && echo "All database steps passed (base data ran twice to prove re-running is safe)." || exit 1

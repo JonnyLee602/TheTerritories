@@ -111,16 +111,19 @@ w("""  - action: move_path
     dest: ./myLogo.png
 
   # ================================================================ Database
-  # RSG's tables (RSG's recipe SQL, matching the pinned framework), then the Territories NPC stores
+  # RSG's tables (RSG's recipe SQL, matching the pinned framework)
   - action: connect_database
   - action: query_database
     file: ./tmp/territories/rsg/rsgcore.sql
-  - action: query_database
-    file: ./tmp/territories/territories_stores.sql
 """)
 w("  # grumpy tables (copies of each script's install.sql, all CREATE TABLE IF NOT EXISTS)")
 for name in grumpy_sql:
     w(f"  - action: query_database\n    file: ./tmp/territories/grumpy/{name}.sql")
+w("""  # base world setup from the dev server (tools/export-base-data.sh): NPC shops + templates, doors,
+  # bartenders, hotels, back rooms, robbery, trader NPCs. Last, because it drops and refills those tables.
+  # grumpy-gambling seeds its own default tables on first start (Config.DefaultTables).
+  - action: query_database
+    file: ./tmp/territories/territories_base.sql""")
 w("""
   # ================================================================ Standalone
   - action: download_github

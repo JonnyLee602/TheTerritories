@@ -3,7 +3,7 @@
 The gambling core for The Territories: card tables, seating, stake tiers, chip stacks, the rake, NPC players and
 business tables, shared by small **game modules** (blackjack, poker, faro, …) that only define rules and odds.
 
-Version 0.9.0 (core complete, plus cards, animations and card picking for game modules) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
+Version 0.10.0 (core complete, plus cards, animations, card picking for game modules and default tables) · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) for
 developers and [DESIGN.md](DESIGN.md) for the full design.
 
 This is a community script. It is **not** made or supported by the RSG authors.
@@ -131,6 +131,8 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | Option | Default | Description |
 |---|---|---|
 | `AutoDatabase` | `true` | Create tables from `install.sql` on start |
+| `DefaultTables.Enabled` | `true` | On the first start with no tables placed, place the default tables from `server/default_data.lua` (once only) |
+| `DefaultTables.Groups` | `towns`, `casino_boat`, `thieves_landing` all `true` | Which default groups to place. `casino_boat` and `thieves_landing` sit inside paid MLOs: set them `false` if those maps aren't installed |
 | `AdminCommand` / `AdminPermission` | `gambling` / `'admin'` | Admin panel command and rsg-core permission |
 | `PlaceDistance` | `10.0` | rsg-gizmo range when placing or moving a table |
 | `BindSearchRadius` | `3.0` | How far "use the map table I'm next to" looks |

@@ -140,7 +140,8 @@ Config.Ledger = {
 --   copyFrom shop id (shop_name) whose current items and prices become the template
 --   items    or an explicit list: { name = 'bread', price = 0.05, amount = nil }  (amount nil = unlimited)
 --   link     shop ids that follow the template (their own items are left as they are)
--- Prices come from the shops copied, so they carry the bands set in recipe/territories_stores.sql
+-- The Territories: unused on a recipe install (recipe/territories_base.sql brings the dev templates + the
+-- templates_seeded marker). Prices come from the shops copied, so they carry the bands set in the shops
 -- (doctrine/pricing.md). Check every template against the bands before pushing it to shops.
 Config.ShopTemplates = {
     {

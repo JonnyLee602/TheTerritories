@@ -79,7 +79,7 @@ Edit the file on `main`, then commit it. That's all: the next update keeps it au
 | Step | What it does |
 |---|---|
 | Base | `recipe/` from this repo: `server.cfg` (RSG's + `ensure [grumpy]`), logo, SQL |
-| Database | `recipe/rsg/rsgcore.sql` (all RSG tables), `recipe/territories_stores.sql` (our NPC shops), `recipe/grumpy/*.sql` |
+| Database | `recipe/rsg/rsgcore.sql` (all RSG tables), `recipe/grumpy/*.sql`, then `recipe/territories_base.sql` (world setup from dev) |
 | Standalone | cfx-server-data, oxmysql, ox_lib, PolyZone and the rest, same sources as RSG's recipe |
 | Framework | 83 resources: stock ones straight from Rexshack-RedM **pinned to the commit in `upstream.lock`**, customized ones from this repo |
 | Grumpy | each `resources/[grumpy]/*` script from this repo |
@@ -93,10 +93,17 @@ In txAdmin: **Setup → Remote URL Template**, and use
 `https://raw.githubusercontent.com/JonnyLee602/TheTerritories/main/recipe/territories.yaml`.
 The recipe reads this repo's `main` branch at deploy time, so push before deploying.
 
-`recipe/territories_stores.sql` comes from the 2026-11-05 rsg-stores export. Its header lists what was cleaned
-(dropped test shops, remapped item names) and the general store repricing to `doctrine/pricing.md`.
-Re-running it resets every NPC shop to this list, so it is how the new prices reach a server that is
-already running. To refresh it from a newer export, ask Claude to rebuild it.
+**Base world setup comes from the dev server.** Set things up in game on dev, then:
+1. `bash tools/export-base-data.sh` → `recipe/territories_base.sql`: NPC shops, their items and blips, shop
+   templates (+ the marker that stops rsg-stores seeding its config ones), rsg-doorlock doors, grumpy bartenders,
+   hotels, back rooms, robbery stores and trader NPCs. IDs are kept (bartenders point at store and hotel IDs,
+   back rooms at door IDs). It drops and refills those tables: never run it on a database with data to keep.
+2. `python tools/export-gambling-defaults.py` → grumpy-gambling `server/default_data.lua`. The script seeds
+   those tables itself on its first start against an empty table list, by group (`Config.DefaultTables`:
+   `towns`, `casino_boat`, `thieves_landing`; the last two need their paid MLOs).
+3. Commit, `python tools/build-recipe.py`, commit, push.
+
+Both tools read the dev database with a read-only login (`C:\Users\cntry\.territories-db\claude_ro.cnf`, not in git).
 `recipe/rsg/` is RSG's recipe SQL + logo, kept in step by `tools/rsg-update.sh` like any RSG resource.
 
 To check the database steps against a local MariaDB without deploying (asks for your password):

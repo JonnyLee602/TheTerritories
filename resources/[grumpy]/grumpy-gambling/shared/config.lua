@@ -14,6 +14,14 @@ Config.DealerSideY = 0.45                -- binding a dealer table: a map chair 
                                           -- centre (towards its straight edge) is the dealer's chair, not a player's
 Config.BindSearchRadius = 3.0              -- "bind nearest world table" looks this far around the admin
 Config.Micro = { Max = 2 }                 -- the doctrine's practice tables: exactly two on the server
+Config.DefaultTables = {                   -- tables placed ONCE on a fresh database (server/default_data.lua)
+    Enabled = true,                        -- false = start with no tables; never re-seeds after the first start
+    Groups = {                             -- set a group false if its map isn't installed
+        towns = true,                      -- Valentine micro tables, Blackwater, Tumbleweed, Saint Denis, Annesburg
+        casino_boat = true,                -- Blackwater casino boat (paid MLO)
+        thieves_landing = true,            -- Thieves Landing saloon (paid MLO: C'sky Thieves Landing rebuild)
+    },
+}
 
 ---------------------------------------------------------------------
 -- World and seating
