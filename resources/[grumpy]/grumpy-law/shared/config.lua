@@ -28,6 +28,7 @@ Config.Witness = {
 Config.Crimes = {
     store_robbery = { hot = 45, victimDelay = { 5, 10 },  escapeAction = 'escaped' },
     shoplifting   = { hot = 10, victimDelay = { 10, 20 }, escapeAction = 'escaped', escapeMult = 0.5 },
+    horse_theft   = { hot = 45, victimDelay = { 20, 40 }, escapeAction = 'escaped', escapeMult = 0.5 }, -- grumpy-livery: mounting a local horse (selling it to a fence = succeeded)
     generic       = { hot = 30, victimDelay = { 15, 30 }, escapeAction = 'escaped' },
 }
 

@@ -6,7 +6,7 @@ lua54 'yes'
 author 'Grumpy'
 name 'grumpy-law'
 description 'Crime incidents, NPC witnesses, reports to the law and the post-crime heat check. Built to host NPC police later.'
-version '1.0.0'
+version '1.0.1'
 
 shared_scripts {
     '@rsg-core/shared/locale.lua',

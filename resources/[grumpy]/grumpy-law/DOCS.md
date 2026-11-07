@@ -33,7 +33,7 @@
 6. Incidents are forgotten `Heat.Duration + 600` s after opening.
 
 ## 3. Data formats
-`OpenIncident` options: `{ crime = 'store_robbery'|'shoplifting'|'generic'|<your Config.Crimes key>, coords = vector3?, label = string?, hot = seconds?, victimReports = bool?, succeeded = bool? }`
+`OpenIncident` options: `{ crime = 'store_robbery'|'shoplifting'|'horse_theft'|'generic'|<your Config.Crimes key>, coords = vector3?, label = string?, hot = seconds?, victimReports = bool?, succeeded = bool? }`
 
 Public incident (events, `GetIncident`): `{ id, crime, label, coords, criminal (src), citizenid, opened, succeeded, reported, witnesses }`
 

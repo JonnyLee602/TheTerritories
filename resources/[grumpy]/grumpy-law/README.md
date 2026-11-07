@@ -45,7 +45,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 | `Config.Witness.ClientFallbackMax` | `3` | Most witnesses taken from the client when the server sees no NPCs |
 | `Config.Witness.ReportChance` / `ReportDelay` | `60` / `{20, 60}` | % per witness / seconds before the report |
 | `Config.Witness.DeadNoReport` | `true` | Dead witnesses don't report |
-| `Config.Crimes` | robbery, shoplifting, generic | `hot` seconds, `victimDelay`, `escapeAction`, `escapeMult` |
+| `Config.Crimes` | robbery, shoplifting, horse_theft (grumpy-livery), generic | `hot` seconds, `victimDelay`, `escapeAction`, `escapeMult` |
 | `Config.Report.NotifyCriminal` / `UseLawmanAlert` | `true` / `true` | |
 | `Config.Heat.Duration` / `CheckInterval` / `NotifyEscaped` | `600` / `5` / `true` | |
 | `Config.TestCommand` / `AdminPermission` | `witnesstest` / `admin` | |

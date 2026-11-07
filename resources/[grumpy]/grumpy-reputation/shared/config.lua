@@ -140,7 +140,7 @@ Config.Pricing = {
         -- grumpy-trader prices by standing itself: never add its reasons here
         { reason = 'rsg-drugs-npc-sale',      market = 'underground' },
         { reason = 'rsg-drugs-export',        market = 'underground' },
-        { reason = 'grumpy-livery-horse-fence', market = 'underground' },
+        -- grumpy-livery prices its fence itself (x underground sell multiplier): no sale hook, or standing would count twice
     },
     MinSale    = 0.05,                       -- ignore payouts smaller than this
     NotifySale = true,                       -- tell the player about the bonus / cut
