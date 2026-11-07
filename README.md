@@ -53,6 +53,7 @@ The commit message on `upstream` lists what RSG changed in each resource. To und
 | rsg-stables | Registered + job-only stables, per-stable caps, `capExempt`, `MoveHorses`, training exports, `OpenStable` | grumpy-pob stable businesses |
 | rsg-target | `Config.Highlight.Radius` 10.0 → 1.0 | Eye markers only show for targets right next to you |
 | rsg-zonenotify | `Config.Sound.Enabled` true → false (`shared/config.lua`) | Zone notifications are silent |
+| rsg-housing | `shared/config.lua`: `house45` commented out of `Config.Houses` and `Config.HouseDoors` (`[Territories]`) | The Annesburg gambling hall is a grumpy-backroom back room; grumpy-backroom's `Config.ReleaseHousing` also deletes its `rsg_housing` row |
 
 Every edit made for a grumpy script is marked `[grumpy-bartender hook]`, `[grumpy-pob hook]` or
 `[grumpy-reputation hook]` in the code. The original patch instructions live in each script's `integrations/` folder.

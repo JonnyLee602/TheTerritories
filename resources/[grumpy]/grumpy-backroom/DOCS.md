@@ -60,8 +60,8 @@ Uses: `rsg-doorlock:server:getDoors` (door picker), `exports['rsg-doorlock']:Set
 ## 5. Persistence
 ReleaseHousing deletes rows only; rsg-housing recreates its rows only when the `rsg_housing` table is missing, so a
 removed house stays removed. A fresh install (RSG's rsgcore.sql inserts every house) is cleaned on first start.
-Note: rsg-housing's config still lists the house, so its door prompt and house menu stay at that spot until the
-house is also removed from `rsg-housing/shared/config.lua`.
+Note: rsg-housing's config also lists each house; until it's removed there too, its door prompt and house menu stay
+at that spot. On The Territories house45 is commented out of `rsg-housing/shared/config.lua` (`[Territories]`).
 
 Rooms live in `grumpy_backroom_rooms`. `open_until` (unix time) is saved on every open/close, so paid time survives
 a restart; rooms whose time ran out while the server was down are closed and locked on start. Door states set by

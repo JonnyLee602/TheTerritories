@@ -379,13 +379,14 @@ Config.Houses = {
         blipcoords      = vector3(-818.61383056641,351.16165161133,97.108840942383),
         showblip        = true
     },
-    {    -- house45
-        name            = 'House 45',
-        houseid         = 'house45',
-        menucoords      = vector3(2712.8942, -1288.714, 60.344982),
-        blipcoords      = vector3(2711.4370117188,-1293.0838623047,59.458484649658),
-        showblip        = true
-    },
+    -- [Territories] house45 removed: the Annesburg gambling hall is a grumpy-backroom back room
+    -- {    -- house45
+    --     name            = 'House 45',
+    --     houseid         = 'house45',
+    --     menucoords      = vector3(2712.8942, -1288.714, 60.344982),
+    --     blipcoords      = vector3(2711.4370117188,-1293.0838623047,59.458484649658),
+    --     showblip        = true
+    -- },
     {    -- house46
         name            = 'House 46',
         houseid         = 'house46',
@@ -903,12 +904,13 @@ Config.HouseDoors = {
         doorcoords = vector3(-819.14367675781,358.73443603516,97.10627746582)
     },
     ---------------------------------------------------------------------------
-    {
-        houseid         = 'house45',
-        name            = 'House 45',
-        doorid          = 1180868565,
-        doorcoords = vector3(2711.4370117188,-1293.0838623047,59.458484649658)
-    },
+    -- [Territories] house45 removed: the Annesburg gambling hall is a grumpy-backroom back room
+    -- {
+    --     houseid         = 'house45',
+    --     name            = 'House 45',
+    --     doorid          = 1180868565,
+    --     doorcoords = vector3(2711.4370117188,-1293.0838623047,59.458484649658)
+    -- },
     ---------------------------------------------------------------------------
     {
         houseid         = 'house46',
