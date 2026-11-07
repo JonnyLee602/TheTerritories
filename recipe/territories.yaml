@@ -1,7 +1,7 @@
 $engine: 3
 $onesync: on
 name: The Territories
-version: 2026.11.06
+version: 2026.11.07
 author: Grumpy
 description: |
   The Territories RedM server: RSG framework (pinned, with Territories customizations),
