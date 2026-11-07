@@ -3,8 +3,8 @@
 The Territories' livery: buy, stable, care for, train and breed **horses**, and buy, store and use **wagons**, in one
 resource with one NUI. Built in phases from [DESIGN.md](DESIGN.md): **1.0.0** merged the Territories copies of
 **rsg-stables 3.4.0** and **rsg-wagons 3.0.0**; **1.1.0** adds doctrine pricing (honor/infamy, cash or bloodmoney),
-horse **papers** and the **Thieves Landing livery**. Wild horse sales, the fence rework, riding drills, aging, rentals
-and trainer services follow in later phases.
+horse **papers** and the **Thieves Landing livery**; **1.2.0** adds wild horse sales, a cheap capped fence and
+horse-theft reports through grumpy-law. Riding drills, aging, rentals and trainer services follow in later phases.
 
 Replaces `rsg-stables` and `rsg-wagons`: **don't run them alongside it.**
 
@@ -62,6 +62,18 @@ GNU GPLv3 (see `LICENSE`), as the originals are.
 - **Check Papers** (target your horse, or in the stable menu): the papers card shows to you and everyone within 5 m.
 - **Thieves Landing livery:** one keeper for horses and wagons, no blip, horses and wagons appear at their own spawn
   points. Wild horses claimed there get no papers (and pay no fee).
+
+### Selling and theft (1.2.0)
+- **Sell Wild Horse** at any legal stable: break a wild horse, ride it in, and the stablehand registers and buys it
+  for **cash** (breed price × 30% × standing, so $4.50–10.50 for most wild breeds). **2 a day** per character,
+  10-minute cooldown. Only the horse you broke yourself, within the claim window.
+- **Fence** (stand-alone fence NPCs, and the **Thieves Landing** keeper): stolen local horses and unclaimed wild ones
+  sell for **blood money**: working/draft $0.50, riding $1.00, mid-grade $1.50, elite $2.00, × underground standing.
+  **3 a day**, 20-minute cooldown. Kept cheap on purpose until the law can act on horse theft. Unpapered horses sold at
+  Thieves Landing get the same fence price and count toward the same 3 a day.
+- **Horse theft:** mounting a local horse (not wild, not a livery horse) opens a grumpy-law `horse_theft` incident:
+  NPCs nearby can witness and report it to on-duty law. Selling that horse to a fence marks the crime succeeded
+  (grumpy-law's escape bonus).
 
 ### Horses
 
@@ -142,6 +154,12 @@ Prices follow the doctrine bands in `doctrine/pricing.md` (commented in config).
 | `Config.Papers.showRadius` | `5.0` | Players this close see a shown papers card |
 | `Config.Papers.showSeconds` | `15` | How long the card stays up |
 | `Config.WildHorse.claimFee` | `0.50` | Registration fee for a wild horse (= genuine papers) |
+| `Config.WildSale` | `wildPercent 0.30, dailyCap 2, cooldown 600` | Selling a wild horse you broke to a legal stable (1.2.0) |
+| `Config.HorseFence.payout` | tiers by list price: ≤$35 $1.00 (Draft/Work $0.50), ≤$124 $1.50, else $2.00 | Fence prices (1.2.0; replaces `percent`) |
+| `Config.HorseFence.dailyCap` / `cooldown` | `3` / `1200` | Fence sales per character per day / seconds between sales |
+| `Config.Theft` | `enabled, crime = 'horse_theft', distance = 5.0` | Horse theft reports through grumpy-law (1.2.0) |
+
+A stable can also set `fence = true`: its keeper buys stolen horses like a fence (Thieves Landing does).
 
 Per livery (a `Config.Stables` entry or a `Config.Stores` yard): `market = 'legal' | 'underground'`,
 `accounts = { 'cash' } | { 'cash', 'bloodmoney' }`, `payout` (sales account; default cash when legal, blood money when
@@ -372,6 +390,14 @@ Liveries (`Config.Liveries`) and colour counts (`Config.Tints`) per model live i
 ---
 
 ## Changelog
+
+### 1.2.0 (2026-11-07)
+- Phase 3: **Sell Wild Horse** at legal stables (cash, 30% of breed price × standing, 2 a day).
+- Fence rework: flat $0.50–2.00 by breed tier × underground standing (priced here; grumpy-reputation 1.1.2 no longer
+  adjusts it), 3 a day (table `grumpy_livery_limits`), 20-minute cooldown. The Thieves Landing keeper fences too, and
+  buys its own unpapered horses at fence prices.
+- Horse theft: `client/theft.lua` reports mounting a local horse; the server opens a grumpy-law `horse_theft` incident
+  (grumpy-law 1.0.1 adds the crime) and marks it succeeded when the horse is fenced.
 
 ### 1.1.1 (2026-11-07)
 - Hunting cart: walk up to your cart carrying a carcass and press **R** (the game's own stow input,

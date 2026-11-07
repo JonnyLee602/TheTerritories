@@ -384,7 +384,27 @@ Config.Stables = {
         market        = 'underground',
         accounts      = { 'cash', 'bloodmoney' },
         wagonStore    = 'thieves_landing',
+        fence         = true,  -- the keeper also fences stolen horses (Config.HorseFence prices and caps)
     },
+}
+
+-- ===================== WILD HORSE SALE =====================
+-- Sell a horse you broke yourself at a legal stable for cash; the stablehand papers it and buys it (DESIGN.md §7.2).
+-- Price = breed price x wildPercent x legal sell multiplier (capped like every livery sale): $4.50-10.50 for $15-35 breeds.
+Config.WildSale = {
+    enabled     = true,
+    wildPercent = 0.30,  -- unshod, untrained, no bond (approved 2026-11-06)
+    dailyCap    = 2,     -- per character per real day: near one legal tier-1 job ($15-18) (approved 2026-11-06)
+    cooldown    = 600,   -- seconds between wild horse sales per character
+}
+
+-- ===================== HORSE THEFT =====================
+-- Mounting a local (not wild, not livery) horse opens a grumpy-law incident: nearby NPCs can witness and report it.
+-- Selling that horse to a fence marks the crime succeeded (grumpy-law escape bonus). DESIGN.md §13.
+Config.Theft = {
+    enabled  = true,
+    crime    = 'horse_theft',  -- grumpy-law Config.Crimes key (falls back to 'generic' if missing)
+    distance = 5.0,            -- server check: player this close to the horse when it's reported
 }
 
 -- ===================== BREEDS =====================
@@ -2494,14 +2514,23 @@ Config.HorseSell = {
     },
 }
 
--- Horse fence: sell wild or stolen (unowned) horses for blood money, no questions asked.
+-- Horse fence: sell stolen local horses (or unclaimed wild ones) for blood money, no questions asked.
+-- Doctrine (owner 2026-11-06): CHEAP and capped until the law can act on horse theft (grumpy-law reports it now; NPC
+-- police / bounty hunters later), then raise toward the outlaw tier-1 rustling jobs ($25). Paid x the underground sell
+-- multiplier (standing). The same tiers price unpapered horses sold at an underground livery (Thieves Landing).
 -- SP/MP have horse fences (SHOP_*_HORSE_FENCE in the decompile) but their coords aren't in the
 -- brain data, so add your own locations below (vector4 x, y, z, heading for the fence NPC).
 Config.HorseFence = {
     enabled   = true,
     account   = 'bloodmoney',
-    percent   = 0.35,  -- of the breed's buy price
-    cooldown  = 300,   -- seconds between sales per player
+    -- flat payout by the breed's list price (first tier that fits); byClass overrides within a tier (approved 2026-11-06)
+    payout = {
+        { maxPrice = 35,  price = 1.00, byClass = { ['Draft Horse'] = 0.50, ['Work Horse'] = 0.50 } }, -- riding $1.00, working/draft $0.50
+        { maxPrice = 124, price = 1.50 },  -- mid-grade
+        { price = 2.00 },                  -- elite
+    },
+    dailyCap  = 3,     -- horses a character can sell to fences per real day (includes unpapered horses sold at Thieves Landing)
+    cooldown  = 1200,  -- seconds between fence sales per character
     sellDistance = 10.0, -- horse and player must be this close to the fence NPC
     pedModel  = `u_m_m_bwmstablehand_01`, -- same model the stables use
     blip      = false, -- fences are usually secret

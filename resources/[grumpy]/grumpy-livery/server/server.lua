@@ -79,6 +79,15 @@ CREATE TABLE IF NOT EXISTS `grumpy_livery_races` (
   KEY `race_best` (`race`, `best_ms`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ]],
+    [[
+CREATE TABLE IF NOT EXISTS `grumpy_livery_limits` (
+  `citizenid` VARCHAR(50) NOT NULL,
+  `kind` VARCHAR(20) NOT NULL,
+  `day` DATE NOT NULL,
+  `count` INT(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`citizenid`, `kind`, `day`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ]],
 }
 
 -- columns added after the first release; ensures older databases get them too
@@ -367,6 +376,27 @@ local function ownerName(Player)
     local c = Player and Player.PlayerData and Player.PlayerData.charinfo
     if c and c.firstname then return ('%s %s'):format(c.firstname, c.lastname or '') end
     return Player and GetPlayerName(Player.PlayerData.source) or '?'
+end
+
+-- ===================== DAILY LIMITS (grumpy_livery_limits) =====================
+-- per character per real day (server date): 'wild' = wild horse sales, 'fence' = horses sold to a fence
+local function limitUsed(citizenid, kind)
+    return tonumber(MySQL.scalar.await('SELECT `count` FROM grumpy_livery_limits WHERE citizenid = ? AND kind = ? AND day = CURDATE()', { citizenid, kind })) or 0
+end
+
+local function limitAdd(citizenid, kind)
+    MySQL.insert.await('INSERT INTO grumpy_livery_limits (citizenid, kind, day, `count`) VALUES (?, ?, CURDATE(), 1) ON DUPLICATE KEY UPDATE `count` = `count` + 1', { citizenid, kind })
+end
+
+-- fence price for a breed (Config.HorseFence.payout tiers by the breed's list price, optional per-class price)
+local function fencePrice(breed)
+    local list = tonumber(breed and breed.price) or 0
+    for _, tier in ipairs((Config.HorseFence and Config.HorseFence.payout) or {}) do
+        if not tier.maxPrice or list <= tier.maxPrice then
+            return (tier.byClass and breed and tier.byClass[breed.class]) or tier.price or 0
+        end
+    end
+    return 0
 end
 
 local locks = {}
@@ -1034,6 +1064,85 @@ registerCallback('grumpy-livery:server:claimWildHorse', function(source, stableN
             if DoesEntityExist(entity) then DeleteEntity(entity) end
             return true, safeName
         end)
+    end)
+end)
+
+-- ===================== WILD HORSE SALE =====================
+-- A horse you broke yourself, sold to a legal stable for cash: the stablehand papers it and buys it in one go.
+-- Price = breed price x Config.WildSale.wildPercent x legal sell multiplier (capped like every livery sale),
+-- Config.WildSale.dailyCap a day per character (DESIGN.md §7.2).
+local wildSaleCooldown = {}
+
+-- returns entity, breed  |  nil, reason
+local function brokenHorseFor(source, stable, netId)
+    local cfg = Config.WildHorse
+    netId = toId(netId)
+    local rec = brokenWild[source]
+    if not netId or not rec or rec.netId ~= netId then return nil, locale('wild_not_broken') end
+    if os.time() - rec.at > (cfg.claimWindow or 1800) then
+        brokenWild[source] = nil
+        return nil, locale('wild_expired')
+    end
+    local entity = NetworkGetEntityFromNetworkId(netId)
+    if not isClaimableEntity(entity) then
+        brokenWild[source] = nil
+        return nil, locale('wild_not_claimable')
+    end
+    local breed = getBreedConfig(GetEntityModel(entity))
+    if not breed then return nil, locale('wild_not_claimable') end
+    local maxDist = cfg.horseDistance or 15.0
+    if #(GetEntityCoords(GetPlayerPed(source)) - GetEntityCoords(entity)) > maxDist
+        or not isNearStable(source, stable, STABLE_INTERACT_DISTANCE + maxDist) then
+        return nil, locale('wild_too_far')
+    end
+    return entity, breed
+end
+
+local function wildSaleQuote(source, stable, breed)
+    local base = (tonumber(breed.price) or 0) * (Config.WildSale.wildPercent or 0.30)
+    return (LiveryMoney.SellPrice(source, stable, base, tonumber(breed.price)))
+end
+
+registerCallback('grumpy-livery:server:wildSalePrice', function(source, stableName, netId)
+    local W = Config.WildSale
+    if not (W and W.enabled) then return nil end
+    local stable = getStableConfig(stableName)
+    if not stable or isUnderground(stable) then return nil end
+    local entity, breed = brokenHorseFor(source, stable, netId)
+    if not entity then return nil, breed end
+    return wildSaleQuote(source, stable, breed), breed.label
+end)
+
+registerCallback('grumpy-livery:server:sellWildHorse', function(source, stableName, netId)
+    local W = Config.WildSale
+    if not (W and W.enabled) then return false, locale('generic_error') end
+    local Player = RSGCore.Functions.GetPlayer(source)
+    if not Player then return false, locale('player_not_found') end
+    local stable = getStableConfig(stableName)
+    if not stable or isUnderground(stable) then return false, locale('invalid_stable') end
+    if not isNearStable(source, stable) then return false, locale('not_close_to_stable') end
+    local citizenid = Player.PlayerData.citizenid
+
+    return withLock('citizen:' .. citizenid, function()
+        local now = os.time()
+        if now < (wildSaleCooldown[citizenid] or 0) then
+            return false, locale('wild_sale_cooldown', math.ceil((wildSaleCooldown[citizenid] - now) / 60))
+        end
+        if limitUsed(citizenid, 'wild') >= (W.dailyCap or 2) then
+            return false, locale('wild_sale_cap', W.dailyCap or 2)
+        end
+        local entity, breed = brokenHorseFor(source, stable, netId)
+        if not entity then return false, breed end
+
+        local price = wildSaleQuote(source, stable, breed)
+        brokenWild[source] = nil
+        if DoesEntityExist(entity) then DeleteEntity(entity) end
+        wildSaleCooldown[citizenid] = now + (W.cooldown or 600)
+        limitAdd(citizenid, 'wild')
+        LiveryMoney.Pay(source, stable, price, 'grumpy-livery-wild-sale')
+        TriggerEvent('rsg-log:server:CreateLog', 'rsgstables', 'Wild Horse Sold', 'green',
+            ('%s (%s) sold a wild %s to %s for $%.2f'):format(GetPlayerName(source), citizenid, breed.label, stable.label, price))
+        return true, { price = price, label = breed.label }
     end)
 end)
 
@@ -2092,8 +2201,13 @@ end
 local function sellQuote(src, horse)
     local stable = getStableConfig(horse.stable)
     if not isUnderground(stable) and horse.papers == 'none' then return nil, locale('sell_no_papers') end
-    local base, info = sellPrice(horse)
     local breed = getBreedConfig(horse.model)
+    if isUnderground(stable) and horse.papers == 'none' then
+        -- no papers: an underground livery pays fence money for it (DESIGN.md §7.3, §8), under the fence's daily cap
+        local price, mult = LiveryMoney.SellPrice(src, stable, fencePrice(breed))
+        return price, { fence = true, price = price, standingMult = mult, account = LiveryMoney.PayoutAccount(stable) }
+    end
+    local base, info = sellPrice(horse)
     local listPrice = breed and tonumber(breed.price) or nil
     local price, mult, cap = LiveryMoney.SellPrice(src, stable, base - (info.training or 0), listPrice)
     price = LiveryMoney.Round(math.max(Config.HorseSell.minPrice or 0, price + (info.training or 0)))
@@ -2135,11 +2249,16 @@ registerCallback('grumpy-livery:server:sellHorse', function(source, horseId)
 
         local price, why = sellQuote(source, horse)
         if not price then return false, why end
+        local fenceSale = type(why) == 'table' and why.fence
+        if fenceSale and limitUsed(citizenid, 'fence') >= (Config.HorseFence.dailyCap or 3) then
+            return false, locale('fence_cap', Config.HorseFence.dailyCap or 3)
+        end
         local deleted = MySQL.update.await('DELETE FROM grumpy_livery_horses WHERE id = ? AND citizenid = ? AND active = 0', { horseId, citizenid })
         if not deleted or deleted == 0 then return false, locale('generic_error') end
         deleteSaddlebags(horseId)
 
-        LiveryMoney.Pay(source, getStableConfig(horse.stable), price, 'grumpy-livery-sell-horse')
+        LiveryMoney.Pay(source, getStableConfig(horse.stable), price, fenceSale and 'grumpy-livery-horse-fence' or 'grumpy-livery-sell-horse')
+        if fenceSale then limitAdd(citizenid, 'fence') end
         return true, price
     end)
 end)
@@ -2147,18 +2266,28 @@ end)
 -- ===================== HORSE FENCE =====================
 local fenceCooldown = {}
 
-registerCallback('grumpy-livery:server:fenceHorse', function(source, fenceIndex, netId)
+-- fenceKey: index into Config.HorseFence.locations, or the name of a stable whose keeper fences (stable.fence = true)
+registerCallback('grumpy-livery:server:fenceHorse', function(source, fenceKey, netId)
     local cfg = Config.HorseFence
     if not (cfg and cfg.enabled) then return false, locale('generic_error') end
     local Player = RSGCore.Functions.GetPlayer(source)
     if not Player then return false, locale('player_not_found') end
-    local fence = cfg.locations[tonumber(fenceIndex) or 0]
+    local fence
+    if type(fenceKey) == 'string' then
+        local s = getStableConfig(fenceKey)
+        if s and s.fence then fence = { coords = s.pedCoords } end
+    else
+        fence = cfg.locations[tonumber(fenceKey) or 0]
+    end
     if not fence then return false, locale('generic_error') end
     local citizenid = Player.PlayerData.citizenid
 
     local now = os.time()
     if now < (fenceCooldown[citizenid] or 0) then
         return false, locale('fence_cooldown', math.ceil((fenceCooldown[citizenid] - now) / 60))
+    end
+    if limitUsed(citizenid, 'fence') >= (cfg.dailyCap or 3) then
+        return false, locale('fence_cap', cfg.dailyCap or 3)
     end
 
     netId = toId(netId)
@@ -2179,10 +2308,18 @@ registerCallback('grumpy-livery:server:fenceHorse', function(source, fenceIndex,
         return false, locale('fence_too_far')
     end
 
-    local price = math.max(1, math.floor((tonumber(breed.price) or 0) * cfg.percent))
+    -- doctrine (owner 2026-11-06): cheap until the law can act on it; x underground sell multiplier (standing)
+    local price = LiveryMoney.SellPrice(source, { market = 'underground' }, fencePrice(breed))
+    if price <= 0 then return false, locale('fence_not_wanted') end
+    local stolen = LiveryTheft and LiveryTheft.Take(netId)
     DeleteEntity(entity)
     fenceCooldown[citizenid] = now + cfg.cooldown
+    limitAdd(citizenid, 'fence')
     Player.Functions.AddMoney(cfg.account, price, 'grumpy-livery-horse-fence')
+    -- a reported theft that ends at the fence counts as succeeded (grumpy-law escape bonus)
+    if stolen and GetResourceState('grumpy-law') == 'started' then
+        pcall(function() exports['grumpy-law']:MarkSucceeded(stolen) end)
+    end
     TriggerEvent('rsg-log:server:CreateLog', 'rsgstables', 'Horse Fenced', 'red',
         ('%s (%s) fenced a %s for $%s'):format(GetPlayerName(source), citizenid, breed.label, price))
     return true, { price = price, label = breed.label }
@@ -2371,3 +2508,58 @@ registerCallback('grumpy-livery:server:showPapers', function(source, horseId, ho
     end
     return true
 end)
+
+-- ===================== HORSE THEFT (grumpy-law) =====================
+-- The client reports mounting a local horse: not wild (_GET_ANIMAL_IS_WILD), not a livery horse. The server checks
+-- it's an ambient horse (not script-spawned, not a player), the player is next to it, and opens a grumpy-law
+-- incident once per horse. Witnesses and reports are grumpy-law's job; selling the horse to a fence marks the
+-- incident succeeded (escape bonus). DESIGN.md §13.
+LiveryTheft = {}
+local thefts = {}       -- [netId] = { incident, at }
+local theftRate = {}    -- [src] = GetGameTimer() of the last report
+
+function LiveryTheft.Take(netId)
+    netId = tonumber(netId)
+    local t = netId and thefts[netId]
+    thefts[netId or -1] = nil
+    return t and t.incident or nil
+end
+
+RegisterNetEvent('grumpy-livery:server:horseTaken', function(netId)
+    local src = source
+    local T = Config.Theft
+    if not (T and T.enabled) then return end
+    local now = GetGameTimer()
+    if now < (theftRate[src] or 0) then return end
+    theftRate[src] = now + 3000
+    netId = toId(netId)
+    if not netId or thefts[netId] then return end
+    local entity = NetworkGetEntityFromNetworkId(netId)
+    if not isClaimableEntity(entity) or Entity(entity).state.rsgStablesOwned then return end
+    local breed = getBreedConfig(GetEntityModel(entity))
+    if not breed then return end
+    if #(GetEntityCoords(GetPlayerPed(src)) - GetEntityCoords(entity)) > (T.distance or 5.0) then return end
+    for other, rec in pairs(brokenWild) do -- a horse someone is breaking / just broke is theirs, not stolen
+        if rec.netId == netId then return end
+    end
+    local incident
+    if GetResourceState('grumpy-law') == 'started' then
+        local ok, id = pcall(function()
+            return exports['grumpy-law']:OpenIncident(src, {
+                crime = T.crime or 'horse_theft', coords = GetEntityCoords(entity), label = breed.label, succeeded = false,
+            })
+        end)
+        if ok then incident = id end
+    end
+    thefts[netId] = { incident = incident, at = os.time() }
+end)
+
+CreateThread(function() -- forget thefts after a couple of hours
+    while true do
+        Wait(10 * 60 * 1000)
+        local cutoff = os.time() - 2 * 3600
+        for id, t in pairs(thefts) do if t.at < cutoff then thefts[id] = nil end end
+    end
+end)
+
+AddEventHandler('playerDropped', function() theftRate[source] = nil end)

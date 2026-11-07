@@ -84,3 +84,11 @@ CREATE TABLE IF NOT EXISTS `grumpy_livery_wagons` (
   PRIMARY KEY (`id`),
   KEY `citizenid` (`citizenid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `grumpy_livery_limits` (
+  `citizenid` VARCHAR(50) NOT NULL,
+  `kind` VARCHAR(20) NOT NULL,
+  `day` DATE NOT NULL,
+  `count` INT(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`citizenid`, `kind`, `day`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

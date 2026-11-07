@@ -1,8 +1,8 @@
--- grumpy-livery: horse fence (sell wild / stolen horses for blood money)
+-- grumpy-livery: horse fence (sell stolen / unclaimed wild horses for blood money)
 local RSGCore = exports['rsg-core']:GetCoreObject()
 
 local cfg = Config.HorseFence
-if not (cfg and cfg.enabled and cfg.locations and #cfg.locations > 0) then return end
+if not (cfg and cfg.enabled) then return end
 
 local fencePeds, fenceBlips = {}, {}
 local lastMount = 0
@@ -16,7 +16,9 @@ CreateThread(function()
     end
 end)
 
-local function sellToFence(index)
+-- key = index into Config.HorseFence.locations, or a stable name whose keeper fences (stable.fence = true).
+-- Global so the stable keeper target in client/client.lua can call it.
+function LiverySellToFence(key)
     local horse = lastMount
     if horse == 0 or not DoesEntityExist(horse) or IsEntityDead(horse) then
         RSGCore.Functions.Notify({ description = locale('fence_no_horse'), type = 'error' })
@@ -30,10 +32,10 @@ local function sellToFence(index)
         RSGCore.Functions.Notify({ description = locale('fence_no_horse'), type = 'error' })
         return
     end
-    local ok, res = RSGCore.Functions.AwaitCallback('grumpy-livery:server:fenceHorse', nil, index, NetworkGetNetworkIdFromEntity(horse))
+    local ok, res = RSGCore.Functions.AwaitCallback('grumpy-livery:server:fenceHorse', nil, key, NetworkGetNetworkIdFromEntity(horse))
     if ok then
         lastMount = 0
-        RSGCore.Functions.Notify({ title = locale('fence_title'), description = locale('fence_sold', res.label, res.price), type = 'success' })
+        RSGCore.Functions.Notify({ title = locale('fence_title'), description = locale('fence_sold', res.label, ('%.2f'):format(res.price)), type = 'success' })
     else
         RSGCore.Functions.Notify({ title = locale('fence_title'), description = res, type = 'error' })
     end
@@ -59,7 +61,7 @@ local function spawnFence(index, loc)
             icon = 'fas fa-horse',
             label = locale('fence_sell'),
             distance = 2.5,
-            onSelect = function() sellToFence(index) end,
+            onSelect = function() LiverySellToFence(index) end,
         },
     })
     if cfg.blip then
@@ -71,7 +73,7 @@ local function spawnFence(index, loc)
 end
 
 CreateThread(function()
-    for i, loc in ipairs(cfg.locations) do spawnFence(i, loc) end
+    for i, loc in ipairs(cfg.locations or {}) do spawnFence(i, loc) end
 end)
 
 AddEventHandler('onResourceStop', function(res)

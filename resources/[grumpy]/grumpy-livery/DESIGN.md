@@ -2,7 +2,8 @@
 
 Status: **phase 1 built and tested in game** 2026-11-06 as v1.0.0 (merge only, behaves like rsg-stables + rsg-wagons;
 owner tested horses, wagons, POB stable, radial lantern). **Phase 2 built** 2026-11-07 as v1.1.0 (pricing, papers,
-Thieves Landing; not yet tested in game). Design revised the same day with owner notes (no papers item; no self-serve training). This file is the contract for the build: update it whenever a
+Thieves Landing; owner-tested in game 2026-11-07). **Phase 3 built** 2026-11-07 as v1.2.0 (wild horse sale, fence
+rework, horse-theft reports; not yet tested in game). Design revised the same day with owner notes (no papers item; no self-serve training). This file is the contract for the build: update it whenever a
 decision changes. Decisions marked **(owner)** were made by the server owner; **(proposed)** values need sign-off.
 
 grumpy-livery replaces **rsg-stables** and **rsg-wagons** with one resource: an 1890s *livery*, a place that boards,
@@ -433,7 +434,9 @@ Config.Stud = { maxFee = 10 }
 2. **Pricing and papers** ✅ v1.1.0 (2026-11-07). `server/money.lua` (markets, reputation multipliers, account choice,
    ×1.30, sale cap), papers records, Check papers card, Thieves Landing livery (horses + wagons, one keeper), forged
    papers at checkout, $0.50 registration.
-3. **Selling.** Wild horse sale, fence rework with caps, horse-theft incidents (after the native lookup).
+3. **Selling** ✅ v1.2.0 (2026-11-07). Wild horse sale, fence rework with caps (`grumpy_livery_limits`), horse-theft
+   incidents. Natives: `_GET_ANIMAL_IS_WILD` (`0x3B005FF0538ED2A9`, natives/db/FLOCK.md) tells wild from local horses
+   at the moment of mounting; script-spawned and player horses are rejected on the server.
 4. **Training.** Passive XP (random stat + bonding per active-riding interval, cap), agility stat, removal of the
    minigame and paid sessions. Drill tracking and NUI land here too, used by phase 7.
 5. **Aging.** Lifespan rolls, stages, shop start age, migration of existing horses.
@@ -445,8 +448,9 @@ Config.Stud = { maxFee = 10 }
    pricing.md rental band.
 
 ## 20. Open items
-- **Native lookup:** how to tell a local (NPC-owned) horse from a wild one, and a jump event or check for agility
-  drills. Look up in `natives/db/` and `data/rdr3_discoveries/` before coding; don't guess.
+- **Native lookup:** wild vs local horse is solved (`_GET_ANIMAL_IS_WILD`, v1.2.0). Still open: a jump event or check
+  for agility drills. Look up in `natives/db/` and `data/rdr3_discoveries/` before coding; don't guess.
+- **Theft detection is mount-based:** leading a horse away by the reins without mounting it isn't reported yet.
 - **Inspecting papers:** should on-duty law be able to inspect a horse's papers and spot forgeries (a chance, raised by
   the forger's quality)? That would give forged papers a real risk.
 - **Stealing player-owned horses:** out of scope for now.

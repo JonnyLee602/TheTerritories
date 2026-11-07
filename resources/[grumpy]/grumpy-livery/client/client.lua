@@ -1622,6 +1622,27 @@ local function setupStables()
                     end,
                 },
                 {
+                    name = 'livery_sellwild_' .. stable.name,
+                    icon = 'fas fa-dollar-sign',
+                    label = locale('sell_wild_horse'),
+                    canInteract = function()
+                        return Config.WildSale and Config.WildSale.enabled and stable.market ~= 'underground'
+                            and GetBrokenWildHorse() ~= nil
+                    end,
+                    onSelect = function()
+                        SellWildHorse(stable)
+                    end,
+                },
+                {
+                    name = 'livery_fence_' .. stable.name,
+                    icon = 'fas fa-horse',
+                    label = locale('fence_sell'),
+                    canInteract = function() return stable.fence == true and LiverySellToFence ~= nil end,
+                    onSelect = function()
+                        LiverySellToFence(stable.name)
+                    end,
+                },
+                {
                     name = 'livery_wagons_' .. stable.name,
                     icon = 'fas fa-horse-head',
                     label = locale('cl_browse'),
@@ -1773,6 +1794,28 @@ StablesUI = {
 
 -- ===================== WILD HORSE CLAIM =====================
 -- global so the stable-ped target (defined above) can reach it at runtime
+-- Sell the wild horse you just broke to this (legal) stable: quote, confirm, sell
+function SellWildHorse(stable)
+    local horse = GetBrokenWildHorse()
+    if not horse then return end
+    local netId = NetworkGetNetworkIdFromEntity(horse)
+    local price, label = RSGCore.Functions.AwaitCallback('grumpy-livery:server:wildSalePrice', nil, stable.name, netId)
+    if not price then
+        RSGCore.Functions.Notify({ description = label or locale('generic_error'), type = 'error' })
+        return
+    end
+    local yes = NuiConfirm(locale('sell_wild_horse'), locale('wild_sale_confirm', label, ('%.2f'):format(price)))
+    CloseNUI()
+    if not yes then return end
+    local ok, res = RSGCore.Functions.AwaitCallback('grumpy-livery:server:sellWildHorse', nil, stable.name, netId)
+    if ok then
+        ForgetBrokenWildHorse()
+        RSGCore.Functions.Notify({ description = locale('wild_sale_done', res.label, ('%.2f'):format(res.price)), type = 'success' })
+    else
+        RSGCore.Functions.Notify({ description = res or locale('generic_error'), type = 'error' })
+    end
+end
+
 function ClaimWildHorse(stable)
     local horse = GetBrokenWildHorse()
     if not horse then return end

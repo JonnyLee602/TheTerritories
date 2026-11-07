@@ -581,5 +581,11 @@
   "papers_shown_by": "Shown by",
   "ui_paying_with": "Paying with",
   "ui_pay_cash": "Cash",
-  "ui_pay_bloodmoney": "Blood money"
+  "ui_pay_bloodmoney": "Blood money",
+  "sell_wild_horse": "Sell Wild Horse",
+  "wild_sale_confirm": "The stablehand looks over the %s and offers $%s to register it and take it off your hands. Sell?",
+  "wild_sale_done": "Sold the %s for $%s",
+  "wild_sale_cap": "The stables won't take more than %s wild horses a day from you. Come back tomorrow.",
+  "wild_sale_cooldown": "The stablehand is still settling the last one. Try again in %s min.",
+  "fence_cap": "\"That's enough horses for one day.\" (limit %s a day)"
 }

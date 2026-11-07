@@ -99,6 +99,31 @@ Legal stables refuse to buy (`sellQuote`) a horse with `papers = 'none'`.
 `LiveryOpenWagonShop(key)` from `client/wagons.lua`. Blood money paid out there (sales) counts for grumpy-reputation's
 `blood_money` action like any other blood money.
 
+## 2c. Selling and theft (1.2.0)
+**Daily limits:** table `grumpy_livery_limits (citizenid, kind, day, count)`, one row per character, kind and server
+date. Kinds: `wild` (wild horse sales, `Config.WildSale.dailyCap`), `fence` (fence sales and unpapered horses sold at an
+underground livery, `Config.HorseFence.dailyCap`).
+
+**Wild horse sale:** callbacks `grumpy-livery:server:wildSalePrice(stableName, netId)` → `price, label` (quote) and
+`grumpy-livery:server:sellWildHorse(stableName, netId)` → `true, { price, label }`. Same checks as a claim (the server's
+own record of who broke which horse, claim window, distances, known breed), legal stables only. Price =
+`breed.price × wildPercent` through `LiveryMoney.SellPrice` (legal market, capped), paid in cash
+(`grumpy-livery-wild-sale`). The world horse is deleted.
+
+**Fence:** `grumpy-livery:server:fenceHorse(key, netId)`; `key` = index into `Config.HorseFence.locations`, or a
+stable name with `fence = true`. Price = `fencePrice(breed)` (first `payout` tier whose `maxPrice` fits the breed's list
+price; `byClass` overrides) × the underground sell multiplier, paid to `Config.HorseFence.account` (bloodmoney) with
+reason `grumpy-livery-horse-fence` (grumpy-reputation still gives its `horse_fence` action for that reason, but no
+longer adjusts the amount). Unpapered horses sold at an underground livery (`sellQuote`) use the same price and cap.
+
+**Theft:** `client/theft.lua` watches `GetMount`; on mounting a horse that has no `rsgStablesOwned` state bag and is not
+wild (`_GET_ANIMAL_IS_WILD`, `0x3B005FF0538ED2A9`) it sends `grumpy-livery:server:horseTaken(netId)`. The server
+rejects script-spawned horses, players, livery horses, unknown breeds, horses someone has just broken, and reports from
+further than `Config.Theft.distance`; then opens one grumpy-law incident per horse
+(`OpenIncident(src, { crime = 'horse_theft', coords, label = breed, succeeded = false })`). `LiveryTheft.Take(netId)`
+returns that incident when the horse reaches a fence, which calls grumpy-law `MarkSucceeded`. Without grumpy-law
+nothing is reported.
+
 ## 3. Renamed names (old → new)
 | Old | New |
 |---|---|
@@ -190,6 +215,7 @@ Created on start (horses always; wagons when `Config.AutoDatabase = true`). Sche
 | `grumpy_livery_horses` | `id` | One row per horse: stable, model, gender, tack/coat JSON, needs, bonding, training JSON, aging flags, saved position, papers (`papers`, `papers_stable`, `papers_owner`; added on start for older tables, existing horses = genuine) |
 | `grumpy_livery_breeding` | `id` | Pending/collected foals (`parent_a`, `parent_b`, `ready_at`) |
 | `grumpy_livery_races` | `citizenid, race` | Best race time per character |
+| `grumpy_livery_limits` | `citizenid, kind, day` | Daily counters: `wild`, `fence` (1.2.0) |
 | `grumpy_livery_wagons` | `id` | One row per wagon: model, name, condition, yard, livery/tint, propset/lantern, cargo |
 
 **Migration:** `server/migrate.lua` waits for the four tables, then for each old → new pair copies the rows
