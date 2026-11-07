@@ -214,8 +214,8 @@ multiplier in bloodmoney, papered or not.)*
 spawn point), same market, accounts and ×1.30. Wagons have no papers, so a wagon bought there with bloodmoney can be
 traded in at a legal yard for cash: neutral standing pays 1.30 W and gets 0.50 W back (−62%), worse than laundering.
 
-**Built in v1.1.0 (phase 2), choices made while building (Claude, not yet owner-approved):**
-- **Sale cap:** every livery sale (horse, wagon trade-in) pays at most `Config.Money.sellCap` (0.70) × what the same
+**Built in v1.1.0 (phase 2), choices made while building (Claude; the sale cap is owner-approved, the rest not yet):**
+- **Sale cap (owner-approved 2026-11-07):** every livery sale (horse, wagon trade-in) pays at most `Config.Money.sellCap` (0.70) × what the same
   player would pay to buy it there (rsg-stores uses the same 0.70). Without it an honorable player buys at ×0.75 and
   sells at ×1.5, a profit loop.
 - **Thieves Landing registers nothing:** claiming a wild horse there gives no papers and charges no fee; a foal born
