@@ -166,3 +166,10 @@ CREATE TABLE IF NOT EXISTS `grumpy_gambling_pending_items` (
   PRIMARY KEY (`id`),
   KEY `player` (`citizenid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- One-off markers (default_tables_seeded: server/defaults.lua has run, never seed again).
+CREATE TABLE IF NOT EXISTS `grumpy_gambling_meta` (
+  `k` VARCHAR(40) NOT NULL,
+  `v` VARCHAR(100) NOT NULL,
+  PRIMARY KEY (`k`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
