@@ -172,7 +172,7 @@ tasks:
 
   - action: download_github
     src: https://github.com/Rexshack-RedM/rsg-backpacks
-    ref: cf53277127a949c4d6cd6503e4640f29c555b3ac
+    ref: 469bf49dfb801391514c0b3463d3caaf849f1e77
     dest: ./resources/[framework]/rsg-backpacks
 
   - action: download_github
@@ -216,7 +216,7 @@ tasks:
 
   - action: download_github
     src: https://github.com/Rexshack-RedM/rsg-bossmenu
-    ref: 278e56d3a90f490d9186f494415fbf2933070bf7
+    ref: b12c1a12e13a85625a3dd68ee5cbef15dffebf4a
     dest: ./resources/[framework]/rsg-bossmenu
 
   - action: download_github
@@ -310,7 +310,7 @@ tasks:
 
   - action: download_github
     src: https://github.com/Rexshack-RedM/rsg-fortuneteller
-    ref: 39d12cc8029a21d0805333d3aa54914cba29f6b1
+    ref: 69348b24175d1bb3560c67755f1cf7b53df6f9c9
     dest: ./resources/[framework]/rsg-fortuneteller
 
   - action: download_github
@@ -467,7 +467,7 @@ tasks:
 
   - action: download_github
     src: https://github.com/Rexshack-RedM/rsg-queue
-    ref: b58d7f08938db6431f3d40a2d84fae2e4ab83a5e
+    ref: 6f684ead62a3ec9aaf416f84e4e760673a45820a
     dest: ./resources/[framework]/rsg-queue
 
   - action: download_github  # customized
@@ -526,7 +526,7 @@ tasks:
 
   - action: download_github
     src: https://github.com/Rexshack-RedM/rsg-telephone
-    ref: 6262ba69a24ea019376f0a1fcddc44025d7a73a7
+    ref: 502d19f265f9cb79ae64b99516a64ef65022239a
     dest: ./resources/[framework]/rsg-telephone
 
   - action: download_github
