@@ -103,6 +103,11 @@ end
 
 local function OpenInventory()
     if not CanOpen() then return end
+    -- [grumpy-wagonloot hook] the inventory key opens the cargo of a searched wagon you're on or next to
+    if GetResourceState('grumpy-wagonloot') == 'started' then
+        local ok, handled = pcall(function() return exports['grumpy-wagonloot']:InventoryKey() end)
+        if ok and handled then return end
+    end
     TriggerServerEvent('rsg-inventory:server:open', NearestDrop())
 end
 
