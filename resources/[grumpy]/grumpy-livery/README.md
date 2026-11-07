@@ -120,7 +120,7 @@ GNU GPLv3 (see `LICENSE`), as the originals are.
 - Each wagon has its own storage stash (`wagon_<id>`) sized by the wagon.
 - One wagon out per player; call it (**J** or `/callwagon`), send it away (`/fleewagon`), store it at any yard (hold **G**). Wagons that are out stay out across restarts and relogs.
 - Field patch (`/repairwagon`, wood) and full yard repair.
-- **Hunting cart:** stow carcasses and sell the load at a butcher.
+- **Hunting cart:** stow carcasses (press **R** at the cart while carrying one, or use the target for one on your horse) and sell the load at a butcher.
 - Every wagon comes with its own team: you don't hitch your own horses.
 
 ---
@@ -372,6 +372,11 @@ Liveries (`Config.Liveries`) and colour counts (`Config.Tints`) per model live i
 ---
 
 ## Changelog
+
+### 1.1.1 (2026-11-07)
+- Hunting cart: walk up to your cart carrying a carcass and press **R** (the game's own stow input,
+  `INPUT_PLACE_CARRIABLE_ONTO_PARENT`) to stow it, like strapping one onto a horse. `Config.HuntingCart.stowPrompt`,
+  `stowKey`, `stowRange`. The target option stays for carcasses strapped to your horse.
 
 ### 1.1.0 (2026-11-07)
 - Phase 2: `server/money.lua` prices every livery charge and sale by market (legal / underground), grumpy-reputation

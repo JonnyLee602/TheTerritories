@@ -584,6 +584,43 @@ local function stowCarcass()
     cartBusy = false
 end
 
+-- Walk up to your hunting cart carrying a carcass and press R to stow it, like strapping one onto a horse.
+-- Uses the game's own stow input, INPUT_PLACE_CARRIABLE_ONTO_PARENT (0x7D326951, R by default;
+-- data/rdr3_discoveries/Controls/README.md), so it follows the player's key binding.
+-- The rsg-target option stays for carcasses strapped to the horse.
+CreateThread(function()
+    if not (HC.enabled and HC.stowPrompt ~= false) then return end
+    local group = GetRandomIntInRange(0, 0xffffff)
+    local prompt = Citizen.InvokeNative(0x04F97DE45A519419) -- UiPromptRegisterBegin
+    Citizen.InvokeNative(0xB5352B7494A08258, prompt, HC.stowKey or 0x7D326951) -- UiPromptSetControlAction
+    Citizen.InvokeNative(0x5DD02A8318420DD7, prompt, VarString(10, 'LITERAL_STRING', locale('cl_stow_carcass'))) -- UiPromptSetText
+    Citizen.InvokeNative(0x8A0FB4D03A630D21, prompt, true) -- UiPromptSetEnabled
+    Citizen.InvokeNative(0x71215ACCFDE075EE, prompt, true) -- UiPromptSetVisible
+    Citizen.InvokeNative(0xCC6656799977741B, prompt, true) -- _UiPromptSetStandardMode (fires on release)
+    Citizen.InvokeNative(0x2F11D3A254169EA4, prompt, group, 0) -- UiPromptSetGroup
+    Citizen.InvokeNative(0xF7AA2696A22AD8B9, prompt) -- UiPromptRegisterEnd
+
+    while true do
+        local sleep = 500
+        local ped = PlayerPedId()
+        local cart = myWagon and myWagon.entity or 0
+        if cart ~= 0 and DoesEntityExist(cart) and isMyHuntCart(cart) and not cartBusy and not IsPedOnMount(ped)
+            and #(GetEntityCoords(ped) - GetEntityCoords(cart)) <= (HC.stowRange or 3.5) then
+            sleep = 250
+            local held = GetFirstEntityPedIsCarrying(ped) -- in the player's arms only; horse carcasses use the target
+            if knownCarcass(held) and cartLoad(cart) < (HC.capacity or 20) then
+                sleep = 0
+                Citizen.InvokeNative(0xC65A45D4453C2627, group, VarString(10, 'LITERAL_STRING', locale('cl_title')), 1, 0, 0, 0) -- UiPromptSetActiveGroupThisFrame
+                if Citizen.InvokeNative(0xC92AC953F0A982AE, prompt, 0) then -- _UiPromptHasStandardModeCompleted
+                    CreateThread(stowCarcass)
+                    Wait(500)
+                end
+            end
+        end
+        Wait(sleep)
+    end
+end)
+
 local function sellCartLoad()
     if cartBusy or not myWagon then return end
     cartBusy = true

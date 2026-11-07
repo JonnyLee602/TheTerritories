@@ -5,7 +5,7 @@ lua54 'yes'
 
 name 'grumpy-livery'
 description 'The Territories livery: horses and wagons in one resource (fork of rsg-stables 3.4.0 + rsg-wagons 3.0.0, GPLv3)'
-version '1.1.0'
+version '1.1.1'
 
 shared_scripts {
     '@rsg-core/shared/locale.lua',

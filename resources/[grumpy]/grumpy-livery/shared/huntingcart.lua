@@ -8,6 +8,9 @@ Config.HuntingCart = {
     tarp      = 'pg_mp005_huntingWagonTarp01',  -- femga vehicle_propsets: Huntercart01
     tarpMin   = 0.0, tarpMax = 1.0,             -- _SET_BATCH_TARP_HEIGHT range (empty -> full)
     fromHorse = true,                           -- also stow a carcass strapped to your horse
+    stowPrompt = true,                          -- grumpy-livery 1.1.1: walk up carrying a carcass and press R to stow it (like a horse)
+    stowKey    = 0x7D326951,                    -- INPUT_PLACE_CARRIABLE_ONTO_PARENT, R by default (rdr3_discoveries Controls/README.md)
+    stowRange  = 3.5,                           -- how close to the cart the prompt shows
     horseRange = 6.0,
     sellRange = 25.0,                           -- cart must be this close to a butcher to sell the load
     sellTime  = 8000,                           -- ms

@@ -176,6 +176,10 @@ switch), `wagonClose`, `wagonCustom`, `wagonCloseCustom`. Callbacks (all prefixe
 `previewLivery`, `clearPreview`, `rotateCam`, `zoomCam`, `buy`, `yardRepair`, `rename`, `sell`, `store`, `takeOut`,
 `customPreview`, `customSave`, `customClose`, `setPayment`.
 
+**Hunting cart stow prompt (1.1.1):** `client/wagons.lua` shows a press prompt (`INPUT_PLACE_CARRIABLE_ONTO_PARENT`,
+`0x7D326951`, R) within `Config.HuntingCart.stowRange` of your own hunting cart while you carry a carcass, on foot,
+and the cart isn't full. It runs the same `stowCarcass` as the target option (server callback `stowCarcass`).
+
 **Papers card:** message `papersCard` (`card`, `seconds`, `strings`), handled by `html/papers.js`.
 
 ## 7. Database
