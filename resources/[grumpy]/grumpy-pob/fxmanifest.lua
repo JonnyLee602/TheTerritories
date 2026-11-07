@@ -5,7 +5,7 @@ lua54 'yes'
 
 name 'grumpy-pob'
 description 'Player owned businesses: admin-built shops, saloons, hotels and stables with staff, stock, crafting, accounts, wages and tax'
-version '1.3.0'
+version '1.3.1'
 
 shared_scripts {
     '@rsg-core/shared/locale.lua',

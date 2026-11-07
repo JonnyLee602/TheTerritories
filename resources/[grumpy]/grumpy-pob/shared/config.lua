@@ -281,11 +281,11 @@ Config.Images = {
 }
 
 ---------------------------------------------------------------------
--- Horse training (stable businesses, needs the rsg-stables patch)
+-- Horse training (stable businesses, needs grumpy-livery)
 ---------------------------------------------------------------------
 Config.Training = {
     Enabled = true,
-    Stats = { 'health', 'stamina', 'speed', 'accel', 'courage' }, -- rsg-stables Config.Training.statOrder keys
+    Stats = { 'health', 'stamina', 'speed', 'accel', 'courage' }, -- grumpy-livery Config.Training.statOrder keys
     DefaultPrice = 3,
     MinPrice = 1, MaxPrice = 25,          -- doctrine: a working horse costs $15-35
     BusinessShare = 0.40,                -- 40% to the business account
@@ -306,7 +306,7 @@ Config.Training = {
 --   recipes   = fixed recipes for this type (item names from rsg-core shared/items.lua)
 --   custom    = custom recipe rules (bases must be rsg-consume consumables), nil = no custom recipes
 --   hotel     = grumpy-hotel integration (admin sets rooms; points door + interior)
---   stable    = rsg-stables integration (points preview)
+--   stable    = grumpy-livery integration (points preview)
 --   tax       = per Config.Tax.IntervalDays
 ---------------------------------------------------------------------
 local drinkFoodRecipes = {
@@ -381,11 +381,11 @@ Config.Types = {
             { item = 'horsemeal',       amount = 1, time = 7000, ingredients = { wheat = 1, corn = 1, carrot = 1 } },
             { item = 'horse_stimulant', amount = 1, time = 9000, ingredients = { sugar = 2, apple = 1 } },
         },
-        custom = nil,                    -- horse items use rsg-stables' own use code, so no custom items
+        custom = nil,                    -- horse items use grumpy-livery's own use code, so no custom items
         stable = {
-            maxHorses = 40,              -- per employee at this stable (rsg-stables default is Config.MaxHorsesPerStable)
-            capExempt = true,            -- horses here don't count toward rsg-stables Config.MaxOwnedHorses
-            fallback = 'valentine',      -- rsg-stables Config.Stables name: fired staff / deleted business horses move here
+            maxHorses = 40,              -- per employee at this stable (grumpy-livery default is Config.MaxHorsesPerStable)
+            capExempt = true,            -- horses here don't count toward grumpy-livery Config.MaxOwnedHorses
+            fallback = 'valentine',      -- grumpy-livery Config.Stables name: fired staff / deleted business horses move here
         },
         training = true,
     },

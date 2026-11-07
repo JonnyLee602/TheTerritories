@@ -50,22 +50,21 @@ The commit message on `upstream` lists what RSG changed in each resource. To und
 | rsg-consume | `RegisterAlias` export, alias refunds | grumpy-pob custom food/drink |
 | rsg-core | `SaveJobDefinition` / `DeleteJobDefinition` exports (`server/multijob/server.lua`) | grumpy-pob business jobs |
 | rsg-inventory | Core refresh on new items, `stashClosed` event, image URLs | grumpy-pob custom items, stock box |
-| rsg-stables | Registered + job-only stables, per-stable caps, `capExempt`, `MoveHorses`, training exports, `OpenStable` | grumpy-pob stable businesses |
 | rsg-inventory | `client/main.lua` `OpenInventory`: `[grumpy-wagonloot hook]` asks `exports['grumpy-wagonloot']:InventoryKey()` first | The inventory key opens a looted wagon's cargo (also while driving it) |
 | rsg-target | `Config.Highlight.Radius` 10.0 → 1.0 | Eye markers only show for targets right next to you |
 | rsg-zonenotify | `Config.Sound.Enabled` true → false (`shared/config.lua`) | Zone notifications are silent |
 | rsg-housing | `shared/config.lua`: `house45` commented out of `Config.Houses` and `Config.HouseDoors` (`[Territories]`) | The Annesburg gambling hall is a grumpy-backroom back room; grumpy-backroom's `Config.ReleaseHousing` also deletes its `rsg_housing` row |
-| rsg-stables | `shared/config.lua` `[Territories]` doctrine prices: horses $15–250 (working $15–35, elite $125–250), tack $0.35–8, rename / insurance / revive / breeding / coat $1–5, training $2–3 a stat, buy-menu price bands | 1890s economy (`doctrine/pricing.md`) |
 | rsg-ranch | `shared/config.lua`: ranch $3,000, extra storage $100 / $125 / $150, supplies $0.20–2. Livestock buy/sell prices left as RSG's on purpose (raising animals rewards time) | 1890s economy |
-| rsg-wagons | `shared/config.lua`: carts $10–20, wagons $15–35, buggies $25–45, coaches $65–130, yard repair $0.05 per % | 1890s economy; no armed wagons are sold |
 | rsg-boats, rsg-huntingpets, rsg-beekeeper | rowboat $15; dogs $38–75, birds $30–113, legendary owl $125 (luxury, $30 minimum); bee house $50 (label only, no shop sells hives yet) | 1890s economy |
 | rsg-banking, rsg-housing, rsg-medic | lockboxes $1 / $3 / $5 (+$1 upgrade), account $0.25, min wire fee $0.10; rent $40 a month (`installation/rsg-housing.sql`), storage $2 / $5; respawn $10, auto-medic $20, doctor's bandage $0.08, medical bag $8 | 1890s economy |
 | rsg-hotair, rsg-guarma, rsg-fishmonger | balloon $5 a ride; Guarma ticket $3; bait matches the Fish Supply shops, lures $0.40–0.50 | 1890s economy |
 | rsg-lottery | `shared/config.lua`: $1 ticket, $25 base jackpot, prizes 3 = $2 / 4 = $10 / 5 = jackpot, `Config.JackpotShare` 0.75; `server/server.lua` uses `JackpotShare` when a ticket is bought | Pays back less than it takes (no money faucet) |
 | rsg-drugs | Wages, hire fee and bag prices ÷10 (bags $0.40–0.80), bricks $80–250, both sales pay `bloodmoney`; `server/addiction.lua` rolls bag prices to the cent | Doctrine: criminal income is dirty money, $250 illegal cap |
+| rsg-core | `server/player.lua` `playertables`: `grumpy_livery_horses`, `_breeding`, `_races`, `_wagons` (`[grumpy-livery hook]`) | Deleting a character also deletes its horses and wagons |
+| rsg-radialmenu | `config.lua`: horse lantern entry triggers `grumpy-livery:client:useLantern` (`[grumpy-livery hook]`) | The lantern lives in grumpy-livery now |
 
 Every edit made for a grumpy script is marked `[grumpy-bartender hook]`, `[grumpy-pob hook]`,
-`[grumpy-reputation hook]` or `[grumpy-wagonloot hook]` in the code. The original patch instructions live in each script's `integrations/` folder.
+`[grumpy-reputation hook]`, `[grumpy-wagonloot hook]` or `[grumpy-livery hook]` in the code. The original patch instructions live in each script's `integrations/` folder.
 
 **Removed on purpose** (dropped from the `upstream` branch too, so updates don't bring them back):
 
@@ -75,6 +74,7 @@ Every edit made for a grumpy script is marked `[grumpy-bartender hook]`, `[grump
 | rsg-gangmenu | Replaced by grumpy-groups (which `provide`s rsg-gangmenu; same stash ids and gang funds). |
 | rsg-trader | Replaced by grumpy-trader (imports rsg-trader data on its first start). |
 | rsg-loading | Replaced by grumpy-loading (The Territories Gazette newspaper loading screen). |
+| rsg-stables, rsg-wagons | Replaced by grumpy-livery (one resource for horses and wagons; our doctrine prices and grumpy-pob stable hooks carried over). On its first start it copies `rsg_stables_*` and `player_wagons` rows into its own `grumpy_livery_*` tables, ids kept. |
 
 ## Adding a new customization
 

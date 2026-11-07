@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>grumpy-livery</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="wagons.css" />
+</head>
+<body>
+<!-- ===================== HORSES (from rsg-stables) ===================== -->
+<div id="st-root">
+  <div id="app" class="hidden">
+    <!-- Main menu panel -->
+    <div id="panel" class="panel hidden">
+      <div class="panel-header">
+        <button id="backBtn" class="chevron-btn hidden" title="Back" data-i18n-title="ui_back">&#10094;</button>
+        <div class="header-text">
+          <h1 id="panelTitle" data-i18n="ui_stable">Stable</h1>
+          <p id="panelSubtitle" class="subtitle"></p>
+        </div>
+        <button id="closeBtn" class="seal-btn" title="Close" data-i18n-title="ui_close">&#10005;</button>
+      </div>
+      <div class="panel-divider"><span>&#10022;</span></div>
+      <div id="panelHint" class="panel-hint hidden"></div>
+      <div id="optionsList" class="options-list"></div>
+
+      <!-- Tack style picker: replaces optionsList while cycling one category's styles -->
+      <div id="tackPicker" class="tack-picker hidden">
+        <div id="tackCategoryDots" class="tack-dots"></div>
+
+        <div class="tack-style-row">
+          <button id="tackPrevStyle" class="chevron-btn" title="Previous style (&#8592;)" data-i18n-title="ui_prev_style">&#10094;</button>
+          <div class="tack-style-card">
+            <div id="tackStyleName" class="tack-style-name">Style</div>
+            <div id="tackStyleMeta" class="tack-style-meta">$0</div>
+            <div id="tackStyleIndex" class="tack-style-index">1 / 1</div>
+          </div>
+          <button id="tackNextStyle" class="chevron-btn" title="Next style (&#8594;)" data-i18n-title="ui_next_style">&#10095;</button>
+        </div>
+
+        <div class="tack-hint" data-i18n="ui_tack_hint">&#8592; / &#8594; cycle styles &nbsp;&#8226;&nbsp; &#8593; / &#8595; or Enter next category</div>
+
+        <div id="tackCostTotal" class="tack-cost">Total Spend: $0</div>
+
+        <div class="tack-nav-row">
+          <button id="tackPrevCategory" class="wood-btn wood-btn-muted" data-i18n="ui_prev_category">&#10094; Category</button>
+          <button id="tackNextCategory" class="wood-btn" data-i18n="ui_next_category">Next Category &#10095;</button>
+        </div>
+      </div>
+
+      <!-- Coat colour editor: sliders for coat / markings / nose / mane / tail -->
+      <div id="coatPicker" class="coat-picker hidden">
+        <div class="coat-presets-label" data-i18n="ui_coat_presets">Presets</div>
+        <div id="coatPresets" class="coat-presets"></div>
+        <div id="coatRows" class="coat-rows"></div>
+        <div id="coatCost" class="tack-cost">Total Spend: $0</div>
+        <div class="tack-nav-row">
+          <button id="coatResetBtn" class="wood-btn wood-btn-muted" data-i18n="ui_coat_reset">Restore Natural</button>
+          <button id="coatApplyBtn" class="wood-btn">Apply</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input modal -->
+    <div id="inputModal" class="modal hidden">
+      <div class="modal-card">
+        <h2 id="inputTitle">Title</h2>
+        <div class="ink-divider"></div>
+        <input id="inputField" type="text" maxlength="40" autocomplete="off" />
+        <div class="modal-actions">
+          <button id="inputCancelBtn" class="wood-btn wood-btn-muted" data-i18n="ui_cancel">Cancel</button>
+          <button id="inputSubmitBtn" class="wood-btn" data-i18n="ui_confirm">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alert modal -->
+    <div id="alertModal" class="modal hidden">
+      <div class="modal-card">
+        <h2 id="alertHeader" data-i18n="ui_notice">Notice</h2>
+        <div class="ink-divider"></div>
+        <p id="alertContent" class="alert-content"></p>
+        <div class="modal-actions modal-actions-center">
+          <button id="alertCancelBtn" class="wood-btn wood-btn-muted hidden" data-i18n="ui_cancel">Cancel</button>
+          <button id="alertOkBtn" class="wood-btn" data-i18n="ui_understood">Understood</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Horse stats modal: bar readout instead of a plain-text alert -->
+    <div id="statsModal" class="modal hidden">
+      <div class="modal-card stats-card">
+        <h2 id="statsHeader" data-i18n="ui_horse_stats">Horse Stats</h2>
+        <div class="ink-divider"></div>
+        <div id="statsList" class="stats-list"></div>
+        <div class="modal-actions modal-actions-center">
+          <button id="statsOkBtn" class="wood-btn" data-i18n="ui_close">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Horse training (outside #app so it works on its own) -->
+  <div id="trainingModal" class="modal hidden">
+    <div class="modal-card training-card">
+      <h2 id="trainingTitle">Horse Training</h2>
+      <p id="trainingHorse" class="training-sub"></p>
+      <div class="ink-divider"></div>
+      <div id="trainingList" class="stats-list"></div>
+      <div id="trainingNote" class="training-note hidden"></div>
+      <div id="trainingGame" class="training-game hidden">
+        <div id="trainingRound" class="training-round"></div>
+        <div class="training-track">
+          <div id="trainingZone" class="training-zone"></div>
+          <div id="trainingMarker" class="training-marker"></div>
+        </div>
+        <div id="trainingFeedback" class="training-feedback"></div>
+        <div id="trainingHint" class="training-hint"></div>
+      </div>
+      <div class="modal-actions modal-actions-center">
+        <button id="trainingCloseBtn" class="wood-btn wood-btn-muted">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Horse actions (rest, sleep, graze...) -->
+  <div id="actionsModal" class="modal hidden">
+    <div class="modal-card actions-card">
+      <h2 id="actionsTitle">Horse Actions</h2>
+      <p id="actionsHorse" class="training-sub"></p>
+      <div class="ink-divider"></div>
+      <div id="actionsList" class="actions-list"></div>
+      <div class="modal-actions modal-actions-center">
+        <button id="actionsCloseBtn" class="wood-btn wood-btn-muted">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Horse card: live horse information panel -->
+  <div id="horseCard" class="hcard hidden">
+    <div class="hcard-panel">
+      <div class="panel-header">
+        <div class="header-text">
+          <h1 id="hcName">Horse</h1>
+          <p id="hcSub" class="subtitle"></p>
+        </div>
+        <button id="hcClose" class="seal-btn">&#10005;</button>
+      </div>
+      <div class="panel-divider"><span>&#10022;</span></div>
+      <div id="hcBadges" class="hc-badges"></div>
+      <div class="hc-bond">
+        <span id="hcBondLabel" class="hc-section-label"></span>
+        <div id="hcBondPips" class="hc-pips"></div>
+      </div>
+      <div class="hc-tabs">
+        <button class="hc-tab active" data-tab="condition"></button>
+        <button class="hc-tab" data-tab="performance"></button>
+        <button class="hc-tab" data-tab="training"></button>
+      </div>
+      <div id="hcBody" class="hc-body"></div>
+      <div id="hcActions" class="hc-actions"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== WAGONS (from rsg-wagons) ===================== -->
+<div id="wg-root">
+<div id="wg-app" class="hidden">
+
+  <!-- ============ LEFT: CATALOGUE ============ -->
+  <section id="wg-catalogue" class="panel">
+    <header class="panel-header">
+      <span class="badge-icon"><i class="fa-solid fa-horse-head"></i></span>
+      <div class="header-text">
+        <h1 id="wg-storeLabel">Wagon Yard</h1>
+        <p class="subtitle" data-i18n="ui_subtitle">Wagons &amp; Coaches</p>
+      </div>
+      <button id="wg-closeBtn" class="seal-btn" data-i18n-title="ui_close" title="Close">&#10005;</button>
+    </header>
+    <div class="panel-divider"><span>&#10022;</span></div>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="shop"><i class="fa-solid fa-store"></i> <span data-i18n="ui_for_sale">For Sale</span></button>
+      <button class="tab" data-tab="owned"><i class="fa-solid fa-key"></i> <span data-i18n="ui_my_wagons">My Wagons</span> <em id="wg-ownedCount" class="pill">0/5</em></button>
+    </nav>
+
+    <div id="wg-shopTools">
+      <div id="wg-categoryChips" class="chips"></div>
+      <div class="search-wrap">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input id="wg-search" type="text" autocomplete="off" spellcheck="false" data-i18n-ph="ui_search" placeholder="Search" />
+      </div>
+    </div>
+
+    <div id="wg-list" class="list"></div>
+  </section>
+
+  <!-- ============ RIGHT: DETAILS ============ -->
+  <section id="wg-details" class="panel details hidden">
+    <div class="details-head">
+      <button id="wg-backBtn" class="back-btn"><i class="fa-solid fa-arrow-left"></i> <span data-i18n="ui_back">Back</span></button>
+      <span id="wg-dClass" class="pill">Class</span>
+      <h2 id="wg-dName">Wagon</h2>
+      <p id="wg-dSub" class="italic"></p>
+    </div>
+    <div class="cam-row">
+      <button class="chevron-btn" data-rotate="left" data-i18n-title="ui_rotate" title="Rotate">&#10094;</button>
+      <button class="chevron-btn" data-zoom="1" data-i18n-title="ui_zoom" title="Zoom"><i class="fa-solid fa-minus"></i></button>
+      <span class="cam-row-label"><i class="fa-solid fa-camera"></i></span>
+      <button class="chevron-btn" data-zoom="-1" data-i18n-title="ui_zoom" title="Zoom"><i class="fa-solid fa-plus"></i></button>
+      <button class="chevron-btn" data-rotate="right" data-i18n-title="ui_rotate" title="Rotate">&#10095;</button>
+    </div>
+    <p class="cam-hint center" data-i18n="ui_controls_hint">A / D rotate &bull; scroll zoom &bull; ESC close</p>
+    <div class="ink-divider"></div>
+    <p id="wg-dDesc" class="italic desc"></p>
+
+    <div class="stats">
+      <div class="stat"><label><span data-i18n="ui_capacity">Capacity</span><b id="wg-sWeightVal"></b></label><div class="track"><div id="wg-sWeight" class="fill stat-good"></div></div></div>
+      <div class="stat"><label><span data-i18n="ui_slots">Slots</span><b id="wg-sSlotsVal"></b></label><div class="track"><div id="wg-sSlots" class="fill stat-good"></div></div></div>
+      <div class="stat"><label><span data-i18n="ui_seats">Seats</span><b id="wg-sSeatsVal"></b></label><div class="track"><div id="wg-sSeats" class="fill stat-good"></div></div></div>
+      <div id="wg-condStat" class="stat hidden"><label><span data-i18n="ui_condition">Condition</span><b id="wg-sCondVal"></b></label><div class="track"><div id="wg-sCond" class="fill stat-good"></div></div></div>
+    </div>
+
+    <div id="wg-paintBox" class="livery">
+      <small data-i18n="ui_livery">Livery</small>
+      <div class="livery-picker">
+        <button id="wg-livPrev" class="chevron-btn">&#10094;</button>
+        <div class="livery-name"><span id="wg-livName"></span><span id="wg-livCount" class="livery-count"></span></div>
+        <button id="wg-livNext" class="chevron-btn">&#10095;</button>
+      </div>
+      <small data-i18n="ui_colour" class="tint-label">Colour</small>
+      <div id="wg-tintPicker" class="livery-picker">
+        <button id="wg-tintPrev" class="chevron-btn">&#10094;</button>
+        <div class="livery-name"><span id="wg-tintName"></span><span id="wg-tintCount" class="livery-count"></span></div>
+        <button id="wg-tintNext" class="chevron-btn">&#10095;</button>
+      </div>
+    </div>
+
+    <div class="panel-divider"><span>&#10022;</span></div>
+
+    <div id="wg-buyBox" class="price-row">
+      <div><small data-i18n="ui_price">Price</small><div id="wg-dPrice" class="price">$0</div></div>
+      <button id="wg-buyBtn" class="wood-btn big"><i class="fa-solid fa-coins"></i> <span data-i18n="ui_buy">Purchase</span></button>
+    </div>
+
+    <div id="wg-ownedBox" class="owned-actions hidden">
+      <div class="trade"><small data-i18n="ui_trade_in">Trade-in value</small><div id="wg-dSell" class="price">$0</div></div>
+      <button id="wg-repairBtn" class="wood-btn repair-btn hidden"><i class="fa-solid fa-hammer"></i> <span id="wg-repairText"></span></button>
+      <div class="btn-grid">
+        <button id="wg-takeOutBtn" class="wood-btn"><i class="fa-solid fa-road"></i> <span data-i18n="ui_take_out">Take Out</span></button>
+        <button id="wg-storeBtn" class="wood-btn"><i class="fa-solid fa-warehouse"></i> <span data-i18n="ui_return_wagon">Return Wagon</span></button>
+        <button id="wg-renameBtn" class="wood-btn wood-btn-muted"><i class="fa-solid fa-pen-nib"></i> <span data-i18n="ui_rename">Rename</span></button>
+        <button id="wg-sellBtn" class="wood-btn wood-btn-muted"><i class="fa-solid fa-hand-holding-dollar"></i> <span data-i18n="ui_sell">Sell</span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MODALS ============ -->
+  <div id="wg-inputModal" class="modal hidden">
+    <div class="modal-card">
+      <h2 id="wg-inputTitle" data-i18n="ui_name_wagon">Name your wagon</h2>
+      <div class="ink-divider"></div>
+      <input id="wg-inputField" type="text" autocomplete="off" spellcheck="false" data-i18n-ph="ui_name_placeholder" />
+      <div class="modal-actions">
+        <button id="wg-inputCancel" class="wood-btn wood-btn-muted" data-i18n="ui_cancel">Cancel</button>
+        <button id="wg-inputOk" class="wood-btn" data-i18n="ui_confirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="wg-confirmModal" class="modal hidden">
+    <div class="modal-card">
+      <h2 data-i18n="ui_sell">Sell</h2>
+      <div class="ink-divider"></div>
+      <p id="wg-confirmText" class="italic center"></p>
+      <div class="modal-actions">
+        <button id="wg-confirmCancel" class="wood-btn wood-btn-muted" data-i18n="ui_cancel">Cancel</button>
+        <button id="wg-confirmOk" class="wood-btn" data-i18n="ui_confirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ============ CUSTOMISE (cargo / lanterns) ============ -->
+<section id="wg-custom" class="panel custom hidden">
+  <header class="panel-header">
+    <span class="badge-icon"><i class="fa-solid fa-boxes-stacked"></i></span>
+    <div class="header-text">
+      <h1 data-i18n="ui_customise">Customise</h1>
+      <div id="wg-customName" class="subtitle"></div>
+    </div>
+  </header>
+  <div class="panel-divider"><span>&#10022;</span></div>
+  <div id="wg-cargoBox" class="livery">
+    <small data-i18n="ui_cargo">Cargo</small>
+    <div class="livery-picker">
+      <button id="wg-cargoPrev" class="chevron-btn">&#10094;</button>
+      <div class="livery-name"><span id="wg-cargoName"></span><span id="wg-cargoCount" class="livery-count"></span></div>
+      <button id="wg-cargoNext" class="chevron-btn">&#10095;</button>
+    </div>
+  </div>
+  <div id="wg-lanternBox" class="livery">
+    <small data-i18n="ui_lanterns">Lanterns</small>
+    <div class="livery-picker">
+      <button id="wg-lanternPrev" class="chevron-btn">&#10094;</button>
+      <div class="livery-name"><span id="wg-lanternName"></span><span id="wg-lanternCount" class="livery-count"></span></div>
+      <button id="wg-lanternNext" class="chevron-btn">&#10095;</button>
+    </div>
+  </div>
+  <div class="modal-actions">
+    <button id="wg-customCancel" class="wood-btn wood-btn-muted" data-i18n="ui_cancel">Cancel</button>
+    <button id="wg-customSave" class="wood-btn" data-i18n="ui_save">Save</button>
+  </div>
+</section>
+</div>
+
+<script src="app.js"></script>
+<script src="horsecard.js"></script>
+<script src="training.js"></script>
+<script src="actions.js"></script>
+<script src="wagons.js"></script>
+<script src="wagons-drag.js"></script>
+</body>
+</html>

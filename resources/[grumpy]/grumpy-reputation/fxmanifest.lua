@@ -6,7 +6,7 @@ lua54 'yes'
 author 'Grumpy'
 name 'grumpy-reputation'
 description 'One legit/outlaw standing per character, moved by legal and illegal work and by reported crimes, honor/infamy merchant prices, plus a /rep panel for every rep value.'
-version '1.1.0'
+version '1.1.1'
 
 shared_scripts {
     '@rsg-core/shared/locale.lua',

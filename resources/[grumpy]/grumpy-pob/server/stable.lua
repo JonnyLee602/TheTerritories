@@ -1,11 +1,11 @@
--- Stable businesses: an rsg-stables stable only staff can use (bigger per-player limit), plus paid
--- horse training done by on-duty staff. Needs integrations/rsg-stables.md.
+-- Stable businesses: a grumpy-livery stable only staff can use (bigger per-player limit), plus paid
+-- horse training done by on-duty staff. Needs grumpy-livery (built in, no patch).
 local RSGCore = POB.Core()
 
 local Stable = {}
 POB.Stable = Stable
 
-local STABLES = 'rsg-stables'
+local STABLES = 'grumpy-livery'
 local T = Config.Training
 local requests = {}   -- [bizId][customerSrc] = { stat, horseId, horseName, netId, price, at, name, takenBy }
 local sessions = {}   -- [trainerSrc] = { token, biz, customer, horseId, stat, price, finishAt }
@@ -14,7 +14,7 @@ local function call(fn, ...)
     local args = { ... }
     local ok, a, b, c = pcall(function() return exports[STABLES][fn](exports[STABLES], table.unpack(args)) end)
     if not ok then
-        print(('^1[grumpy-pob] rsg-stables export %s failed (is integrations/rsg-stables.md applied?): %s^7'):format(fn, tostring(a)))
+        print(('^1[grumpy-pob] grumpy-livery export %s failed (is grumpy-livery started?): %s^7'):format(fn, tostring(a)))
         return nil
     end
     return a, b, c

@@ -24,7 +24,7 @@
 | `server/crafting.lua` | Craft menu, two-step crafting (start / finish), business stashes |
 | `server/recipes.lua` | Custom recipes: rules, submit, remove, item registration, Fivemanage presign/verify/delete |
 | `server/approval.lua` | Approval in game, on Discord (reactions polled over REST) and by timer |
-| `server/stable.lua` | rsg-stables registration, horse training requests, sessions and the 40/60 split |
+| `server/stable.lua` | grumpy-livery registration, horse training requests, sessions and the 40/60 split |
 | `server/hotel.lua` | grumpy-hotel hotel per business, rental point, rent income, room rate |
 | `server/business.lua` | Sign (buy / apply), duty, manager screen data, deposit/withdraw, hire/fire/grade, rename, appearance, wages |
 | `server/launder.lua` | Back room purchase and washing (owner only), law tips, books warrants, audits and seizures |
@@ -34,7 +34,7 @@
 | `client/interact.lua` | NPC and sign options, manager/craft/training/government screens |
 | `client/admin.lua` | Admin menu, position capture, sign placement with rsg-gizmo |
 | `html/*` | NUI: sign, manager (tabs), crafting, training, trainer, government, admin |
-| `integrations/*.md` | Local patches for rsg-stores, rsg-core, rsg-inventory, rsg-consume, rsg-stables |
+| `integrations/*.md` | Local patches for rsg-stores, rsg-core, rsg-inventory, rsg-consume |
 
 Server files load in manifest order; later modules hook in with `POB.AfterLoad(fn)`, which runs after the businesses are loaded.
 
@@ -65,7 +65,7 @@ Items on this server have no food/drink categories: food and drink are `category
 
 **Stash ids**: `grumpy_pob_stash_<id>_<n>` (business stashes), `grumpy_pob_stock_<id>_<citizenid>` (personal stock box).
 
-**rsg-stores shop**: `shop_name = 'pob_<id>'`, model `none`, access point key `grumpy-pob:<id>`. **grumpy-hotel** rental point key `grumpy-pob:<id>`. **rsg-stables** stable name `pob_<id>`.
+**rsg-stores shop**: `shop_name = 'pob_<id>'`, model `none`, access point key `grumpy-pob:<id>`. **grumpy-hotel** rental point key `grumpy-pob:<id>`. **grumpy-livery** stable name `pob_<id>`.
 
 ## 3. Exports
 **Server**
@@ -158,7 +158,7 @@ seized so they can't be taken twice.
 
 ## 6. Persistence
 - Businesses, accounts, ledger, stock, applications, daily withdrawals and recipes are in MySQL and written immediately.
-- On start grumpy-pob waits for rsg-stores and grumpy-hotel to load (`IsReady`) before creating their shops and hotels, so restarts never duplicate them. When rsg-stores, rsg-stables, grumpy-hotel or rsg-consume restart, their side is rebuilt automatically.
+- On start grumpy-pob waits for rsg-stores and grumpy-hotel to load (`IsReady`) before creating their shops and hotels, so restarts never duplicate them. When rsg-stores, grumpy-livery, grumpy-hotel or rsg-consume restart, their side is rebuilt automatically.
 - Custom items are registered with rsg-core on every start (they aren't stored by rsg-core).
 - Tax and wage timers run in memory; a missed tax check simply happens on the next run.
 - Crafting and training sessions live in memory. If the server restarts mid-craft, the ingredients are lost (same as cancelling a job). A trainer disconnecting refunds the customer.
@@ -228,6 +228,6 @@ inventories (rsg-inventory) grumpy_pob_stash_* / grumpy_pob_stock_*
 | Lawman has no books options | Must be on duty with a `leo` job type; issuing needs grade ≥ `Audit.MinGrade`. The business must be owned |
 | "You need a valid books warrant" | Warrant expired, is for another business, or the business changed owner since it was issued |
 | Discord nothing happens | Bot token, guild/channel ids, `ApproverRoles` and the bot's channel permissions. Set `Config.Debug = true` to see HTTP errors |
-| "Open stable" does nothing / not allowed | Apply `integrations/rsg-stables.md`, and hold the business job |
+| "Open stable" does nothing / not allowed | Make sure grumpy-livery is started, and hold the business job |
 | Hotel NPC has no "Rent a room" | grumpy-hotel 1.1+ must be running and the business owned |
 | Sign shows "Open" while for sale | It was placed rotated. Edit the business and place it again so it reads "Closed" |

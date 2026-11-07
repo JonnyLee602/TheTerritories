@@ -53,7 +53,7 @@ function POBC.NpcOptions(biz)
     if biz.stable then
         opts[#opts + 1] = { name = 'grumpy-pob:stable:' .. id, icon = 'fa-solid fa-horse', label = locale('target_stable'), distance = d,
             canInteract = function() local b = live(id) return b and b.owned and POBC.WorksAt(b) end,
-            onSelect = function() exports['rsg-stables']:OpenStable('pob_' .. id) end }
+            onSelect = function() exports['grumpy-livery']:OpenStable('pob_' .. id) end }
     end
     if biz.training then
         opts[#opts + 1] = { name = 'grumpy-pob:train:' .. id, icon = 'fa-solid fa-dumbbell', label = locale('target_training'), distance = d,

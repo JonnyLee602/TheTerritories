@@ -7,7 +7,7 @@ Version 1.3.0 · for RSG Framework (rsg-core 3.0.3) · see [DOCS.md](DOCS.md) fo
 This is a community script. It is **not** made or supported by the RSG authors.
 
 **Dependencies:** `rsg-core`, `rsg-inventory`, `rsg-target`, `rsg-gizmo`, `rsg-stores`, `oxmysql`
-**Optional:** `grumpy-hotel` 1.1+ (hotel businesses), `rsg-stables` (stable businesses), `rsg-consume` (custom food/drink items)
+**Optional:** `grumpy-hotel` 1.1+ (hotel businesses), `grumpy-livery` (stable businesses; no patch needed), `rsg-consume` (custom food/drink items)
 **Local patches required:** see [Installation](#installation) step 2.
 
 ## Features
@@ -38,7 +38,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
 - **Gambling tables, owner only** (with grumpy-gambling 0.6.0+). The manager's **Gambling** tab sells the table items: a **Card Table** ($150) and a **Dealer's Table** ($250), paid from the business account ("Furnishings"). The owner uses the item inside the business to set it up; grumpy-gambling handles the rest (placing, cashbox, repossession). At most 2 of each per business, counting those already placed and carried.
 - **The law can audit fronts.** Each wash may tip off on-duty lawmen ("dirty money is changing hands at …"). A lawman of grade 2+ issues a **books warrant** at the manager desk; any on-duty lawman holding it can **Inspect the books** there, see the real laundering records from the last 14 days, and **seize** the laundered money (the cash paid out plus the private sales, 90% of what was washed) from the account into the government account, up to its balance. The owner is told.
 - **Hotel businesses** use grumpy-hotel: the NPC rents rooms, owners set the rate, rent goes into the account.
-- **Stable businesses** use rsg-stables: only staff can keep horses there (40 per employee instead of the normal limit, not counted toward the owned-horse cap). Customers request **horse training** at the NPC; an on-duty trainer accepts, trains the horse, and the price is split **40% business / 60% trainer**. Staff horses train free.
+- **Stable businesses** use grumpy-livery: only staff can keep horses there (40 per employee instead of the normal limit, not counted toward the owned-horse cap). Customers request **horse training** at the NPC; an on-duty trainer accepts, trains the horse, and the price is split **40% business / 60% trainer**. Staff horses train free.
 - Everything is checked on the server: permission, grade, duty, distance, ownership, amounts, item rules, cooldowns and locks.
 - NUI in the house theme (Roboto, monochrome, no vignette).
 
@@ -52,7 +52,6 @@ This is a community script. It is **not** made or supported by the RSG authors.
    | [rsg-core.md](integrations/rsg-core.md) | Hiring into a brand-new business without a restart |
    | [rsg-inventory.md](integrations/rsg-inventory.md) | Custom items, instant stocking, uploaded pictures |
    | [rsg-consume.md](integrations/rsg-consume.md) | Custom food/drink items having their base item's effects |
-   | [rsg-stables.md](integrations/rsg-stables.md) | Stable businesses and horse training |
 3. `server.cfg` (after the resources it uses):
    ```cfg
    ensure rsg-core
@@ -60,7 +59,7 @@ This is a community script. It is **not** made or supported by the RSG authors.
    ensure rsg-target
    ensure rsg-gizmo
    ensure rsg-stores
-   ensure rsg-stables
+   ensure grumpy-livery
    ensure rsg-consume
    ensure grumpy-hotel
    ensure grumpy-pob

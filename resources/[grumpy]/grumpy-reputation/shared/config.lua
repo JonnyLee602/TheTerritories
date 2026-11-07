@@ -82,7 +82,7 @@ Config.MoneyHooks = {
     { reason = 'rsg-medic-reward',        action = 'medic_reward' },
     { reason = 'rsg-drugs-npc-sale',      action = 'drug_sale' },
     { reason = 'rsg-drugs-export',        action = 'drug_export' },
-    { reason = 'rsg-stables-horse-fence', action = 'horse_fence' },
+    { reason = 'grumpy-livery-horse-fence', action = 'horse_fence' },
     { reason = 'grumpy-robbery-store',    action = 'store_robbery' },
     { reason = 'grumpy-robbery-safe',     action = 'safe_crack' },
 }
@@ -140,7 +140,7 @@ Config.Pricing = {
         -- grumpy-trader prices by standing itself: never add its reasons here
         { reason = 'rsg-drugs-npc-sale',      market = 'underground' },
         { reason = 'rsg-drugs-export',        market = 'underground' },
-        { reason = 'rsg-stables-horse-fence', market = 'underground' },
+        { reason = 'grumpy-livery-horse-fence', market = 'underground' },
     },
     MinSale    = 0.05,                       -- ignore payouts smaller than this
     NotifySale = true,                       -- tell the player about the bonus / cut

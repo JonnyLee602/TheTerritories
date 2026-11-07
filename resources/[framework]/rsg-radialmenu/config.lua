@@ -48,7 +48,7 @@ Config.MenuItems = {
     {
         id = 'horse', title = locale('menu_horse'), icon = 'horse-head',
         items = {
-            cl('horselantern', locale('menu_horse_lantern'), 'lightbulb', 'rsg-stables:client:useLantern'),
+            cl('horselantern', locale('menu_horse_lantern'), 'lightbulb', 'grumpy-livery:client:useLantern'), -- [grumpy-livery hook] was rsg-stables
             cmd('sethorsename', locale('menu_horse_name'), 'signature', 'sethorsename'),
         },
     },
