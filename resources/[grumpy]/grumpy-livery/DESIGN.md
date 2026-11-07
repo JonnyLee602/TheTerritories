@@ -1,7 +1,7 @@
 # grumpy-livery — design
 
-Status: **phase 1 built** 2026-11-06 as v1.0.0 (merge only, behaves like rsg-stables + rsg-wagons; not yet tested in
-game). Design revised the same day with owner notes (no papers item; no self-serve training). This file is the contract for the build: update it whenever a
+Status: **phase 1 built and tested in game** 2026-11-06 as v1.0.0 (merge only, behaves like rsg-stables + rsg-wagons;
+owner tested horses, wagons, POB stable, radial lantern). Design revised the same day with owner notes (no papers item; no self-serve training). This file is the contract for the build: update it whenever a
 decision changes. Decisions marked **(owner)** were made by the server owner; **(proposed)** values need sign-off.
 
 grumpy-livery replaces **rsg-stables** and **rsg-wagons** with one resource: an 1890s *livery*, a place that boards,
@@ -411,10 +411,10 @@ Config.Stud = { maxFee = 10 }
 ```
 
 ## 19. Build phases
-1. **Fork and merge** ✅ v1.0.0. Both Territories copies in one resource, events/exports/tables renamed, one NUI page
+1. **Fork and merge** ✅ v1.0.0, tested in game 2026-11-06. Both Territories copies in one resource, events/exports/tables renamed, one NUI page
    (two scoped UIs), one-time table copy on start + `migrate.sql`, grumpy-pob 1.3.1 / grumpy-reputation 1.1.1 /
    rsg-core / rsg-radialmenu hooks. Separate keepers and duplicated call/store code stay for now (behaviour
-   unchanged). Test in game.
+   unchanged).
 2. **Pricing and papers.** `server/money.lua` (markets, reputation multipliers, account choice, ×1.30), papers
    records, Check papers card, Thieves Landing location, forged papers at checkout.
 3. **Selling.** Wild horse sale, fence rework with caps, horse-theft incidents (after the native lookup).
